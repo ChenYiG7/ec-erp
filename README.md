@@ -17,14 +17,10 @@ JDK 21 · **Spring Boot 4.0.6**(Spring Framework 7)· Spring AI **2.0.0-M5** · 
 
 ```
 ec-erp/
-├── docs/                 设计文档(先读这里)
-│   ├── 01-总体架构设计.md
-│   ├── 02-功能模块规划.md
-│   ├── 03-数据库设计.md
-│   ├── 04-平台对接层设计.md
-│   ├── 05-技术选型与AI方案.md
-│   ├── 06-开发计划.md
-│   └── 07-开发规范守则.md
+├── docs/                 文档(仅规约守则与建表脚本随仓库发布;01~06 设计文档、08、devlog 为作者私有,不随仓库发布)
+│   ├── 07-开发规范守则.md
+│   ├── 09-前端开发规范守则.md
+│   └── sql/01_schema_init.sql
 ├── erp-common/           通用基础(返回体/异常/分页)
 ├── erp-system/           系统管理(RBAC/字典/通知渠道)
 ├── erp-shop/             平台中心(店铺/授权/拉取日志/多商户)
@@ -55,7 +51,7 @@ ec-erp/
 #      created_at)修订过,此前已建库的旧库需手工补 ALTER,清单见 TODO.md #7(开发库已于 2026-09-03 执行并验证)
 
 # 2. 本地配置:复制 local.properties.example 为项目根 local.properties(已被 .gitignore 忽略,严禁提交),
-#    填入 MySQL/Redis 连接与 JWT 密钥。application.yml 不含任何明文连接/密钥——占位符取自
+#    填入 MySQL/Redis 连接与密钥(ERP_JWT_SECRET / ERP_TOKEN_KEY)。application.yml 不含任何明文连接/密钥——占位符取自
 #    local.properties 或同名环境变量(env 优先级更高,生产直接设环境变量即可);两者皆缺失则启动即失败
 #    注意:datasource url 的 characterEncoding 必须写 UTF-8(Java 字符集名,驱动自动协商 utf8mb4),
 #    写 utf8mb4 会连接报错
@@ -70,9 +66,11 @@ java -jar erp-api/target/erp-api-0.1.0-SNAPSHOT.jar
 #    用户/角色/菜单管理类接口限 admin 角色
 
 # 5. 平台凭证加密密钥(TODO#2):ERP_TOKEN_KEY —— 无默认值,不设置应用启动即失败!
-#    Linux/macOS/Git Bash:  export ERP_TOKEN_KEY="$(openssl rand -base64 32)"
+#    本地开发:写入项目根 local.properties 同名键(与 ERP_JWT_SECRET 同规,env 优先;2026-09-05 起支持,
+#    此前只认环境变量);生成值须为 32 字节标准 base64:
+#    Linux/macOS/Git Bash:  openssl rand -base64 32
 #    Windows PowerShell:    $b=[byte[]]::new(32);[Security.Cryptography.RandomNumberGenerator]::Fill($b);[Convert]::ToBase64String($b)
-#    换密钥后存量密文不可解(店铺需重新授权),请妥善保管
+#    生产:直接设同名环境变量。换密钥后存量密文不可解(店铺需重新授权),请妥善保管
 
 # 6. AI 功能(可选,三期才实现):设置环境变量 AI_API_KEY 或改 application.yml
 ```

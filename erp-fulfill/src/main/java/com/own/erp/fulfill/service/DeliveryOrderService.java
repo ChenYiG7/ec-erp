@@ -20,7 +20,7 @@ import com.own.erp.fulfill.request.command.DeliveryOrderSaveRequest;
 import com.own.erp.fulfill.request.query.DeliveryOrderQuery;
 import com.own.erp.fulfill.response.DeliveryOrderItemResponse;
 import com.own.erp.fulfill.response.DeliveryOrderResponse;
-import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,7 +47,6 @@ import java.util.Map;
  *     出库仓存在(WarehouseApi 防幻影库存,同 #10)
  */
 @Service
-@RequiredArgsConstructor
 public class DeliveryOrderService {
 
     private final DeliveryOrderMapper deliveryOrderMapper;
@@ -55,6 +54,19 @@ public class DeliveryOrderService {
     private final ShopOrderApi shopOrderApi;
     private final WarehouseApi warehouseApi;
     private final InventoryChangeApi inventoryChangeApi;
+
+    /** 契约接口注入一律 @Lazy 断构造环:实现收口 erp-api 反向注入域 Service,急切装配成环(docs/07 §2.2) */
+    public DeliveryOrderService(DeliveryOrderMapper deliveryOrderMapper,
+                                DeliveryOrderItemMapper deliveryOrderItemMapper,
+                                @Lazy ShopOrderApi shopOrderApi,
+                                @Lazy WarehouseApi warehouseApi,
+                                @Lazy InventoryChangeApi inventoryChangeApi) {
+        this.deliveryOrderMapper = deliveryOrderMapper;
+        this.deliveryOrderItemMapper = deliveryOrderItemMapper;
+        this.shopOrderApi = shopOrderApi;
+        this.warehouseApi = warehouseApi;
+        this.inventoryChangeApi = inventoryChangeApi;
+    }
 
     /** 分页查询(按 id 倒序;过滤:发货单号模糊/订单/店铺/状态);列表不带明细 */
     public Page<DeliveryOrderResponse> page(DeliveryOrderQuery query) {

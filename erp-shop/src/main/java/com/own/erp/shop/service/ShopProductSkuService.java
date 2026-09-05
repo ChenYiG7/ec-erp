@@ -9,7 +9,7 @@ import com.own.erp.shop.entity.ShopProductSku;
 import com.own.erp.shop.mapper.ShopProductSkuMapper;
 import com.own.erp.shop.request.query.ShopProductSkuQuery;
 import com.own.erp.shop.response.ShopProductSkuResponse;
-import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
  *     人工绑定不被覆盖,匹配不中保持 NULL 进待匹配列表;订单落库按本表映射翻译 shop_order_item.sku_id(未绑定 NULL)
  */
 @Service
-@RequiredArgsConstructor
 public class ShopProductSkuService {
 
     /** 商家编码自动匹配 */
@@ -36,6 +35,12 @@ public class ShopProductSkuService {
 
     private final ShopProductSkuMapper shopProductSkuMapper;
     private final GoodsSkuApi goodsSkuApi;
+
+    /** 契约接口注入一律 @Lazy 断构造环:实现收口 erp-api 反向注入域 Service,急切装配成环(docs/07 §2.2) */
+    public ShopProductSkuService(ShopProductSkuMapper shopProductSkuMapper, @Lazy GoodsSkuApi goodsSkuApi) {
+        this.shopProductSkuMapper = shopProductSkuMapper;
+        this.goodsSkuApi = goodsSkuApi;
+    }
 
     /** 分页查询(过滤:店铺商品/绑定SKU/匹配状态;match_status=0 即待匹配列表) */
     public Page<ShopProductSkuResponse> page(ShopProductSkuQuery query) {

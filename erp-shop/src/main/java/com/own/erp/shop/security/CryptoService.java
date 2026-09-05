@@ -2,6 +2,7 @@ package com.own.erp.shop.security;
 
 import cn.hutool.core.util.StrUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.Cipher;
@@ -19,8 +20,10 @@ import java.util.Base64;
  * @Date : 2026/9/3
  * @Description : 平台凭证加解密(TODO#2,docs/07 §7 红线):
  *     - 算法 AES-256-GCM,每次加密随机 12 字节 IV,输出 Base64(IV ‖ 密文+tag),tag 128 bit;
- *     - 密钥只从环境变量 ERP_TOKEN_KEY 读(32 字节标准 base64),无任何默认值——缺失/非法启动即失败,
- *       这是有意行为;禁入代码/配置文件,生成方式 openssl rand -base64 32;
+ *     - 密钥经 Spring 占位符读(32 字节标准 base64):环境变量 ERP_TOKEN_KEY 或项目根 local.properties
+ *       同名键均可(2026-09-05 与 ERP_JWT_SECRET 同规,env 优先级更高;原 System.getenv 直读绕过 Spring
+ *       属性源,local.properties 对其无效,故弃),无任何默认值——缺失/非法启动即失败,这是有意行为;
+ *       禁入提交进库的配置文件,生成方式 openssl rand -base64 32;
  *     - null/空串原样透传(可选凭证字段不参与加密),纯空格会照常加密,blank 拦截由 ShopService 负责;
  *     - 日志/异常消息/返回体禁出现明文或密文,本类消息固定不携带任何输入内容
  */
@@ -37,27 +40,21 @@ public class CryptoService {
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
-     * Spring 使用:从环境变量读密钥。显式 @Autowired 标注无参构造,
-     * 避免依赖"多构造器时回退无参"的版本相关隐式行为
+     * 唯一构造:Spring 装配经 @Value 占位符解析 ERP_TOKEN_KEY(环境变量 / 项目根 local.properties 同名键,
+     * env 优先,见类注释);缺省解析为空串,落入 blank 校验给可读报错而非占位符解析裸异常。
+     * 单元测试直接传固定密钥(@Value 注解在直调场景无效果)
      */
     @Autowired
-    public CryptoService() {
-        this(System.getenv(ENV_KEY));
-    }
-
-    /**
-     * 显式密钥构造:仅供单元测试注入固定密钥(生产装配走 @Autowired 无参构造,密钥只来自环境变量)。
-     * 密钥校验只有本构造这一份,无参构造纯委托
-     */
-    public CryptoService(String base64Key) {
+    public CryptoService(@Value("${ERP_TOKEN_KEY:}") String base64Key) {
         if (StrUtil.isBlank(base64Key)) {
-            throw new IllegalStateException("环境变量 " + ENV_KEY + " 未设置:平台凭证加密必需,生成方式 openssl rand -base64 32");
+            throw new IllegalStateException(ENV_KEY + " 未设置(环境变量或项目根 local.properties 同名键):平台凭证加密必需,生成方式 openssl rand -base64 32");
         }
         byte[] raw;
         try {
             raw = Base64.getDecoder().decode(base64Key.trim());
         } catch (IllegalArgumentException e) {
-            throw new IllegalStateException(ENV_KEY + " 不是合法的标准 base64(base64url 不行),生成方式 openssl rand -base64 32");
+            throw new IllegalStateException(ENV_KEY + " 不是合法的标准 base64(长度须为 4 的倍数、标准字符表,base64url 不行;"
+                    + "32 字节密钥 = 44 字符,结尾恰一个 =),生成方式 openssl rand -base64 32");
         }
         if (raw.length != 32) {
             throw new IllegalStateException(ENV_KEY + " 解码后须为 32 字节(AES-256),当前 "

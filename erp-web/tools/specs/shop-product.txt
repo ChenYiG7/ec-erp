@@ -1,0 +1,23 @@
+# 店铺商品(listing)spec:只读 + 过滤域示范(readonly=true 不产 Form/写接口按钮)
+# 基路径 /api/shop-products 与 domain 名不同构 → 必须显式 base=(例外映射以外的防呆示范)
+module=shop
+domain=shop-product
+entity=ShopProduct
+nameZh=店铺商品
+permPrefix=shop:product
+todoId=16
+menuParent=1
+path=/shop-products
+component=shop/shop-product/index
+base=shop-products
+readonly=true
+icon=Goods
+
+field=shopId              role=all    label=店铺ID  width=100
+field=platformProductId   role=all    label=平台商品ID  width=160
+field=productId           role=column label=内部SPU  width=120
+field=listingStatus       role=column label=listing状态  width=120
+field=lastSyncAt          role=column label=最近同步  width=170
+field=createdAt           role=column label=创建时间  width=170
+
+# SKU 明细绑定(shop-product-skus 域)另出页面,此处不放 TODO

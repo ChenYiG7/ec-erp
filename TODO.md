@@ -3,6 +3,9 @@
 > 约定:代码里所有 `TODO(编号)` 注释都对应本清单。简单 CRUD 已生成并编译通过;
 > 复杂逻辑/AI 一律占位,理解 docs 后由你亲手补齐。建议按编号顺序做。
 >
+> 文档边界:docs/ 仅 `07-开发规范守则.md`、`09-前端开发规范守则.md` 与 `docs/sql/` 随仓库发布,
+> 其余(01~06 设计文档、08 精读清单、devlog)为作者私有,不随仓库发布。
+>
 > ⚠️ 建库注意:建表脚本 `docs/sql/01_schema_init.sql` 于 2026-09-02(shop 唯一键、绑定列可空)、
 > 2026-09-03(11 表补 updated_at、inventory 补 created_at)、2026-09-03 二批(新增二期单据 6 表:
 > supplier/purchase_order/purchase_order_item/purchase_inbound/delivery_order/aftersale_order)
@@ -195,7 +198,7 @@
       名称唯一性不做——warehouse 无业务唯一键列,同 supplier 需业务确认后改表
 - [ ] 参数校验:spring-boot-starter-validation 已引入(2026-09-03,各业务模块+erp-api);GlobalExceptionHandler 已兜 BindException→400;
       Controller 加 `@Valid` 随业务 DTO 约束注解(@NotNull/@Size 等)落地时逐域启用(shop 域 2026-09-03 已随 #8 启用)
-- [ ] 前端工程(Vue3 + Element Plus)未创建;接口已可先被 Apifox/Postman 联调
+- [x] ~~前端工程(Vue3 + Element Plus)未创建~~ → 已立项 **#16**(2026-09-05,Geeker Admin v2 底座);接口此前已可被 Apifox/Postman 联调
 
 ## #8 API 模型收口:entity 不再直接收发 HTTP(2026-09-03 定版,docs/07 §1)
 - [x] 规约定版(docs/07 §1 领域模型):出参 `XxxVO`(敏感字段不建字段=编译期封死)/ 分页入参 `XxxQuery`(继承 PageQuery)/
@@ -210,7 +213,7 @@
 - [x] 2026-09-03 存量域翻新收官:erp-inventory / erp-warehouse / erp-system user/role/menu / erp-goods product(sku)/category 全部改走
       API 模型(request/command + request/query + response);菜单树出参 SysMenuResponse 递归转换,LoginResponse.menus 不再嵌 entity;
       brand/dict 按规约豁免(entity 直连);role/page 无过滤条件直接用 PageQuery 不建 Query 类
-- [ ] 前端工程未创建、Apifox 未正式订阅——契约切换零成本窗口期已用掉大半,别拖到联调后
+- [x] ~~前端工程未创建~~ → 已立项 **#16**(2026-09-05);契约切换零成本窗口期剩余部分随 #16 api:sync 快照机制收口
 - [x] 2026-09-05 单测还债收口:erp-system 新增 5 测试类 45 用例——SysUserServiceTest 15(三条专用密码通道/用户名唯一/
       updateUser 物理隔绝 password + SysRoleServiceTest 5(删角色仍绑用户即拒+菜单绑定清理)+ SysMenuServiceTest 14
       (组树父不在集合按根容错/绑定先删后插 InOrder/更新禁自环/删菜单子级拦截)+ AuthServiceTest 6(用户不存在与密码错误
@@ -265,7 +268,7 @@
   建单校验/confirm 守卫与链路/取消删除 + SupplierServiceTest 6);erp-api 新增 InventoryChangeApiImplTest/WarehouseApiImplTest;
   ⚠️ MP 3.5.17 BaseMapper.insert/updateById 有 Collection 重载,mockito any() 需类型化 any(Entity.class)
 - [ ] 遗留:supplier 名称唯一性(表无 uk 列,需业务确认后改表)/ ~~仓库删除引用校验~~(✅ 2026-09-04 已随 #7 收口,
-      WarehouseApi 扩 countWarehouseRefs)/ 单据 createdBy 与确认人接 SecurityContext 随前端工程 /
+      WarehouseApi 扩 countWarehouseRefs)/ 单据 createdBy 与确认人接 SecurityContext 随 #16 前端工程 /
       采购在途 qty_transit 维护随 #7 change() 按 flow_type 差异化(审核占在途→入库转可用)
 
 ## #11 发货域(二期)✅ 2026-09-04 激活(拍板:3列+子表 / 全部发足才 SHIPPED / 未绑定行不参与)
@@ -310,7 +313,7 @@
 - 单测 23 个(DeliveryOrderServiceTest 全翻新:建单校验链 8 分支/ship 守卫与出库动账/发足推进 vs 部分发货/
   cancel·deliver·delete·update 守卫);⚠️ MP .in() 急切解析坑再次验证:占用聚合逐单 eq 查规避(docs/07 §10 已有记载)
 - [ ] 遗留:电子面单/运单号回传平台随 #3 adapter(AmazonClient TODO(#11) 占位)/ 签收回传平台物流轨迹 /
-      createdBy 接 SecurityContext 随前端工程 / 并发建单超发窗口(一期人工低频接受,ship 动账余额兜底)/
+      createdBy 接 SecurityContext 随 #16 前端工程 / 并发建单超发窗口(一期人工低频接受,ship 动账余额兜底)/
       发货单类型 FBA/OVERSEAS 的供应商代发与海外仓发货流程待业务确认后细化
 
 ## #12 售后域(二期)
@@ -409,7 +412,7 @@
 - [x] 拉单告警接线(#4/#5 收口):`PullConsts.FAILURE_ALERT_THRESHOLD=3`;
       `PullLogService.shouldAlertContinuousFailure` 无状态判定(pull_log 自身去重,恰达阈值轮次告警一次);
       OrderPullJob/ProductPullJob catch 内接线,告警写失败不阻断主流程
-- [ ] 后续渠道:邮件/短信/IM 推送(在 pushAllUsers 出口扩展,不提前抽象);前端通知中心页面(菜单种子随前端工程统一登记)
+- [ ] 后续渠道:邮件/短信/IM 推送(在 pushAllUsers 出口扩展,不提前抽象);前端通知中心页面(菜单种子随前端工程统一登记)→ 通知铃铛+已读随 **#16** 落地
 
 ## #15 公开前治理与发布策略(2026-09-05 边界定稿;旧仓库 ChenYiG7/erp 已删库重建,现仓库 ChenYiG7/ec-erp 私有)
 
@@ -430,15 +433,121 @@ docs/design/、docs/devlog/。历史排查结论(2026-09-05 两轮盘点):15 提
 - [x] CLAUDE.md 商密边界/devlog 降频表述更新;凭证轮换:人工确认风险自担不换(旧仓泄露的 MySQL/Redis 密码,TODO0 未尽事项闭环)
 
 公开时检查单(届时执行,当前不动远程/不翻可见性/不建镜像工具):
-- [ ] 路线 A(全公开,单仓翻可见性)一次性公开版文案提交:
-      ① README 目录结构节 docs/ 说明改为「07 规范 + sql 建表脚本随仓库发布;01~06/08/devlog 为作者私有」;
+- [x] 路线 A(全公开,单仓翻可见性)一次性公开版文案提交 ✅ 2026-09-05(文案+推送完成,⑥翻可见性待人工):
+      ① README 目录结构节 docs/ 说明改为「07/09 规范 + sql 建表脚本随仓库发布;01~06/08/devlog 为作者私有」(09 随 P4 入库后公开面同步扩容);
       ② TODO.md 顶部加同义一句声明;③ `.claude/skills/reading-list/SKILL.md` 补「docs/08 为作者个人学习笔记,不随仓库发布」;
-      ④ 补 `LICENSE`(无 LICENSE = 默认保留所有权利;MIT/Apache-2.0 届时拍板);
-      ⑤ `git push --force origin master`(归零后单提交;**严禁推送 backup/ 备份 tag**);
-      ⑥ GitHub Settings → Change visibility 翻公开(历史已归零单提交化,无需逐条历史抽查)
+      ④ 补 `LICENSE` —— **拍板 MIT**(Copyright 2026 ChenYiG7;erp-web/ 内 Geeker-Admin 上游 Apache-2.0 副本保留,兼容);
+      ⑤ ~~`git push --force`~~ 实际**普通 push 即可**——归零单提交 710aa8f 早已在 origin/master,后继提交按"公开后细粒度生长"正常推
+      (710aa8f..c9462fe,含 P7 收尾 fix 与公开版文案两条);推送前敏感终检通过(局域网 IP/私钥/真实密码/个人邮箱全零命中,
+      erp-web/.env* 为 Vite 构建常量、package.json 邮箱为上游 Geeker 作者署名,均保留);
+      **⚠️ 执行时发现 `backup/pre-public-20260905` tag 缺失(git tag -l 空)——旧 15 提交仅以 dangling 对象存活,gc 后即永久丢失;
+      已从 fsck 悬空提交 0604584 补打本地 tag(15 提交链完整),ls-remote 确认远端无 tag,**严禁推送该 tag**;
+      本仓库系全新 init 归零(非旧仓 reset),旧历史只存在于该备份 tag**;
+      ⑥ GitHub Settings → Change visibility 翻公开(人工执行,git 无法替代)——**用户拍板 2026-09-05 暂缓,仓库维持私有,择机再翻**
 - [ ] 路线 B(部分公开,双仓镜像)——届时再落地,不提前建:白名单导出脚本(git archive 白名单 + docs 私有引用替换 + orphan 分支推公开仓);
       闭源模块分发走编译产物(jar)或加密源码包(Release 附件+口令),**不采用 git-crypt 混仓**
-- [ ] 持续纪律:docs/sql/ 与 07 现属公开面——今后 docs/sql 只放可公开 DDL、07 只放可公开规约;其余 docs 仍严禁 `git add -f`
+- [ ] 持续纪律:docs/sql/ 与 07/09 现属公开面——今后 docs/sql 只放可公开 DDL、07/09 只放可公开规约;其余 docs 仍严禁 `git add -f`
+
+## #16 前端工程(Geeker-Admin v2 底座,2026-09-05 拍板立项)
+
+> 拍板:底座 = Geeker-Admin v2(`Geeker-Admin/Geeker-Admin@main`,实测 Vue 3.5.38 / Vite 8.0.16 Rolldown / TS 6.0.3 /
+> Element Plus 2.14.2 / Pinia 3.0.4 / vue-router 5.1.0 / oxlint+oxfmt / pnpm 11.8 / node ≥22);
+> **许可证实测 Apache-2.0(非对比文章所标 MIT),已确认接受**——erp-web/ 保留上游 LICENSE 副本 + README 声明二次开发。
+> 位置 = 本仓库根 `erp-web/`(纯 Node 工程,不进根 pom);规范 = `docs/09-前端开发规范守则.md`(公开面,随仓库发布);
+> 前端代码生成器 = `erp-web/tools/`(api:sync 抓 /v3/api-docs → openapi.json 快照 + gen:page 行式 spec 驱动产
+> api/页面骨架/菜单 SQL,移植 erp-codegen 理念:存在即跳过/守卫报错/TODO(编号) 槽位)。
+> 会话纪律:日常前端开发在 erp-web/ 下开会话;契约唯一查询源 = openapi.json,前端会话禁读后端 Java 源码。
+> 完整计划见 2026-09-05 前端立项 plan(P0~P7 八阶段)。
+
+阶段清单(顺序不可换,每阶段末验收):
+- [x] P0 立项固化:本条目 + devlog 骨架(拍板段)✅ 2026-09-05
+- [x] P1 工程搭建:clone v2 → 裁剪(demo 页/mock/重依赖 echarts·wangeditor 等)→ 品牌化(.env/标题/端口 5173/
+      vite proxy /api→8088 禁 rewrite)→ .gitattributes LF 防线 → pnpm install/dev/build 冒烟 → 首提交 ✅ 2026-09-05
+- [x] P2 后端接线:axios 双错误形态(HTTP 200+code≠200 业务报错 / 真实 401→清 token 跳登录·403→提示;
+      Result 解包止步 data)/ auth+notification api / 登录链路(pinia persist)/ dynamicRouter 按 /me menus 树转换
+      (menuType 1目录·2菜单(import.meta.glob 映射,无视图报错禁白屏)·3按钮→perms 收集 v-auth)/
+      通知 60s 轮询+visibilitychange 暂停 ✅ 2026-09-05(全链路冒烟待 P7 后端起后补验)
+- [x] P3 前端生成器:erp-web/tools/(api-sync.mjs + gen-page.mjs + lib 五件(fsutil/openapi/types/spec/render)+
+      specs/shop·shop-product 拍板表 + test/ 冒烟夹具;tools/** 已排除 oxlint——CLI console 属正当输出);
+      路径→模块例外映射表(shops/pull-logs/shop-products/shop-product-skus→shop,orders→order,auth→system);
+      ✅ 2026-09-05 冒烟夹具验证:可写域四件 + readonly 三件 + GET/POST 动作升格 + 守卫负例(缺快照/未知键/
+      未登记 TODO 均带行号报错)+ 二跑全 SKIP + type:check/lint 全绿;
+      ⚠️ shop/product 真快照生成挂起随 P6(本机 MySQL/Redis 未起 + local.properties 缺 ERP_TOKEN_KEY,后端无法起;
+      specs 已按 01_schema_init.sql 字段备好,P6 起后端 api:sync 后 --force 重生成核账)
+- [x] P4 docs/09-前端开发规范守则.md(12 章,风格对齐 07;.gitignore 白名单已验 git add 生效)✅ 2026-09-05
+      (技术栈定版/目录分层与 api 收口/双错误形态/ProTable 范式含 v2 两坑:toolbarLeft auth 无效·#operation 插槽必给/
+      金额 string 红线/权限 perms 空放行约定/store 划分含 $reset 不可用/安全红线/生成器优先门禁/反模式对照表)
+- [x] P5 仓库治理:根 CLAUDE.md(必读+构建+铁律8+速查表 erp-web 行+公开面补 09)/ erp-web/CLAUDE.md(契约唯一查询源/
+      命令速查/生成器正道/高频契约事实)/ .claude/skills/add-page(镜像 add-domain 七步)✅ 2026-09-05
+- [x] P6 MVP 八页面 ✅ 2026-09-05 晚(环境解锁后真快照落地:登录布局动态菜单 P2 已通 / 用户(角色分配弹窗+
+      prompt 重置密码)/ 角色(菜单授权树:回显只勾叶子,保存并半选)/ 菜单(树形例外页手写:NONE 分页+数组 requestApi)/
+      字典(clearDict 强刷接线)/ 通知铃铛 P2 已通 / 店铺(authUrl 按钮接线,示范①)/ 商品库(TreeFilter 接线,示范②)
+      + shop-product 平台商品只读页;
+      **真快照核账修掉生成器 4 盲区**:分页参数对象/混合形态(springdoc POJO 渲染)、records.$ref 在 items(无详情域)、
+      Response 取数分页行优先(商品详情是 Result<Map>)、同域同名动作加方法前缀(getRoles/putRoles)+ rules 逗号;
+      菜单种子收敛:id=7 对齐 spec、+100 字典/101 平台商品、按钮段 200~242、shop_platform 字典种子 14 条,
+      已建库手工 SQL 见 01_schema_init.sql 注释)
+- [x] P7 验证收尾 ✅ 2026-09-05 晚:门禁四件全绿(type:check/lint/lint:stylelint/build)/ 生成器六域二跑全 SKIP +
+      冒烟夹具回归 + api:sync 二跑无变化 / API 级冒烟:登录·/me·menus/tree·七列表端点全通,401(真状态码)与
+      HTTP200+code≠200 弹窗两形态实测符合拦截器契约 / devlog TODO16 四段补全 / 本条目勾结;
+      ⚠️ **遗留(随 #16 收尾清单,非前端阻塞)**:① ~~后端写链路统一 500~~ **已排查闭环(2026-09-05 晚):后端无 bug**——
+      根因是冒烟工具在 Windows 终端发中文 body 实为 GBK 编码,Jackson 按 UTF-8 严格解析拒收(HttpMessageNotReadableException),
+      读接口无 body 故全通;以工作区最新代码(含 CryptoService @Value + Service @Lazy 修复)干净实例冒烟,
+      读六端点全 200、纯 ASCII body POST dicts/roles 全 200;浏览器 UI 手工链路验收 ✅ 2026-09-05 深夜全走通
+      (角色授权重登录生效/店铺 auth-url 跳转/通知已读/字典联动);② 菜单 icon 渲染体系已浏览器核对收口(EP 组件名体系可用,无需改造);
+      验收过程沉淀:element-plus 已按需显式导入(main.ts 不再全局注册),模板用 el-* 漏 import = 运行时
+      Failed to resolve component——生成器 render.js 新增 elImportsFor() 按表单实际控件精确收口 + 15 个存量页面/组件手工补导,
+      验收线七段全通,#16 全清 ✅
+
+验收线:登录→动态菜单→系统四页 CRUD(用户含角色分配、角色含菜单授权、菜单树形、字典含 type)→ 通知红点+已读 →
+店铺页 auth-url 跳转按钮 → 商品列表分页过滤,全部走通 ✅ 2026-09-05 深夜(#16 全清;后续域页面按 add-page 生成器逐域铺开)
+
+## #17 开源 ERP 对标参考库(2026-09-05 登记,三期/四期功能规划对照)
+
+> 拍板:三个成熟开源电商 ERP 作为**产品 roadmap 对标库**——学功能形态/数据模型/交互,不搬实现(技术栈代差,
+> 架构纪律不因对标松动);许可先看再借鉴;做对应域时回此表对照,防漏掉被市场验证过的功能面。
+> OmniTrade 9 大 AI 服务**全部纳入三期/四期规划**(2026-09-05 拍板),落位收口 erp-ai 三层(tools/graph/agent)
+> + ai_suggestion 人工确认闭环,不建独立微服务;具体排期各期开工前逐项拍板。
+
+| 项目 | 定位/技术栈 | 许可 | 对标价值 |
+|---|---|---|---|
+| [wimoor-erp/wimoor](https://github.com/wimoor-erp/wimoor) | 亚马逊单平台商业 ERP 开源版(多年商业化运营;SB2+JDK8+微服务 nacos/seata) | MIT | 功能清单最全:补货规划/采购单/商品分析/趋势分析/FBA 发货规划/广告管理;API 限流表设计(t_amz_api_timelimit)已被 #3 参考 |
+| [nplszfl/OmniTradeERP](https://github.com/nplszfl/OmniTradeERP) | 跨境 10+ 平台"智能 ERP"(Java21+SpringCloud 微服务;Amazon/eBay/Shopee/Lazada/TikTok) | MIT | **9 大 AI 服务功能形态 = 三期 #6 扩容对标**(落位表见下);选品 Feedback 权重自调优闭环 |
+| [qiliping/qihang-erp-open](https://gitee.com/qiliping/qihang-erp-open) | 国内平台电商中台(淘宝/京东/拼多多/抖店/微信小店/快手/小红书;**Boot4.1+SpringAI2.0+MP3.5 单体,技术栈与本项目最接近**) | **AGPL-3.0** | 国内 7 平台对接面/电子面单打印发货/供应商代发/云仓发货/11 个 AI @Tool 清单/飞书钉钉企微 Webhook 通知渠道 |
+
+⚠️ **许可纪律**:qihang 为 AGPL-3.0(强传染)——**只看 README/文档/演示交互,禁读其源码**,防"重写式移植"
+衍生作品争议(本项目 MIT,代码血缘必须干净);wimoor/OmniTrade 虽 MIT,默认也只借鉴思路,
+确需参考表结构时在 devlog 记出处。
+
+### OmniTrade 9 大 AI 服务 → ec-erp 落位(主体挂三期 #6,归属列记排期)
+
+| OmniTrade 服务 | 功能面 | ec-erp 落位 | 归属 |
+|---|---|---|---|
+| 库存预警 | 滞销检测/低库存/积压预警 | 规则先筛(#6"两段式"的规则半边),出口 #14 站内通知已就位;qihang 同款规则(销售额为零/发货超时/退款过多)一并纳入规则集 | 三期最先(成本最低) |
+| 库存预测/补货建议 | 时序预测+补货量建议 | #6 已规划:SAA Graph 补货建议工作流(取数 LLM→规则校验→报告) | 三期(已对齐) |
+| 订单异常检测 | 规则引擎+AI 评分双层融合/风险分级 | #6 已规划:"规则引擎先筛+LLM 评分"两段式控成本 | 三期(已对齐) |
+| 智能采购建议 | 采购预测/供应商比价/采购计划 | 建议层叠加 #10 采购域之上(只产建议进 ai_suggestion,不碰状态机与单据) | 三期候选 |
+| 智能定价 | 竞品价监控/动态调价/利润优化 | 竞品价拉取随 adapter 平台扩容;定价建议进 ai_suggestion,人工确认后走改价 | 三期候选 |
+| 产品描述生成 | SEO 文案/批量生成/平台风格适配 | listing 文案生成,产出进 ai_suggestion,人工采纳后回填 | 三期候选 |
+| 智能报表 | 日/周/月报自动生成+Excel 导出 | erp-report 域(休眠),依赖销售/广告数据面先齐 | 四期 BI |
+| AI 客服 | RAG 知识库/意图识别/多语言 7×24 | #6 chat/tools 占位承接;向量库选型(pgvector 等)三期开工拍板;多语言随跨境平台接入 | 三期~四期 |
+| 智能选品 | 多维加权评分/趋势/风险评估+Feedback 自调优 | 评分引擎产建议进 ai_suggestion;其 Feedback 闭环由 ai_suggestion(待确认/已采纳/已忽略)天然承接;权重自调优四期评估 | 四期候选 |
+
+### 非 AI 功能面(各项目对标,随期吸收)
+
+- 补货规划/商品分析/趋势分析(wimoor):补货规划依赖库存预测先行;商品/趋势分析归四期 BI
+- 广告管理(wimoor 广告抓取+管理全套):erp-ads 休眠域,四期;数据抓取随各平台 adapter 扩容
+- 电子面单打印发货/面单账户管理(wimoor、qihang):国内平台发货刚需,#11 遗留"电子面单随 #3 adapter"升格为独立功能面
+- 供应商代发/云仓发货(qihang 备货单模式):对齐 #11 遗留"FBA/OVERSEAS 供应商代发与海外仓流程待业务确认"
+- 外部通知渠道:飞书/钉钉/企微 Webhook(含钉钉签名/失败重试/高优外推低优站内分级)——#14"后续渠道"的对标实现,
+  届时参考其渠道抽象,落点仍是 pushAllUsers 出口扩展(不提前抽象纪律不变)
+- AI @Tool 清单(qihang 11 个:店铺/订单/售后/商品/库存/采购/会员/供应商/物流/仓库/库存流水)——
+  #6 tools/ 只读 @Tool 集的对标 checklist,对应域数据齐一个开一个;
+  ⚠️ qihang 宣称 Tools 可读写 ERP 数据,与铁律 7 冲突,**只读红线不采纳其读写形态**
+
+⚠️ **对标姿势**:OmniTrade README 营销数字(利润 +15%/客服成本 -70% 等)不可验,其更新日志自曝 v2.0.0 前
+定价服务为硬编码模拟、RAG embedding 为 SHA-256 伪向量——**按功能形态对标,不按实现质量对标**;
+qihang 开源版/企业版双轨宣传,只取开源版功能面,企业版能力(多商户/京东云仓)不在射程。
 
 ## 已就绪(无需再动)
 - 二期单据地基(2026-09-03 三批):erp-codegen 升级 `parts=`(子表只出 entity+mapper)/ `readOnly=`(系统写入表只读,

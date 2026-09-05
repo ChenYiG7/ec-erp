@@ -1,0 +1,24 @@
+# 字典管理 spec(gen:page 拍板表;行内 # 后为注释,# 开头整行注释)
+# 注意:后端无独立 SaveRequest,POST/PUT 直接以 SysDict 为体(生成器按形状出 SysDictSaveRequest)
+module=system
+domain=dict
+base=system/dicts
+entity=SysDict
+nameZh=字典管理
+permPrefix=system:dict
+todoId=16
+menuParent=1
+path=/system/dicts
+component=system/dict/index
+icon=dict
+
+field=dictType   role=all    label=字典类型  width=180  required
+field=dictLabel  role=all    label=字典标签  width=160  required
+field=dictValue  role=all    label=字典值    width=140  required
+field=sort       role=all    label=排序      width=80
+field=status     role=all    label=状态      enum=1:启用:success|0:停用:danger  width=90
+field=remark     role=form   label=备注
+field=createdAt  role=column label=创建时间  width=170
+
+# 页面级槽位:保存/删除成功后强刷 dict store 对应 dictType 缓存,否则全端下拉仍是旧值
+todo=refresh:保存/删除成功后调 useDictStore 强刷该行 dictType 缓存

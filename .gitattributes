@@ -1,0 +1,5 @@
+# 前端工程(erp-web)与脚本统一 LF,防 Windows autocrlf 混入 CRLF(2026-09-05 #16)
+*.mjs text eol=lf
+*.sh text eol=lf
+erp-web/**/{src,build,tools,public,e2e}/** text=auto eol=lf
+erp-web/**/*.{ts,vue,scss,json,html} text=auto eol=lf

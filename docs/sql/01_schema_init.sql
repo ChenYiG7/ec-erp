@@ -77,6 +77,7 @@ INSERT IGNORE INTO sys_role (id, role_name, role_key, status, remark) VALUES
 INSERT IGNORE INTO sys_user (id, username, password, nickname, status) VALUES
 (1, 'admin', '$2a$10$RUQnRQ.nZl96aGYpIqYSfOcBL4arfmpxEvtUuF8qQ05EMJ7hRKY5e', '管理员', 1);
 INSERT IGNORE INTO sys_user_role (user_id, role_id) VALUES (1, 1);
+-- 菜单种子(#16 前端工程收敛:页面 component 权威源 = erp-web/tools/specs/*;按钮 id 段 200+,按父菜单分组)
 INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path, component, icon, sort) VALUES
 (1, 0, '系统管理', 1, NULL, '/system', NULL, 'setting', 1),
 (2, 1, '用户管理', 2, 'system:user:list', '/system/users', 'system/user/index', 'user', 1),
@@ -84,11 +85,38 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path
 (4, 1, '菜单管理', 2, 'system:menu:list', '/system/menus', 'system/menu/index', 'tree', 3),
 (5, 1, '店铺管理', 2, 'shop:list', '/shop', 'shop/index', 'shopping', 4),
 (6, 0, '商品中心', 1, NULL, '/goods', NULL, 'list', 2),
-(7, 6, '商品管理', 2, 'goods:list', '/goods/list', 'goods/index', 'component', 1),
+(7, 6, '商品管理', 2, 'goods:list', '/goods/product', 'goods/product/index', 'component', 1),
 (8, 0, '订单中心', 1, NULL, '/order', NULL, 'order', 3),
-(9, 8, '订单管理', 2, 'order:list', '/order/list', 'order/index', 'documentation', 1);
+(9, 8, '订单管理', 2, 'order:list', '/order/list', 'order/index', 'documentation', 1),
+(100, 1, '字典管理', 2, 'system:dict:list', '/system/dicts', 'system/dict/index', 'notebook', 5),
+(101, 6, '平台商品', 2, 'shop:product:list', '/goods/shop-products', 'shop/shop-product/index', 'list', 2);
+INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key) VALUES
+(200, 2, '新增', 3, 'system:user:add'),
+(201, 2, '编辑', 3, 'system:user:edit'),
+(202, 2, '删除', 3, 'system:user:remove'),
+(203, 2, '角色分配', 3, 'system:user:roles'),
+(204, 2, '重置密码', 3, 'system:user:password'),
+(210, 3, '新增', 3, 'system:role:add'),
+(211, 3, '编辑', 3, 'system:role:edit'),
+(212, 3, '删除', 3, 'system:role:remove'),
+(213, 3, '菜单授权', 3, 'system:role:menus'),
+(220, 4, '新增', 3, 'system:menu:add'),
+(221, 4, '编辑', 3, 'system:menu:edit'),
+(222, 4, '删除', 3, 'system:menu:remove'),
+(230, 5, '新增', 3, 'shop:add'),
+(231, 5, '编辑', 3, 'shop:edit'),
+(232, 5, '删除', 3, 'shop:remove'),
+(233, 5, '平台授权', 3, 'shop:auth-url'),
+(240, 100, '新增', 3, 'system:dict:add'),
+(241, 100, '编辑', 3, 'system:dict:edit'),
+(242, 100, '删除', 3, 'system:dict:remove');
 INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
-(1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(1,9);
+(1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(1,9),(1,100),(1,101),
+(1,200),(1,201),(1,202),(1,203),(1,204),(1,210),(1,211),(1,212),(1,213),
+(1,220),(1,221),(1,222),(1,230),(1,231),(1,232),(1,233),(1,240),(1,241),(1,242);
+-- ⚠️ 已建库(种子 1~9 已插入)需手工执行对齐:INSERT IGNORE 不会更新 id=7 路径/组件 --
+-- UPDATE sys_menu SET path='/goods/product', component='goods/product/index' WHERE id=7;
+-- 再手工执行上面两条新增段(100/101 + 按钮段)与 sys_role_menu 新增段;
 
 CREATE TABLE IF NOT EXISTS sys_dict (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
@@ -102,6 +130,25 @@ CREATE TABLE IF NOT EXISTS sys_dict (
     updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     KEY idx_dict_type (dict_type)
 ) COMMENT '数据字典';
+
+-- 字典种子:shop_platform(店铺下拉全端共用;dict_value = PlatformType 枚举名,#16 P6)
+INSERT IGNORE INTO sys_dict (id, dict_type, dict_label, dict_value, sort, status, remark) VALUES
+(1,  'shop_platform', '淘宝',        'TAOBAO',        1,  1, '国内'),
+(2,  'shop_platform', '京东',        'JD',            2,  1, '国内'),
+(3,  'shop_platform', '拼多多',      'PDD',           3,  1, '国内'),
+(4,  'shop_platform', '抖店',        'DOUYIN',        4,  1, '国内'),
+(5,  'shop_platform', '微信小店',    'WECHAT_SHOP',   5,  1, '国内'),
+(6,  'shop_platform', '快手小店',    'KUAISHOU',      6,  1, '国内'),
+(7,  'shop_platform', '小红书',      'XHS',           7,  1, '国内'),
+(8,  'shop_platform', '亚马逊',      'AMAZON',        8,  1, '跨境'),
+(9,  'shop_platform', 'eBay',        'EBAY',          9,  1, '跨境'),
+(10, 'shop_platform', 'Shopee',      'SHOPEE',        10, 1, '跨境'),
+(11, 'shop_platform', 'Lazada',      'LAZADA',        11, 1, '跨境'),
+(12, 'shop_platform', 'TikTok Shop', 'TIKTOK_GLOBAL', 12, 1, '跨境'),
+(13, 'shop_platform', '速卖通',      'ALIEXPRESS',    13, 1, '跨境'),
+(14, 'shop_platform', 'Temu',        'TEMU',          14, 1, '跨境');
+-- ⚠️ 已建库(空表)可直接执行上面 INSERT IGNORE 段补种子;
+
 
 -- 站内通知(TODO#14,2026-09-04:系统写入表,告警由任务扇出写入,对外只读查询 + 用户已读状态接口)
 CREATE TABLE IF NOT EXISTS sys_notification (

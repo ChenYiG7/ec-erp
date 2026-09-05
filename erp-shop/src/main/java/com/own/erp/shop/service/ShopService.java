@@ -18,8 +18,8 @@ import com.own.erp.shop.response.ShopResponse;
 import com.own.erp.shop.security.CryptoException;
 import com.own.erp.shop.security.CryptoService;
 import com.own.erp.shop.security.OAuthStateService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -44,7 +44,6 @@ import java.util.function.Supplier;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ShopService {
 
     /** 返回脱敏后缀(ShopResponse.accessToken 同源),update 以此识别"前端原样回传的掩码值" */
@@ -67,6 +66,25 @@ public class ShopService {
     private final ShopProductService shopProductService;
     private final PullLogService pullLogService;
     private final ShopReferenceApi shopReferenceApi;
+
+    /** 契约接口注入一律 @Lazy 断构造环:实现收口 erp-api 反向注入域 Service,急切装配成环(docs/07 §2.2) */
+    public ShopService(ShopMapper shopMapper,
+                       CryptoService cryptoService,
+                       OAuthStateService oauthStateService,
+                       AdapterRegistry adapterRegistry,
+                       Clock clock,
+                       ShopProductService shopProductService,
+                       PullLogService pullLogService,
+                       @Lazy ShopReferenceApi shopReferenceApi) {
+        this.shopMapper = shopMapper;
+        this.cryptoService = cryptoService;
+        this.oauthStateService = oauthStateService;
+        this.adapterRegistry = adapterRegistry;
+        this.clock = clock;
+        this.shopProductService = shopProductService;
+        this.pullLogService = pullLogService;
+        this.shopReferenceApi = shopReferenceApi;
+    }
 
     /** 新增店铺:平台编码校验 + 凭证 AES-GCM 加密落库;merchantId 服务端固定(不在入参模型内,防 mass assignment) */
     public Long createShop(ShopSaveRequest request) {

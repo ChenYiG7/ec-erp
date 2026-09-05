@@ -8,7 +8,8 @@
 - `docs/sql/01_schema_init.sql` — 建表脚本(权威,与 docs/03 已对齐)
 - `docs/04-平台对接层设计.md` — 写 adapter 前必读
 - `docs/07-开发规范守则.md` — 写任何代码前必读(**基线:阿里巴巴Java开发手册** + 项目铁律;只写项目裁剪/偏差/铁律,通用规约不复述)
-- `.claude/skills/` — 流程 skill:write-adapter(平台对接)/ add-table(表结构变更)/ add-domain(模块内新增业务域)/ self-review(提交前自查)/ reading-list(代码精读清单维护:好代码/好设计登记与行号校准,清单 `docs/08-代码精读清单.md`,条目带 `路径:行号` 可 Ctrl+点击跳转);流程步骤在 skill 里,本文档与 docs 不重复
+- `docs/09-前端开发规范守则.md` — 写任何前端代码(erp-web/)前必读(Vue 侧裁剪/铁律;契约唯一查询源 = `erp-web/tools/openapi.json`,**前端会话禁读后端 Java 源码**)
+- `.claude/skills/` — 流程 skill:write-adapter(平台对接)/ add-table(表结构变更)/ add-domain(模块内新增业务域)/ add-page(erp-web 新增前端页面,生成器优先)/ self-review(提交前自查)/ reading-list(代码精读清单维护:好代码/好设计登记与行号校准,清单 `docs/08-代码精读清单.md`,条目带 `路径:行号` 可 Ctrl+点击跳转);流程步骤在 skill 里,本文档与 docs 不重复
 - `erp-codegen/README.md` — **CRUD 八件套生成器**(开发工具,非运行时依赖):从 01_schema_init.sql 生成 Entity/Mapper/Query/SaveRequest/Response/Service/Controller/单测骨架(API 模型收口 docs/07 §1:入参 request/query + request/command(CQRS 读写分包)、出参 response,entity 不出 Service 层;Response/SaveRequest 产 **record+@Builder**,模型可变性分级 docs/07 §1【2026-09-04 #13】,Query 保持 class 继承例外、Entity 保持 @Data MP 例外);新业务域标准流程 = add-table 走表变更 → 跑生成器 → 人工删 Response/Request 不对外字段 + 补业务规则(TODO 编号);另有**状态机守卫测试生成器**(StateMachineTestGenerator,`-Dcodegen.mainClass` 切换):spec 文件驱动产 `XxxStateMachineTest.java`("条件更新即守卫"四类用例,#10/#11/#12 守卫用例四连沉淀,铁律 #8),spec 即拍板表文档化,样板 `erp-aftersale/testgen-aftersale.txt`;跨域动账断言/发足判定/复合事务动作不在射程,留 TODO 槽位人工
 
 ## 构建与运行
@@ -20,6 +21,18 @@ java -jar erp-api/target/erp-api-0.1.0-SNAPSHOT.jar   # :8088
 ```
 
 JDK 21 · MySQL 8 · Redis 7。包名 `com.own.erp`。artifact 版本 `0.1.0-SNAPSHOT`。
+
+前端(erp-web/,纯 Node 工程**不进根 pom**,Node ≥22.12 + pnpm 11.8):
+
+```bash
+cd erp-web
+pnpm dev              # :5173,vite proxy /api -> 8088(禁 rewrite)
+pnpm type:check && pnpm lint   # 门禁(无独立 .git,husky 不生效,手动跑)
+pnpm api:sync         # 抓 8088 /v3/api-docs -> tools/openapi.json 契约快照(后端须已起)
+pnpm gen:page --spec tools/specs/<domain>.txt   # 新页面生成器(存在即跳过)
+```
+
+前端门禁四件(type:check/lint/lint:stylelint/build)全绿才算完成;新 CRUD 页走 add-page skill(生成器优先)。
 
 ## 技术栈与版本(2026-09-02 定版)
 
@@ -49,8 +62,8 @@ JDK 21 · MySQL 8 · Redis 7。包名 `com.own.erp`。artifact 版本 `0.1.0-SNA
 4. **库存变更唯一入口** `InventoryService.change()`,同事务写 inventory_flow,禁止旁路 update。
 5. **幂等靠唯一键**:订单 `(shop_id, platform_order_id)`、店铺 `(platform, seller_id)`,upsert 落库。
 6. **金额一律 DECIMAL(12,4)**;汇率 DECIMAL(12,8)。
-7. **安全红线**:平台凭证 AES-GCM 加密(密钥走环境变量 `ERP_TOKEN_KEY`,禁入代码/配置文件,无默认值启动强制校验;凭证写入唯一入口 ShopService,实体凭证字段 @ToString.Exclude);JWT 密钥走环境变量 `ERP_JWT_SECRET`(≥32字节);接口返回脱敏;密码 BCrypt;AI 工具只读,写操作需人工确认。
-8. **Token 纪律**:同构样板不走 AI 手写——八件套跑 erp-codegen,批量同款修改用脚本/正则;同一条路径第二次出现时,主动提议沉淀成生成器模板或脚本,由人工拍板。判断归 AI、执行归程序、业务逻辑归人工。
+7. **安全红线**:平台凭证 AES-GCM 加密(密钥走环境变量 `ERP_TOKEN_KEY` 或本地 git-ignored `local.properties` 同名键,env 优先,禁入提交配置文件,无默认值启动强制校验;凭证写入唯一入口 ShopService,实体凭证字段 @ToString.Exclude);JWT 密钥走环境变量 `ERP_JWT_SECRET` 或 local.properties 同名键(≥32字节);接口返回脱敏;密码 BCrypt;AI 工具只读,写操作需人工确认。
+8. **Token 纪律**:同构样板不走 AI 手写——八件套跑 erp-codegen,批量同款修改用脚本/正则;前端同构页面跑 erp-web/tools 生成器(add-page);同一条路径第二次出现时,主动提议沉淀成生成器模板或脚本,由人工拍板。判断归 AI、执行归程序、业务逻辑归人工。
 
 ## 核心流程(SKU 映射 = 系统心脏)
 
@@ -68,7 +81,7 @@ JDK 21 · MySQL 8 · Redis 7。包名 `com.own.erp`。artifact 版本 `0.1.0-SNA
 | 模块 | 职责 |
 |---|---|
 | erp-common | 返回体/异常/分页(PageQuery + MP Page) |
-| erp-contract | 跨域契约接口(✅ #5/#3,2026-09-04 拍板引入):GoodsReferenceApi(删 SKU/SPU 引用计数)/GoodsSkuApi(sku_id 存在性)/ShopReferenceApi(店铺删除引用计数)/InventoryChangeApi(动库存唯一通道,#10,命令经 erp-api 委托 InventoryService.change,同事务由调用方 @Transactional 保证)/WarehouseApi(仓库存在性 #10 + 删除引用计数 #7)/ShopOrderApi(发货视图 findDeliveryView 未绑定行过滤 + casOrderStatus 订单状态条件推进,#11),零实现,实现收口 erp-api;lombok 仅编译期(provided,契约命令/视图模型 @Builder,#10 偏差已声明 docs/07 §2.2) |
+| erp-contract | 跨域契约接口(✅ #5/#3,2026-09-04 拍板引入):GoodsReferenceApi(删 SKU/SPU 引用计数)/GoodsSkuApi(sku_id 存在性)/ShopReferenceApi(店铺删除引用计数)/InventoryChangeApi(动库存唯一通道,#10,命令经 erp-api 委托 InventoryService.change,同事务由调用方 @Transactional 保证)/WarehouseApi(仓库存在性 #10 + 删除引用计数 #7)/ShopOrderApi(发货视图 findDeliveryView 未绑定行过滤 + casOrderStatus 订单状态条件推进,#11),零实现,实现收口 erp-api;域 Service 注入契约接口一律 @Lazy 断构造环(2026-09-05,显式构造器标注,docs/07 §2.2);lombok 仅编译期(provided,契约命令/视图模型 @Builder,#10 偏差已声明 docs/07 §2.2) |
 | erp-system | 用户/角色/菜单/字典(JWT 登录 + RBAC 已落地,TODO #1 完成;按 `role_key` 鉴权);站内通知(✅ #14:系统告警扇出只读+本人已读状态) |
 | erp-shop | 店铺/授权/凭证加密(✅ #2:AES-256-GCM `CryptoService`,密钥 `ERP_TOKEN_KEY` 环境变量无默认值启动强制校验;写侧加密+掩码回写防护,读侧 `getShopSession` 解密装配、`pageShops`/`getShopById` 脱敏唯一出口——凭证表例外,Controller 不直连 Mapper,docs/07 §2.1)/pull_log/**OAuth 授权中心(✅ #3 脱机部分 2026-09-04:auth-url 签发加密 state 10 分钟 TTL + /oauth/callback 换码入库复用加密链路 + getShopSession 读取时刷新,过期前 10 分钟,DB CAS 守卫防跨实例双刷新,失败走 pull_log 告警)** |
 | erp-goods | 商品库 + **SKU 映射**(TODO #5) |
@@ -83,10 +96,11 @@ JDK 21 · MySQL 8 · Redis 7。包名 `com.own.erp`。artifact 版本 `0.1.0-SNA
 | erp-api | 主应用入口 :8088(配置:GlobalExceptionHandler / MybatisPlusConfig) |
 | erp-worker | 拉单 worker :8089(预留,一期跑在 erp-api 进程内) |
 | erp-codegen | 开发工具(非运行时依赖):DDL→CRUD 八件套脚手架(#8 起含 Query/SaveRequest/Response,09-03 CQRS 分包),存在即跳过,pom 缺依赖报错守卫;状态机守卫测试生成器(09-04,spec 驱动产守卫四类用例,#10/#11/#12 四连沉淀) |
+| erp-web | 前端(#16,2026-09-05 立项):Geeker-Admin v2 底座(Apache-2.0),Vue3.5/Vite8(Rolldown)/TS6/EP2.14/Pinia3/oxlint;登录/动态菜单/通知轮询已接线(P2);**tools 生成器**(api:sync 契约快照 + gen:page 行式 spec 产页面四件+菜单 SQL,存在即跳过);规范 docs/09;纯 Node 工程不进根 pom,日常前端会话在本目录开 |
 
 ## 落地记录与收尾纪律(2026-09-04 起)
 
-- **docs/ 分层入库(2026-09-05 定稿)**:`docs/07-开发规范守则.md` 与 `docs/sql/` 随仓库发布(公开面;docs/sql 只放可公开 DDL,07 只放可公开规约);其余 docs(01~06 设计文档、08 精读清单、design/、devlog/)商密本地留存,.gitignore 已声明,**严禁 `git add -f` 入库**。
+- **docs/ 分层入库(2026-09-05 定稿)**:`docs/07-开发规范守则.md`、`docs/09-前端开发规范守则.md` 与 `docs/sql/` 随仓库发布(公开面;docs/sql 只放可公开 DDL,07/09 只放可公开规约);其余 docs(01~06 设计文档、08 精读清单、design/、devlog/)商密本地留存,.gitignore 已声明,**严禁 `git add -f` 入库**。
 
 - 历史落地记录(拍板/改动/坑/未尽)在 `docs/devlog/`,按任务归档;做对应任务时才读相关篇,本文件**不再追加日期段落**,只更新上方目录速查表状态。
 - 任务收尾(2026-09-05 降频):仅**有拍板/坑级内容的大任务**写 devlog——`scripts/devlog-new.sh <TODO编号> "<标题>"` 生成骨架后补拍板/坑/未尽各 2-3 句;纯 CRUD/同款批量任务不写。

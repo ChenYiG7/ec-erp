@@ -1,0 +1,25 @@
+# 平台订单 spec:只读域(readonly=true;后端 #4 订单对外只读,写侧拉单落库不开放)
+# 详情 GET /api/orders/{id}(含明细 items)暂不出页面,gen:page otherExtra 注释留槽,后续人工接详情抽屉
+# 菜单 id=9 已在 01_schema_init.sql 种子(path=/order/list, component=order/index, perm=order:list),本 spec 三值与其对齐
+module=order
+domain=order
+base=orders
+entity=ShopOrder
+nameZh=订单管理
+permPrefix=order
+todoId=16
+menuParent=8
+path=/order/list
+component=order/index
+icon=Documentation
+readonly=true
+
+field=shopId              role=all    label=店铺ID    width=90
+field=platform            role=all    label=平台      dict=shop_platform  width=110
+field=orderStatus         role=all    label=订单状态  width=110
+field=platformOrderId     role=column label=平台单号  width=200
+field=fulfillmentChannel  role=column label=履约渠道  width=110
+field=currency            role=column label=币种      width=70
+field=orderAmount         role=column label=订单金额  width=120  money
+field=orderTime           role=column label=下单时间  width=170
+field=paidTime            role=column label=付款时间  width=170

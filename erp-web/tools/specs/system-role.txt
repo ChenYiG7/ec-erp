@@ -1,0 +1,22 @@
+# 角色管理 spec(gen:page 拍板表;行内 # 后为注释,# 开头整行注释)
+# 注意:后端无 GET /{id} 详情端点,响应类型从分页 records 取(生成器已适配)
+module=system
+domain=role
+base=system/roles
+entity=SysRole
+nameZh=角色管理
+permPrefix=system:role
+todoId=16
+menuParent=1
+path=/system/roles
+component=system/role/index
+icon=peoples
+
+field=roleName   role=all    label=角色名称  width=180  required
+field=roleKey    role=all    label=角色标识  width=160  required
+field=status     role=all    label=状态      enum=1:启用:success|0:停用:danger  width=90
+field=remark     role=form   label=备注
+field=createdAt  role=column label=创建时间  width=170
+
+# 页面级动作槽位:菜单授权树(GET/PUT /api/system/menus/roles/{roleId} 不在动作射程,人工在 api 文件补)
+todo=menus:菜单授权树弹窗,menus/tree 全量 + GET /api/system/menus/roles/{roleId} 回显,保存 PUT 提交 menuIds

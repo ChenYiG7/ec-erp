@@ -1,0 +1,21 @@
+# gen:page 冒烟 spec:配合 tools/test/smoke-openapi.json 验证生成器全分支,不进业务页面
+# 跑法: GEN_OPENAPI_PATH=tools/test/smoke-openapi.json pnpm gen:page --spec tools/test/smoke-spec.txt
+module=smoke
+domain=smoke
+entity=Smoke
+nameZh=冒烟域
+permPrefix=smoke
+todoId=16
+menuParent=1
+path=/smoke
+component=smoke/index
+base=smokes
+
+field=name     role=all    label=名称  width=200  required
+field=status   role=column enum=1:启用:success|0:停用:danger  width=90
+field=amount   role=form   money  label=金额快照
+field=active   role=form   label=是否激活
+field=rows     role=column hide  label=明细行
+field=createdAt role=column label=创建时间  width=170
+
+todo=activate:状态机动作示意,人工补确认弹窗

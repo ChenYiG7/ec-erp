@@ -20,7 +20,7 @@ import com.own.erp.purchase.request.command.PurchaseOrderSaveRequest;
 import com.own.erp.purchase.request.query.PurchaseOrderQuery;
 import com.own.erp.purchase.response.PurchaseOrderItemResponse;
 import com.own.erp.purchase.response.PurchaseOrderResponse;
-import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +39,6 @@ import java.util.List;
  *     totalAmount 服务端按 Σ(数量×单价) 计算,与明细强一致;跨域存在性校验走 erp-contract(禁横向依赖,铁律 2)
  */
 @Service
-@RequiredArgsConstructor
 public class PurchaseOrderService {
 
     private final PurchaseOrderMapper purchaseOrderMapper;
@@ -48,6 +47,21 @@ public class PurchaseOrderService {
     private final SupplierMapper supplierMapper;
     private final GoodsSkuApi goodsSkuApi;
     private final WarehouseApi warehouseApi;
+
+    /** 契约接口注入一律 @Lazy 断构造环:实现收口 erp-api 反向注入域 Service,急切装配成环(docs/07 §2.2) */
+    public PurchaseOrderService(PurchaseOrderMapper purchaseOrderMapper,
+                                PurchaseOrderItemMapper purchaseOrderItemMapper,
+                                PurchaseInboundMapper purchaseInboundMapper,
+                                SupplierMapper supplierMapper,
+                                @Lazy GoodsSkuApi goodsSkuApi,
+                                @Lazy WarehouseApi warehouseApi) {
+        this.purchaseOrderMapper = purchaseOrderMapper;
+        this.purchaseOrderItemMapper = purchaseOrderItemMapper;
+        this.purchaseInboundMapper = purchaseInboundMapper;
+        this.supplierMapper = supplierMapper;
+        this.goodsSkuApi = goodsSkuApi;
+        this.warehouseApi = warehouseApi;
+    }
 
     /** 入库核销回写行:po_item_id + 本次入库数量(confirm 逐行调用,同事务) */
     public record ReceiveLine(Long poItemId, Integer quantity) {

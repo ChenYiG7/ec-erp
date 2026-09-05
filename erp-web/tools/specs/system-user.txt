@@ -1,0 +1,24 @@
+# 用户管理 spec(gen:page 拍板表;行内 # 后为注释,# 开头整行注释)
+module=system
+domain=user
+base=system/users
+entity=SysUser
+nameZh=用户管理
+permPrefix=system:user
+todoId=16
+menuParent=1
+path=/system/users
+component=system/user/index
+icon=user
+
+field=username   role=all    label=用户名    width=140  required
+field=nickname   role=all    label=昵称      width=140
+field=email      role=form   label=邮箱
+field=phone      role=form   label=手机号
+field=password   role=form   label=密码
+field=status     role=all    label=状态      enum=1:启用:success|0:停用:danger  width=90
+field=createdAt  role=column label=创建时间  width=170
+
+# 页面级动作槽位(api 动作已生成:roles = GET+PUT /{id}/roles 消歧为 getRoles/putRoles)
+todo=roles:角色分配弹窗,打开时 getRoles 拉已选 + sysRoleApi.page 拉全量,保存走 putRoles
+todo=password:管理员重置密码(password(id, { newPassword })),ElMessageBox.prompt 输入

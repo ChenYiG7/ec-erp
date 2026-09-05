@@ -9,7 +9,7 @@ import com.own.erp.warehouse.mapper.WarehouseMapper;
 import com.own.erp.warehouse.request.query.WarehouseQuery;
 import com.own.erp.warehouse.request.command.WarehouseSaveRequest;
 import com.own.erp.warehouse.response.WarehouseResponse;
-import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
@@ -21,11 +21,16 @@ import org.springframework.stereotype.Service;
  *     名称唯一性未做(warehouse 无业务唯一键列,同 supplier 需业务确认后改表,TODO.md #7)
  */
 @Service
-@RequiredArgsConstructor
 public class WarehouseService {
 
     private final WarehouseMapper warehouseMapper;
     private final WarehouseApi warehouseApi;
+
+    /** 契约接口注入一律 @Lazy 断构造环:实现收口 erp-api 反向注入域 Service,急切装配成环(docs/07 §2.2) */
+    public WarehouseService(WarehouseMapper warehouseMapper, @Lazy WarehouseApi warehouseApi) {
+        this.warehouseMapper = warehouseMapper;
+        this.warehouseApi = warehouseApi;
+    }
 
     /** 分页查询(默认按 id 倒序;过滤条件在 WarehouseQuery 加字段后在此补 Wrapper 条件) */
     public Page<WarehouseResponse> page(WarehouseQuery query) {

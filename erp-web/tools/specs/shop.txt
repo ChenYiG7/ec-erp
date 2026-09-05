@@ -1,0 +1,27 @@
+# 店铺管理 spec(gen:page 拍板表;行内 # 后为注释,# 开头整行注释)
+# 字段名以后端 openapi 快照为准,跑 gen:page 会核账(不在响应 schema 的字段会警告)
+module=shop
+domain=shop
+base=shops
+entity=Shop
+nameZh=店铺管理
+permPrefix=shop
+todoId=16
+menuParent=1
+path=/shop
+component=shop/index
+icon=Shop
+
+field=platform       role=all    label=平台                dict=shop_platform        width=120  required
+field=shopName       role=all    label=店铺名称            width=200  required
+field=sellerId       role=all    label=卖家ID            width=150
+field=appKey         role=form   label=平台应用Key
+field=appSecret      role=form   label=平台应用Secret
+field=refreshToken   role=form   label=刷新令牌
+field=accessToken    role=column label=授权凭证            width=160
+field=tokenExpireAt  role=column label=令牌过期时间        width=170
+field=status         role=all    label=状态                enum=1:启用:success|0:停用:danger  width=90
+field=createdAt      role=column label=创建时间            width=170
+
+# 页面级动作槽位(api 的 authUrl() 已生成,按钮与调用人工补)
+todo=authUrl:GET /{id}/auth-url 拿授权地址后 window.open;回调页在 8088 直出 HTML,提示用户完成后手动回列表刷新

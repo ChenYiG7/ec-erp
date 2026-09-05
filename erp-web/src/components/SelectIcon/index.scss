@@ -1,0 +1,30 @@
+.icon-box {
+  width: 100%;
+  .el-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--el-text-color-regular);
+  }
+  .icon-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 120px);
+    gap: 16px;
+    justify-content: space-evenly;
+    .icon-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      &:hover {
+        transform: scale(1.3);
+      }
+      span {
+        margin-top: 5px;
+        text-align: center;
+      }
+    }
+  }
+}

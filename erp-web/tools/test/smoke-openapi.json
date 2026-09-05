@@ -1,0 +1,179 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "gen:page smoke fixture", "version": "0.0.0" },
+  "paths": {
+    "/api/smokes": {
+      "get": {
+        "tags": ["冒烟域"],
+        "summary": "分页查询冒烟",
+        "operationId": "pageSmokes",
+        "parameters": [
+          { "name": "pageNo", "in": "query", "schema": { "type": "integer" } },
+          { "name": "pageSize", "in": "query", "schema": { "type": "integer" } },
+          { "name": "name", "in": "query", "description": "名称模糊", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "description": "状态", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": { "schema": { "$ref": "#/components/schemas/ResultPageSmokeResponse" } }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["冒烟域"],
+        "summary": "新增冒烟",
+        "operationId": "createSmoke",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SmokeSaveRequest" } } }
+        },
+        "responses": {
+          "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultLong" } } } }
+        }
+      }
+    },
+    "/api/smokes/{id}": {
+      "get": {
+        "tags": ["冒烟域"],
+        "summary": "冒烟详情",
+        "operationId": "getSmoke",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+        "responses": {
+          "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultSmokeResponse" } } } }
+        }
+      },
+      "put": {
+        "tags": ["冒烟域"],
+        "summary": "修改冒烟",
+        "operationId": "updateSmoke",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SmokeSaveRequest" } } }
+        },
+        "responses": {
+          "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["冒烟域"],
+        "summary": "删除冒烟",
+        "operationId": "deleteSmoke",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+        "responses": {
+          "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } } }
+        }
+      }
+    },
+    "/api/smokes/{id}/activate": {
+      "post": {
+        "tags": ["冒烟域"],
+        "summary": "激活冒烟",
+        "operationId": "activateSmoke",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SmokeActivateRequest" } } }
+        },
+        "responses": {
+          "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } } }
+        }
+      }
+    },
+    "/api/smokes/{id}/logs": {
+      "get": {
+        "tags": ["冒烟域"],
+        "summary": "冒烟日志(扩展动作示范)",
+        "operationId": "listSmokeLogs",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+        "responses": {
+          "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ResultLong": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "integer" },
+          "msg": { "type": "string" },
+          "data": { "type": "integer", "format": "int64" }
+        }
+      },
+      "ResultBoolean": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "integer" },
+          "msg": { "type": "string" },
+          "data": { "type": "boolean" }
+        }
+      },
+      "ResultSmokeResponse": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "integer" },
+          "msg": { "type": "string" },
+          "data": { "$ref": "#/components/schemas/SmokeResponse" }
+        }
+      },
+      "ResultPageSmokeResponse": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "integer" },
+          "msg": { "type": "string" },
+          "data": { "$ref": "#/components/schemas/PageSmokeResponse" }
+        }
+      },
+      "PageSmokeResponse": {
+        "type": "object",
+        "properties": {
+          "records": { "type": "array", "items": { "$ref": "#/components/schemas/SmokeResponse" } },
+          "total": { "type": "integer", "format": "int64" },
+          "current": { "type": "integer" },
+          "size": { "type": "integer" },
+          "pages": { "type": "integer" }
+        }
+      },
+      "SmokeResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "description": "主键" },
+          "name": { "type": "string", "description": "名称" },
+          "amount": { "type": "number", "description": "金额快照" },
+          "active": { "type": "boolean", "description": "是否激活" },
+          "status": { "type": "integer", "description": "状态:1启用 0停用" },
+          "rows": {
+            "type": "array",
+            "description": "明细行",
+            "items": { "$ref": "#/components/schemas/SmokeRow" }
+          },
+          "createdAt": { "type": "string", "description": "创建时间" }
+        }
+      },
+      "SmokeRow": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "description": "行主键" },
+          "qty": { "type": "integer", "description": "数量" },
+          "price": { "type": "number", "description": "行金额" }
+        }
+      },
+      "SmokeSaveRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "description": "名称" },
+          "amount": { "type": "number", "description": "金额快照" },
+          "active": { "type": "boolean", "description": "是否激活" }
+        }
+      },
+      "SmokeActivateRequest": {
+        "type": "object",
+        "properties": {
+          "reason": { "type": "string", "description": "激活原因" }
+        }
+      }
+    }
+  }
+}

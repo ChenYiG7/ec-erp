@@ -21,8 +21,8 @@ import com.own.erp.contract.InventoryConsts;
 import com.own.erp.contract.ShopOrderApi;
 import com.own.erp.contract.WarehouseApi;
 import com.own.erp.platform.unified.UnifiedRefund;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,7 +48,6 @@ import java.util.Set;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AftersaleOrderService {
 
     private final AftersaleOrderMapper aftersaleOrderMapper;
@@ -56,6 +55,19 @@ public class AftersaleOrderService {
     private final ShopOrderApi shopOrderApi;
     private final WarehouseApi warehouseApi;
     private final InventoryChangeApi inventoryChangeApi;
+
+    /** 契约接口注入一律 @Lazy 断构造环:实现收口 erp-api 反向注入域 Service,急切装配成环(docs/07 §2.2) */
+    public AftersaleOrderService(AftersaleOrderMapper aftersaleOrderMapper,
+                                 AftersaleReturnItemMapper aftersaleReturnItemMapper,
+                                 @Lazy ShopOrderApi shopOrderApi,
+                                 @Lazy WarehouseApi warehouseApi,
+                                 @Lazy InventoryChangeApi inventoryChangeApi) {
+        this.aftersaleOrderMapper = aftersaleOrderMapper;
+        this.aftersaleReturnItemMapper = aftersaleReturnItemMapper;
+        this.shopOrderApi = shopOrderApi;
+        this.warehouseApi = warehouseApi;
+        this.inventoryChangeApi = inventoryChangeApi;
+    }
 
     /** 分页查询(默认按 id 倒序;shopId/status/type/orderId 精确过滤) */
     public Page<AftersaleOrderResponse> page(AftersaleOrderQuery query) {

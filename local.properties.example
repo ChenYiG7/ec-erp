@@ -13,6 +13,9 @@ REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 REDIS_PASSWORD=无密码则留空
 
+# 平台凭证加密密钥(AES-256,32 字节标准 base64,生成:openssl rand -base64 32;库内已有密文则必须沿用原密钥)
+ERP_TOKEN_KEY=填入32字节标准base64密钥
+
 # JWT 密钥(HS256,至少 32 字节随机串)
 ERP_JWT_SECRET=填入至少32字节的随机密钥
 

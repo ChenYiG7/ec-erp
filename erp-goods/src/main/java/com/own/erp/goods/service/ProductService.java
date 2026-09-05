@@ -15,7 +15,7 @@ import com.own.erp.goods.request.command.ProductSkuSaveRequest;
 import com.own.erp.goods.request.query.ProductQuery;
 import com.own.erp.goods.response.ProductResponse;
 import com.own.erp.goods.response.ProductSkuResponse;
-import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,12 +36,18 @@ import java.util.Set;
  *     entity 不出本层。SKU 与平台 seller_sku 的绑定/匹配是系统心脏(#5),逻辑会持续在本类生长
  */
 @Service
-@RequiredArgsConstructor
 public class ProductService {
 
     private final ProductMapper productMapper;
     private final ProductSkuMapper skuMapper;
     private final GoodsReferenceApi referenceApi;
+
+    /** 契约接口注入一律 @Lazy 断构造环:实现收口 erp-api 反向注入域 Service,急切装配成环(docs/07 §2.2) */
+    public ProductService(ProductMapper productMapper, ProductSkuMapper skuMapper, @Lazy GoodsReferenceApi referenceApi) {
+        this.productMapper = productMapper;
+        this.skuMapper = skuMapper;
+        this.referenceApi = referenceApi;
+    }
 
     /** 分页查询:keyword 模糊匹配商品名,categoryId 精确过滤 */
     public Page<ProductResponse> pageProducts(ProductQuery query) {

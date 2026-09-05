@@ -1,0 +1,161 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 添加必要的权限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  issues: write
+  pull-requests: write
+  actions: read
+
+# 允许一个并发部署
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm type:check
+
+      # - name: Lint with Oxlint
+      #   run: pnpm lint
+
+      # - name: Lint with Stylelint
+      #   run: pnpm lint:stylelint
+
+      - name: Build project
+        run: pnpm build
+        env:
+          NODE_ENV: production
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+          retention-days: 30
+
+      - name: Build size analysis
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          export VITE_REPORT=true
+          pnpm build
+        env:
+          NODE_ENV: production
+
+      - name: Comment PR with build status
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            function getDirSize(dir) {
+              let total = 0;
+              const files = fs.readdirSync(dir);
+              for (const file of files) {
+                const filePath = path.join(dir, file);
+                const stat = fs.statSync(filePath);
+                if (stat.isDirectory()) {
+                  total += getDirSize(filePath);
+                } else {
+                  total += stat.size;
+                }
+              }
+              return total;
+            }
+
+            try {
+              const distPath = path.join(process.cwd(), 'dist');
+              if (fs.existsSync(distPath)) {
+                const sizeInMB = (getDirSize(distPath) / (1024 * 1024)).toFixed(2);
+                
+                await github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: `✅ 构建成功！\n\n📦 构建产物大小: ${sizeInMB} MB\n🔗 构建时间: ${new Date().toISOString()}`
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: `⚠️ 构建完成但未找到构建产物\n\n🔗 构建时间: ${new Date().toISOString()}`
+                });
+              }
+            } catch (error) {
+              console.error('创建评论时出错:', error.message);
+              // 不抛出错误，避免整个工作流失败
+            }
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Success message
+        run: |
+          echo "✅ 部署成功！"
+          echo "📱 地址: https://geeker-admin.maicss.com"
+          echo "🔗 部署时间: $(date)"

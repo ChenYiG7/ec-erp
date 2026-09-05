@@ -19,7 +19,7 @@ import com.own.erp.purchase.request.command.PurchaseInboundSaveRequest;
 import com.own.erp.purchase.request.query.PurchaseInboundQuery;
 import com.own.erp.purchase.response.PurchaseInboundItemResponse;
 import com.own.erp.purchase.response.PurchaseInboundResponse;
-import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,13 +40,23 @@ import java.util.Map;
  *     任一步失败整体回滚,库存/流水/核销/状态四者强一致
  */
 @Service
-@RequiredArgsConstructor
 public class PurchaseInboundService {
 
     private final PurchaseInboundMapper purchaseInboundMapper;
     private final PurchaseInboundItemMapper purchaseInboundItemMapper;
     private final PurchaseOrderService purchaseOrderService;
     private final InventoryChangeApi inventoryChangeApi;
+
+    /** 契约接口注入一律 @Lazy 断构造环:实现收口 erp-api 反向注入域 Service,急切装配成环(docs/07 §2.2) */
+    public PurchaseInboundService(PurchaseInboundMapper purchaseInboundMapper,
+                                  PurchaseInboundItemMapper purchaseInboundItemMapper,
+                                  PurchaseOrderService purchaseOrderService,
+                                  @Lazy InventoryChangeApi inventoryChangeApi) {
+        this.purchaseInboundMapper = purchaseInboundMapper;
+        this.purchaseInboundItemMapper = purchaseInboundItemMapper;
+        this.purchaseOrderService = purchaseOrderService;
+        this.inventoryChangeApi = inventoryChangeApi;
+    }
 
     /** 分页查询(默认按 id 倒序;过滤条件在 PurchaseInboundQuery 加字段后在此补 Wrapper 条件);列表不带明细 */
     public Page<PurchaseInboundResponse> page(PurchaseInboundQuery query) {
