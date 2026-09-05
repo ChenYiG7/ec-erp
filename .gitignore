@@ -1,0 +1,37 @@
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+node_modules/
+dist/
+
+*.log
+logs/
+.DS_Store
+
+# 本地环境连接与密钥(模板见 local.properties.example,可提交)
+local.properties
+
+# 个人 AI 工具档案(不入仓库)
+.workbuddy/
+IDENTITY.md
+USER.md
+
+# 商密文档:01~06 设计文档/08 精读清单/design/devlog 只在本地留存,不入公开仓库
+docs/*
+# 例外:开发规范守则与建表脚本随仓库发布(公开面,只放可公开内容)
+!docs/sql/
+!docs/07-开发规范守则.md
+
+# 防御性忽略(前两条部分环境靠全局 gitignore,不随仓库走)
+.claude/settings.local.json
+.env
+*.bundle

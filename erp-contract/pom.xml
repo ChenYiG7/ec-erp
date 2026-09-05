@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.own.erp</groupId>
+        <artifactId>ec-erp</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>erp-contract</artifactId>
+    <description>跨域契约接口模块:只放接口、契约常量与契约参数模型,零实现;消费方(业务域)依赖接口,实现统一收口 erp-api 编排层(docs/07 §2.2,2026-09-04 拍板引入)</description>
+
+    <dependencies>
+        <!-- 唯一依赖,lombok 编译期注解处理器非运行时依赖,#10 声明偏差:
+             契约命令模型(InventoryChangeCommand)@Builder 防调用方相邻同类型参数错位(docs/07 §1 ⑤) -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>

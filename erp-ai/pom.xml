@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.own.erp</groupId>
+        <artifactId>ec-erp</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>erp-ai</artifactId>
+    <description>AI能力层(全部留TODO由人工实现):
+    1. Spring AI 2.0 —— ChatClient + @Tool 自然语言查询(参考启航);
+    2. Spring AI Alibaba 2.0 —— Graph Core 工作流编排(异常监控/补货建议);
+    3. AgentScope Java 2.0 —— 多Agent(智能客服/自动运营,四期)。
+    模型走 OpenAI 兼容接口(DeepSeek/通义/GLM 可切换)。</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-common</artifactId>
+        </dependency>
+        <!-- 1. Spring AI 2.0:OpenAI 兼容模型接入(DeepSeek/通义/Doubao/GLM 均兼容) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
+        </dependency>
+        <!-- 2. Spring AI Alibaba 2.0:Graph 工作流编排(需要 agent-framework 时另行添加) -->
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-graph-core</artifactId>
+        </dependency>
+        <!-- 3. AgentScope Java 2.0:多Agent框架(依赖 Boot 4.x autoconfigure) -->
+        <dependency>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-spring-boot-starter</artifactId>
+        </dependency>
+    </dependencies>
+</project>

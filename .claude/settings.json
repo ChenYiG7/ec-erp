@@ -1,0 +1,8 @@
+{
+  "skillOverrides": {
+    "using-superpowers": "off",
+    "writing-skills": "off",
+    "test-driven-development": "user-invocable-only",
+    "claude-api": "off"
+  }
+}

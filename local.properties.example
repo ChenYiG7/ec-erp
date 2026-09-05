@@ -1,0 +1,27 @@
+# ============================================================
+# local.properties 模板:复制为本文件同目录的 local.properties 并填入真实值。
+# local.properties 已被 .gitignore 忽略,严禁提交;本模板(占位值)随仓库提交。
+# 键名 = 环境变量名,生产用同名环境变量覆盖(优先级更高)。
+# ============================================================
+
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_USERNAME=root
+MYSQL_PASSWORD=填入MySQL密码
+
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=无密码则留空
+
+# JWT 密钥(HS256,至少 32 字节随机串)
+ERP_JWT_SECRET=填入至少32字节的随机密钥
+
+# Amazon SP-API(#3,adapter 启用后生效):应用 ID + 拉单站点 + AWS 签名凭证
+AMAZON_APP_ID=
+AMAZON_MARKETPLACE_IDS=ATVPDKIKX0DER
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AMAZON_SPAPI_ROLE_ARN=
+
+# AI(三期才用,OpenAI 兼容接口)
+AI_API_KEY=

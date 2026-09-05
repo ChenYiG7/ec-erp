@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.own.erp</groupId>
+        <artifactId>ec-erp</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>erp-aftersale</artifactId>
+    <description>售后中心:售后单(退款/退货/换货/补发)、售后台账、跨境退件处理</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-common</artifactId>
+        </dependency>
+        <!-- 跨域契约接口(#12 退货入库:WarehouseApi 仓存在性 + ShopOrderApi.findDeliveryView 归属校验 +
+             InventoryChangeApi 动账),零实现,实现收口 erp-api;铁律 2 禁横向依赖 erp-warehouse/erp-order/erp-inventory -->
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-contract</artifactId>
+        </dependency>
+        <!-- 仅消费 UnifiedRefund 落库模型(saveUnifiedRefund #12),禁调平台 API;
+             同 erp-order 消费 UnifiedOrder 规约(docs/07 §2.2,2026-09-04 拍板) -->
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-platform-sdk</artifactId>
+        </dependency>
+        <!-- 本模块含 Controller/CRUD,自带 web + mybatis-plus;由 erp-api 聚合运行 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- 参数校验(@Valid),TODO#7 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-extension</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

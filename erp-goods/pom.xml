@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.own.erp</groupId>
+        <artifactId>ec-erp</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>erp-goods</artifactId>
+    <description>商品中心:商品库(SPU/SKU/分类/品牌/属性)、店铺商品同步、SKU映射绑定(系统心脏,跨境含HS编码/申报字段)</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-common</artifactId>
+        </dependency>
+        <!-- 跨域契约接口(#5 删除引用校验):只依赖接口,实现收口 erp-api(docs/07 §2.2) -->
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-contract</artifactId>
+        </dependency>
+        <!-- 本模块含 Controller/CRUD,自带 web + mybatis-plus;由 erp-api 聚合运行 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- 参数校验(@Valid),TODO#7 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-extension</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+        </dependency>
+        <!-- 单测(Mockito/JUnit,AIR 原则;2026-09-04 随 #5 删除校验补) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

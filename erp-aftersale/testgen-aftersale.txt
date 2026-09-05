@@ -1,0 +1,24 @@
+# aftersale 售后单状态机守卫测试 spec(#12)—— StateMachineTestGenerator 样板
+# 语法见 erp-codegen/README.md;语义对齐 AftersaleOrderService 五动作(docs/07 §6.3 条件更新即守卫)
+# 改状态机(或Mapper cas 实参)后:改本文件 → 重跑生成器 -Dforce=true → mvn -pl erp-aftersale test
+module=aftersale
+entity=AftersaleOrder
+var=aftersaleOrder
+constClass=com.own.erp.aftersale.constant.AftersaleConsts
+mock=AftersaleOrderMapper
+todoId=12
+manual=agree 类型分流的全量分支已由两行 action 表达;refund 前置态白名单在 SQL IN 里,白名单外前置态的负例属人工用例;收退件动账已接入(2026-09-04),守卫与 IN_RETURN 动账用例在 AftersaleOrderServiceTest$ReturnReceiveInventory
+# 造数辅助(领域私有,生成器原样注入)
+fixture<<
+private AftersaleOrder order(String type) {
+    return AftersaleOrder.builder().id(ID).aftersaleNo("AS001").type(type).build();
+}
+>>
+# action=<serviceMethod> | cas=<mapper方法> | stub=<stub实参> | call=<调用实参> | fail=<消息前缀> [| 可选项]
+action=agree | cas=casStatus | stub=ID, STATUS_PENDING, STATUS_APPROVED, "凭证齐全" | call=ID, "凭证齐全" | fail=同意失败 | preRead=order(TYPE_REFUND_ONLY) | missingMsg=售后单不存在 | verify | name=ToApproved
+action=agree | cas=casStatus | stub=ID, STATUS_PENDING, STATUS_RETURNING, null | call=ID, null | fail=同意失败 | preRead=order(TYPE_RETURN_REFUND) | verify | name=ToReturning
+action=reject | cas=casStatus | stub=ID, STATUS_PENDING, STATUS_REJECTED, "质量不合格拒退" | call=ID, "质量不合格拒退" | fail=拒绝失败 | required=拒绝必须填写处理结果 | verify
+# receiveReturn 已升级复合事务动作(2026-09-04 拍板:校验链+占位回填 warehouse_id+IN_RETURN 动账+明细落库),
+# 同 ship/confirm 属"复合事务动作"生成器边界外,不再走本 spec(spec 行已删,勿按单 cas 恢复)
+action=refund | cas=refundOrder | stub=ID, null | call=ID, null | fail=退款失败 | verify
+action=complete | cas=casStatus | stub=ID, STATUS_REFUNDED, STATUS_COMPLETED, "退款已到账" | call=ID, "退款已到账" | fail=完成失败 | verify

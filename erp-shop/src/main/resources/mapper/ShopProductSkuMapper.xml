@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.own.erp.shop.mapper.ShopProductSkuMapper">
+
+    <!-- 订单明细 SKU 翻译(#4 编排取映射):按店铺 + seller_sku 批量取"已绑定"映射(sku_id 非空)。
+         JOIN shop_product 限定店铺,避免先查该店全部 listing 再 IN 的大列表;仅取两列,显式列名禁 *(docs/07 §6.3) -->
+    <select id="selectBoundByShopAndSellerSkus" resultType="com.own.erp.shop.entity.ShopProductSku">
+        SELECT s.seller_sku, s.sku_id
+        FROM shop_product_sku s
+        INNER JOIN shop_product p ON p.id = s.shop_product_id
+        WHERE p.shop_id = #{shopId}
+          AND s.sku_id IS NOT NULL
+          AND s.seller_sku IN
+        <foreach collection="sellerSkus" item="sellerSku" open="(" separator="," close=")">#{sellerSku}</foreach>
+    </select>
+
+    <!-- SKU 映射行同步 upsert(#5):uk(shop_product_id, seller_sku) 冲突即刷新平台侧快照。
+         sku_id / match_status 不在更新列——同步永不覆盖绑定状态(人工绑定与自动匹配结果优先,docs/07 核心流程);
+         快照列 null 不覆盖(COALESCE);sku_id 插入即 NULL 进待匹配列表 -->
+    <insert id="upsert" parameterType="com.own.erp.shop.entity.ShopProductSku">
+        INSERT INTO shop_product_sku (shop_product_id, seller_sku, quantity, price, currency)
+        VALUES (#{shopProductId}, #{sellerSku}, #{quantity}, #{price}, #{currency})
+        AS new
+        ON DUPLICATE KEY UPDATE quantity = COALESCE(new.quantity, quantity),
+                                price    = COALESCE(new.price, price),
+                                currency = COALESCE(new.currency, currency)
+    </insert>
+
+    <!-- 自动匹配取源(#5):该店全部未绑定映射(仅 id/seller_sku 两列,禁 SELECT *) -->
+    <select id="selectUnboundByShop" resultType="com.own.erp.shop.entity.ShopProductSku">
+        SELECT s.id, s.seller_sku
+        FROM shop_product_sku s
+        INNER JOIN shop_product p ON p.id = s.shop_product_id
+        WHERE p.shop_id = #{shopId}
+          AND s.sku_id IS NULL
+    </select>
+</mapper>

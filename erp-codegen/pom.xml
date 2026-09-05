@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.own.erp</groupId>
+        <artifactId>ec-erp</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>erp-codegen</artifactId>
+    <description>开发工具(非运行时依赖):从 docs/sql/01_schema_init.sql 解析 DDL,生成 模块内 Entity/Mapper/Service/Controller/单测 脚手架,节省手写样板;另含文件头批量补齐工具;用法见本模块 README.md</description>
+
+    <!-- 零业务依赖:纯 JDK 实现;hutool-core/lombok 由根 pom 全局继承(生成器本身未用到 lombok,不引) -->
+    <dependencies/>
+
+    <properties>
+        <!-- 默认跑 CRUD 生成器;跑文件头工具:-Dcodegen.mainClass=com.own.erp.codegen.FileHeaderTool -->
+        <codegen.mainClass>com.own.erp.codegen.CodeGenerator</codegen.mainClass>
+    </properties>
+
+    <build>
+        <plugins>
+            <!-- mainClass 走属性,便于 -Dcodegen.mainClass=... 切换工具入口 -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <mainClass>${codegen.mainClass}</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

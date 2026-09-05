@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.own.erp.shop.mapper.ShopMapper">
+
+    <!-- Token 刷新 CAS(#3,条件更新即守卫):以读侧旧 tokenExpireAt 作乐观守卫,防跨实例双刷新;
+         NULL 安全等值用 MySQL &lt;=&gt;——从未记过期的行(expected 与列同为 NULL)同样命中守卫;
+         refreshToken 入参 null 时 COALESCE 保留原值(LWA 刷新响应不回传 refresh_token,不轮换) -->
+    <update id="casRefreshToken">
+        UPDATE shop
+        SET access_token    = #{accessToken},
+            refresh_token   = COALESCE(#{refreshToken}, refresh_token),
+            token_expire_at = #{tokenExpireAt}
+        WHERE id = #{id}
+          AND token_expire_at &lt;=&gt; #{expectedExpireAt}
+    </update>
+
+</mapper>

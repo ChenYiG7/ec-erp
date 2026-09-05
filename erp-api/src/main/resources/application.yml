@@ -1,0 +1,97 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: ec-erp
+  config:
+    # 连接与密钥一律不进本文件:本地值放项目根 local.properties(已被 .gitignore 忽略,模板见 local.properties.example);
+    # 键名=环境变量名,生产用真实环境变量即可整体覆盖(OS env 优先级高于配置文件)。
+    # local.properties 缺失且无环境变量时占位符无法解析,启动即失败(fail-fast,与 ERP_TOKEN_KEY 同思路)
+    import:
+      - optional:file:./local.properties
+      - optional:file:erp-api/local.properties
+  datasource:
+    # characterEncoding 须为 Java 字符集名(UTF-8),驱动自动协商服务端 utf8mb4;写 utf8mb4 会启动报错
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/erp?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+  ai:
+    # OpenAI 兼容接口,按需切换 DeepSeek / 通义 / GLM
+    openai:
+      base-url: https://api.deepseek.com
+      api-key: ${AI_API_KEY:}
+      chat:
+        options:
+          model: deepseek-chat
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+springdoc:
+  # 接口文档:springdoc 3.x(Boot 4 专用线);生产环境两项都置 false 关闭,SecurityConfig 已放行文档路径
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+erp:
+  jwt:
+    # 无默认值:本地值在 local.properties,生产用环境变量 ERP_JWT_SECRET(≥32字节,HS256)
+    secret: ${ERP_JWT_SECRET}
+    expire-hours: 24
+  pull:
+    # 拉单调度(#4):fixedDelay 间隔(上一轮结束再计时,15分钟);首次拉取(无成功游标)回溯天数(docs/04 新店铺全量近90天)
+    order-interval-ms: 900000
+    # listing 同步(#5):变化慢,默认 1 小时;与订单共用 first-pull-days
+    product-interval-ms: 3600000
+    first-pull-days: 90
+  adapter:
+    amazon:
+      # SP-API adapter(#3)默认关闭:Bean 不注册,拉单调度按"adapter 未接入"自动跳过;
+      # 真凭证(Seller Central 应用授权 + LWA + IAM)就绪后置 true 并补 app-id(经 local.properties/环境变量覆盖)
+      enabled: false
+      lwa-base-url: https://api.amazon.com
+      app-id: ${AMAZON_APP_ID:}
+      # SP-API 数据面端点/签名 region:NA 站默认;EU/FE 站换端点与 region(随开站配置,docs/04)
+      spapi-base-url: https://sellingpartnerapi-na.amazon.com
+      spapi-region: us-east-1
+      # 拉单店铺的 MarketplaceId 列表(逗号分隔,如 ATVPDKIKX0DER=US);空则拉单即报配置缺失
+      marketplace-ids: ${AMAZON_MARKETPLACE_IDS:}
+      # AWS 签名凭证(#3):长期 IAM 密钥走环境变量/local.properties(键=环境变量名,禁入配置文件);
+      # 配置 role-arn 时经 STS AssumeRole 换临时凭证并缓存,过期前 10 分钟刷新(与 LWA 刷新节奏同口径)
+      aws-access-key: ${AWS_ACCESS_KEY_ID:}
+      aws-secret-key: ${AWS_SECRET_ACCESS_KEY:}
+      role-arn: ${AMAZON_SPAPI_ROLE_ARN:}
+      role-session-name: erp-pull
+      sts-base-url: https://sts.amazonaws.com
+      sts-region: us-east-1
+  rate:
+    # 平台 API 调用限流(#3 PlatformRateGuard):按 platform+shop+bucket 令牌桶,
+    # 窗口状态持久化 Redis(Redisson RRateLimiter)防重启丢;无 Redisson Bean 时整体直通
+    enabled: true
+    # Redis 故障降级放行(限流是保护性横切,不绑架拉单;配额等待超时仍 fail-closed 上抛 429 由拉单重试)
+    fail-open: true
+    # 未显式配置的平台/桶走该保守间隔(毫秒/次)
+    default-interval-ms: 2000
+    amazon:
+      # SP-API 拉单保守默认;真值以响应头 x-amzn-RateLimit-Limit 为准,随 #3 SigV4 实调校准
+      pull-interval-ms: 2000
+
+logging:
+  pattern:
+    # traceId 由 TraceIdFilter 写入 MDC,与响应头 X-Trace-Id 同源,前端报障凭它定位整条日志
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{traceId:-}] %logger{40} - %msg%n"
+  level:
+    com.own.erp: debug

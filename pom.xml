@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      Spring Boot 4.x 世代(Spring Framework 7):
+      - Spring AI Alibaba 2.0 与 AgentScope 2.0 均要求 Boot 4.x,故基础栈固定在 4.0 稳定线
+      - 注意:Spring AI 2.0.0-M5 / spring-ai-alibaba 2.0.0-M1.1 / agentscope 2.0.0-RC5 尚未 GA,
+        版本升级时关注:Spring AI 2.0 GA、AgentScope 2.0 GA、Boot 4.1 GA(预计 2026-11)
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.6</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.own.erp</groupId>
+    <artifactId>ec-erp</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>ec-erp</name>
+    <description>自研电商ERP(国内+跨境) - 模块化单体架构, Boot 4 + Spring AI Alibaba 2.0 + AgentScope 2.0</description>
+
+    <modules>
+        <module>erp-common</module>
+        <module>erp-contract</module>
+        <module>erp-system</module>
+        <module>erp-shop</module>
+        <module>erp-goods</module>
+        <module>erp-order</module>
+        <module>erp-inventory</module>
+        <module>erp-purchase</module>
+        <module>erp-warehouse</module>
+        <module>erp-fulfill</module>
+        <module>erp-aftersale</module>
+        <module>erp-finance</module>
+        <module>erp-ads</module>
+        <module>erp-report</module>
+        <module>erp-platform-sdk</module>
+        <module>erp-ai</module>
+        <module>erp-api</module>
+        <module>erp-worker</module>
+        <!-- 开发工具(非运行时依赖):CRUD 脚手架代码生成器,用法见 erp-codegen/README.md -->
+        <module>erp-codegen</module>
+    </modules>
+
+    <properties>
+        <java.version>21</java.version>
+        <!-- MyBatis-Plus:Boot 4 必须用 boot4 专用 starter -->
+        <mybatis-plus.version>3.5.17</mybatis-plus.version>
+        <spring-ai.version>2.0.0-M5</spring-ai.version>
+        <spring-ai-alibaba.version>2.0.0-M1.1</spring-ai-alibaba.version>
+        <agentscope.version>2.0.0-RC5</agentscope.version>
+        <jjwt.version>0.13.0</jjwt.version>
+        <hutool.version>5.8.47</hutool.version>
+        <!-- springdoc 3.x 对应 Boot 4(2.8.x 对应 Boot 3,勿跨线);注解对齐 swagger-core 2.2.5x 同代 -->
+        <springdoc.version>3.1.0</springdoc.version>
+        <swagger-annotations.version>2.2.54</swagger-annotations.version>
+        <!-- Redisson 4.x 线:分布式锁唯一中间件(2026-09-04 #13 定版);只用核心包手工装配,不引 starter -->
+        <redisson.version>4.7.0</redisson.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-bom</artifactId>
+                <version>${spring-ai-alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.agentscope</groupId>
+                <artifactId>agentscope-spring-boot-starter</artifactId>
+                <version>${agentscope.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <!-- 3.5.9 起 starter 不再默认带 extension(IService/ServiceImpl/分页插件)与 jsqlparser,需显式引入 -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-extension</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-jsqlparser</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <!-- 工具库:StrUtil/CollUtil/时间转换等,全模块通用(2026-09-03 登记,5.8 GA 线) -->
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-core</artifactId>
+                <version>${hutool.version}</version>
+            </dependency>
+            <!-- 接口文档:注解(swagger-annotations)编译期全模块可见;springdoc UI 生成只在 erp-api 聚合入口 -->
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.swagger.core.v3</groupId>
+                <artifactId>swagger-annotations-jakarta</artifactId>
+                <version>${swagger-annotations.version}</version>
+            </dependency>
+            <!-- JWT(TODO#1):api 编译期依赖,impl/jackson 仅运行时 -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <!-- 分布式锁(docs/07 §1 ③,收口 LockService)与平台限流(#3 PlatformRateGuard RRateLimiter);
+                 引用方 erp-api 与 erp-platform-sdk,客户端 Bean 均由 erp-api 手工装配 -->
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson</artifactId>
+                <version>${redisson.version}</version>
+            </dependency>
+            <!-- 内部模块统一版本管理 -->
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-contract</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-system</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-shop</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-goods</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-order</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-inventory</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-purchase</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-warehouse</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-fulfill</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-aftersale</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-finance</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-ads</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-report</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-platform-sdk</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.own.erp</groupId>
+                <artifactId>erp-ai</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations-jakarta</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>

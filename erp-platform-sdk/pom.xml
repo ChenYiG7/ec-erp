@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.own.erp</groupId>
+        <artifactId>ec-erp</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>erp-platform-sdk</artifactId>
+    <description>平台适配防腐层:统一 SPI + 各平台 adapter(淘宝/京东/拼多多/抖店/Amazon/Shopee...),新平台只加实现不改主系统</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-common</artifactId>
+        </dependency>
+        <!-- @Component 注册 adapter 所需 -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+        <!-- adapter 平台调用:RestClient(spring-web,非 starter-web,无内嵌服务);版本走 Boot parent BOM -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+        </dependency>
+        <!-- 平台报文 JSON 解析(翻译层),版本走 Boot parent BOM -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- 平台限流 #3 PlatformRateGuard:Redisson RRateLimiter(令牌窗口状态持久化 Redis);
+             客户端 Bean 仍由 erp-api RedissonConfig 手工装配,本模块只依赖 API -->
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+        </dependency>
+        <!-- @ConditionalOnProperty:adapter 按配置开关注册(如 Amazon 默认关闭),版本走 Boot parent BOM -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

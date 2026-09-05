@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.own.erp</groupId>
+        <artifactId>ec-erp</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>erp-api</artifactId>
+    <description>主应用入口:聚合全部业务模块,单体部署(:8088)。一期拉单定时任务也在此进程内运行</description>
+
+    <dependencies>
+        <!-- 跨域契约接口实现(编排胶水):GoodsReferenceApiImpl/GoodsSkuApiImpl 在此注册(docs/07 §2.2) -->
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-contract</artifactId>
+        </dependency>
+        <!-- 业务模块 -->
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-system</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-shop</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-goods</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-order</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-inventory</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-purchase</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-warehouse</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-fulfill</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-aftersale</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-finance</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-ads</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-report</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-platform-sdk</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-ai</artifactId>
+        </dependency>
+
+        <!-- 运行时基础 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- 参数校验(@Valid),TODO#7 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <!-- TODO#1:安全过滤链只在聚合入口配置,业务模块不感知 Security starter -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <!-- 接口文档 springdoc(UI):只进聚合入口,业务模块只有 swagger-annotations 编译期依赖 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <!-- 分布式锁(#13):Redisson 核心包,RedissonConfig 手工装配;不用 starter——Boot 4 线 autoconfig 版本耦合 -->
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-extension</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -1,0 +1,23 @@
+{
+  "OrderItems": [
+    {
+      "OrderItemId": "02553626332530-1",
+      "ASIN": "B00EXAMPLE1",
+      "SellerSKU": "ERP-SKU-001",
+      "Title": "Wireless Earbuds, Black",
+      "QuantityOrdered": 2,
+      "QuantityShipped": 2,
+      "ItemPrice": {
+        "CurrencyCode": "USD",
+        "Amount": "41.00"
+      }
+    },
+    {
+      "OrderItemId": "02553626332530-2",
+      "ASIN": "B00EXAMPLE2",
+      "SellerSKU": "ERP-SKU-002",
+      "Title": "USB-C Cable 2m",
+      "QuantityOrdered": 1
+    }
+  ]
+}

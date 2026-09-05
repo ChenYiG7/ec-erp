@@ -1,0 +1,25 @@
+{
+  "AmazonOrderId": "902-3159894-4163816",
+  "PurchaseDate": "2026-08-29T22:18:44Z",
+  "LastUpdateDate": "2026-09-01T08:22:10Z",
+  "OrderStatus": "Shipped",
+  "FulfillmentChannel": "MFN",
+  "SalesChannel": "Amazon.com",
+  "ShipServiceLevel": "Std US Domain",
+  "OrderTotal": {
+    "CurrencyCode": "USD",
+    "Amount": "109.36"
+  },
+  "ShippingAddress": {
+    "Name": "John Smith",
+    "AddressLine1": "1234 Westlake Ave",
+    "AddressLine2": "Suite 500",
+    "City": "Seattle",
+    "StateOrRegion": "WA",
+    "PostalCode": "98101",
+    "CountryCode": "US",
+    "Phone": "+1 206-555-0100"
+  },
+  "BuyerNote": "Please ship ASAP",
+  "MarketplaceId": "ATVPDKIKX0DER"
+}
