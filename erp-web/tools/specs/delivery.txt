@@ -1,0 +1,34 @@
+# 发货单 spec(gen:page 拍板表;#11 发货域:列表 + ship/deliver/cancel + 发货明细展开行)
+# 契约:GET /api/fulfill/delivery-orders + GET/PUT/DELETE /api/fulfill/delivery-orders/{id} + POST /{id}/ship /{id}/deliver /{id}/cancel
+# 建发货单表单(选 WAIT_SHIP+SELF_FULFILL 订单 → 仅 sku_id 已绑定行 → 逐行 ship_qty,服务端剩余量预校验)不在本期射程,
+# 人工扩展(同入库单拍板);readonly 只裁 Form/写按钮,动作端点照常生成;发货明细展开行同为人工槽
+module=fulfill
+domain=delivery
+base=fulfill/delivery-orders
+entity=DeliveryOrder
+nameZh=发货单
+permPrefix=fulfill:delivery
+todoId=11
+menuParent=8
+menuId=14
+path=/fulfill/delivery-orders
+component=fulfill/delivery/index
+readonly=true
+icon=van
+
+field=deliveryNo       role=all    label=发货单号      width=180
+field=orderId          role=all    label=订单ID        width=110
+field=shopId           role=all    label=店铺ID        width=100
+field=warehouseId      role=column label=仓库ID        width=100
+field=type             role=column label=类型          enum=SELF_FULFILL:自发货:primary|FBA:FBA:success|OVERSEAS:海外仓:warning  width=110  tag
+field=status           role=column label=状态          enum=PENDING:待发货:warning|SHIPPED:已发货:primary|DELIVERED:已签收:success|CANCELLED:已取消:info  width=100  tag
+field=logisticsCompany role=column label=物流公司      width=120
+field=trackingNo       role=column label=运单号        width=160
+field=shipByTime       role=column label=承诺发货时限  width=170
+field=shippedAt        role=column label=发货时间      width=170
+field=createdAt        role=column label=创建时间      width=170
+
+# 页面级动作槽位(ship()/deliver()/cancel() api 已生成,按钮与调用人工补;条件更新即守卫,失败弹拦截器报错)
+todo=ship:仅 PENDING→SHIPPED,同事务逐行 OUT_SHIP 动账+回写 shipped_at+发足判定推进订单,确认弹窗后调用
+todo=deliver:SHIPPED→DELIVERED 签收,确认弹窗后调用
+todo=cancel:仅 PENDING 可取消,确认弹窗后调用

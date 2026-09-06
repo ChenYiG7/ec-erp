@@ -30,6 +30,9 @@ public final class PurchaseConsts {
     /** inventory_flow.biz_type:采购入库核销(关联单据 = purchase_inbound.id) */
     public static final String BIZ_TYPE_PURCHASE_INBOUND = "PURCHASE_INBOUND";
 
+    /** inventory_flow.biz_type:采购审核占在途/关闭释放(关联单据 = purchase_order.id;#7 2026-09-06) */
+    public static final String BIZ_TYPE_PURCHASE_ORDER = "PURCHASE_ORDER";
+
     private PurchaseConsts() {
     }
 }

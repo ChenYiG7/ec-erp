@@ -1,0 +1,21 @@
+# 品牌管理 spec(gen:page 拍板表;行内 # 后为注释,# 开头整行注释)
+# 契约特性(2026-09-06 核账):GET /api/goods/brands 仅 PageQuery,无业务过滤字段 → 无搜索表单;
+# save body = Brand 本体(生成器按实际 body 产 BrandSaveRequest 类型,id/createdAt 等冗余字段由后端忽略);
+# 无 GET /{id} detail 端点,编辑回填走行数据(Form 本就 Object.assign(row),不受影响)
+module=goods
+domain=brand
+base=goods/brands
+entity=Brand
+nameZh=品牌管理
+permPrefix=goods:brand
+todoId=5
+menuParent=6
+menuId=24
+path=/goods/brands
+icon=shopping
+
+field=name       role=all    label=品牌名称    width=220  required
+field=logoUrl    role=form   label=品牌Logo
+field=remark     role=form   label=备注
+field=status     role=all    label=状态        enum=1:启用:success|0:停用:danger  width=90
+field=createdAt  role=column label=创建时间    width=170

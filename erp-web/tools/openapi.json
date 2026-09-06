@@ -3607,6 +3607,42 @@
         }
       }
     },
+    "/api/goods/skus/batch": {
+      "get": {
+        "tags": [
+          "商品SKU"
+        ],
+        "summary": "批量按 ID 查 SKU",
+        "description": "跨页 skuId 列翻译数据源(#7 专条):库存/采购/入库/发货/售后/订单明细行与 SKU 匹配页;查无的 ID 不在结果中,前端回落显示裸 ID",
+        "operationId": "listBatch",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultListSkuOptionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/goods/categories/tree": {
       "get": {
         "tags": [
@@ -4064,10 +4100,6 @@
             "maxLength": 255,
             "minLength": 0
           },
-          "createdBy": {
-            "type": "integer",
-            "format": "int64"
-          },
           "items": {
             "type": "array",
             "items": {
@@ -4117,10 +4149,6 @@
             "type": "string",
             "maxLength": 255,
             "minLength": 0
-          },
-          "createdBy": {
-            "type": "integer",
-            "format": "int64"
           },
           "items": {
             "type": "array",
@@ -4318,10 +4346,6 @@
             "type": "string",
             "maxLength": 512,
             "minLength": 0
-          },
-          "createdBy": {
-            "type": "integer",
-            "format": "int64"
           },
           "items": {
             "type": "array",
@@ -6913,6 +6937,39 @@
             "items": {
               "$ref": "#/components/schemas/ProductSkuResponse"
             }
+          }
+        }
+      },
+      "ResultListSkuOptionResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkuOptionResponse"
+            }
+          }
+        }
+      },
+      "SkuOptionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "skuCode": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
           }
         }
       },

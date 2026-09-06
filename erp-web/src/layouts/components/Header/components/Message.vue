@@ -51,7 +51,7 @@ const badgeValue = computed(() => (notificationStore.unreadCount > 99 ? '99+' : 
 
 const loadList = async () => {
   const data = await NotificationApi.page({ pageNo: 1, pageSize: PAGE_SIZE })
-  list.value = data.records
+  list.value = data.list
 }
 
 const markRead = async (item: SysNotificationResponse) => {

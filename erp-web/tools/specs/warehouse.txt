@@ -1,0 +1,22 @@
+# 仓库管理 spec(gen:page 拍板表;#16 前端逐域铺开——库存管理目录第三页)
+# 契约:GET/POST /api/warehouse/warehouses + GET/PUT/DELETE /api/warehouse/warehouses/{id}
+# Query 无过滤字段(仅分页)→ 列表页无搜索区,基础配置数据量小可接受
+module=warehouse
+domain=warehouse
+base=warehouse/warehouses
+entity=Warehouse
+nameZh=仓库管理
+permPrefix=warehouse
+todoId=16
+menuParent=17
+menuId=20
+path=/inventory/warehouses
+component=warehouse/warehouse/index
+icon=box
+
+field=whName   role=all    label=仓库名称  width=200  required
+field=whType   role=all    label=仓库类型  enum=SELF:自仓|FBA:FBA|OVERSEAS:海外仓|VIRTUAL:虚拟仓  width=110  required
+field=country  role=all    label=国家      width=90
+field=address  role=all    label=仓库地址
+field=status   role=all    label=状态      enum=1:启用:success|0:禁用:danger  width=90
+field=createdAt role=column label=创建时间  width=170

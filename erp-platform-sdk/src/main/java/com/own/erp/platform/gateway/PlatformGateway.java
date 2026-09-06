@@ -2,6 +2,7 @@ package com.own.erp.platform.gateway;
 
 import com.own.erp.platform.AuthToken;
 import com.own.erp.platform.PlatformClient;
+import com.own.erp.platform.PlatformShipment;
 import com.own.erp.platform.PlatformType;
 import com.own.erp.platform.ShopSession;
 import com.own.erp.platform.unified.UnifiedOrder;
@@ -72,9 +73,9 @@ public class PlatformGateway implements PlatformClient {
     }
 
     @Override
-    public void uploadTracking(ShopSession session, String platformOrderId, String trackingNo, String logisticsCode) {
+    public void uploadTracking(ShopSession session, PlatformShipment shipment) {
         rateGuard.acquire(platform(), session.getShopId(), PlatformRateGuard.BUCKET_WRITE);
-        delegate.uploadTracking(session, platformOrderId, trackingNo, logisticsCode);
+        delegate.uploadTracking(session, shipment);
     }
 
     @Override

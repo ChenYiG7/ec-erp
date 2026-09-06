@@ -1,0 +1,26 @@
+# 库存流水 spec(gen:page 拍板表;#7 库存域:只读列表,flow 与 change() 同事务落库,禁止旁路)
+# 契约:GET /api/inventory/flows + GET /api/inventory/flows/{id};无动作;flow_type 词表 = InventoryConsts/DDL COMMENT 三方同步
+module=inventory
+domain=flow
+base=inventory/flows
+entity=InventoryFlow
+nameZh=库存流水
+permPrefix=inventory:flow
+todoId=7
+menuParent=17
+menuId=19
+path=/inventory/flows
+component=inventory/flow/index
+readonly=true
+icon=document
+
+field=skuId        role=all    label=内部SKU    width=130
+field=warehouseId  role=all    label=仓库ID     width=110
+field=flowType     role=column label=流水类型   enum=IN_PURCHASE:采购入库:success|OUT_SHIP:发货出库:primary|IN_RETURN:退货入库:warning|ADJUST:调整:info|TRANSFER_OUT:调拨转出:danger|TRANSFER_IN:调拨转入:success  width=130  tag
+field=quantity     role=column label=变更数量   width=100
+field=beforeQty    role=column label=变更前     width=100
+field=afterQty     role=column label=变更后     width=100
+field=bizType      role=column label=业务类型   width=140
+field=bizId        role=column label=业务单据ID width=130
+field=remark       role=column label=备注
+field=createdAt    role=column label=创建时间   width=170

@@ -77,7 +77,7 @@ INSERT IGNORE INTO sys_role (id, role_name, role_key, status, remark) VALUES
 INSERT IGNORE INTO sys_user (id, username, password, nickname, status) VALUES
 (1, 'admin', '$2a$10$RUQnRQ.nZl96aGYpIqYSfOcBL4arfmpxEvtUuF8qQ05EMJ7hRKY5e', '管理员', 1);
 INSERT IGNORE INTO sys_user_role (user_id, role_id) VALUES (1, 1);
--- 菜单种子(#16 前端工程收敛:页面 component 权威源 = erp-web/tools/specs/*;按钮 id 段 200+,按父菜单分组)
+-- 菜单种子(#16 前端工程收敛:页面 component 权威源 = erp-web/tools/specs/*;按钮 id 段 200+ 与 menuId*100+n(1100+,gen:page 生成段),按父菜单分组)
 INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path, component, icon, sort) VALUES
 (1, 0, '系统管理', 1, NULL, '/system', NULL, 'setting', 1),
 (2, 1, '用户管理', 2, 'system:user:list', '/system/users', 'system/user/index', 'user', 1),
@@ -89,7 +89,32 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path
 (8, 0, '订单中心', 1, NULL, '/order', NULL, 'order', 3),
 (9, 8, '订单管理', 2, 'order:list', '/order/list', 'order/index', 'documentation', 1),
 (100, 1, '字典管理', 2, 'system:dict:list', '/system/dicts', 'system/dict/index', 'notebook', 5),
-(101, 6, '平台商品', 2, 'shop:product:list', '/goods/shop-products', 'shop/shop-product/index', 'list', 2);
+(101, 6, '平台商品', 2, 'shop:product:list', '/goods/shop-products', 'shop/shop-product/index', 'list', 2),
+-- 采购域(#10 前端三页 2026-09-05:supplier 全 CRUD / 采购单 audit·close / 入库单 confirm·cancel;specs=purchase-*.txt)
+(10, 0, '采购管理', 1, NULL, '/purchase', NULL, 'suitcase', 4),
+(11, 10, '供应商管理', 2, 'purchase:supplier:list', '/purchase/suppliers', 'purchase/supplier/index', 'office-building', 1),
+(12, 10, '采购单', 2, 'purchase:order:list', '/purchase/orders', 'purchase/order/index', 'tickets', 2),
+(13, 10, '入库单', 2, 'purchase:inbound:list', '/purchase/inbounds', 'purchase/inbound/index', 'box', 3),
+-- 发货单(#11 前端页 2026-09-06:列表 + ship/deliver/cancel + 明细展开,订单中心下;spec=delivery.txt)
+(14, 8, '发货单', 2, 'fulfill:delivery:list', '/fulfill/delivery-orders', 'fulfill/delivery/index', 'van', 2),
+-- 售后单(#12 前端页 2026-09-06:列表 + 五动作人工处理 + 收退件复合表单,订单中心下;spec=aftersale-order.txt)
+(15, 8, '售后单', 2, 'aftersale:order:list', '/aftersale/orders', 'aftersale/order/index', 'service', 3),
+-- SKU匹配(#5 前端页 2026-09-06:待匹配列表 + 人工绑定,商品中心下;spec=shop-product-sku.txt)
+(16, 6, 'SKU匹配', 2, 'shop:product-sku:list', '/goods/shop-product-skus', 'shop/shop-product-sku/index', 'connection', 3),
+-- 库存管理(#7 前端两页 2026-09-06:查询 + 流水,均为只读;specs=inventory.txt/inventory-flow.txt)
+(17, 0, '库存管理', 1, NULL, '/inventory', NULL, 'house', 5),
+(18, 17, '库存查询', 2, 'inventory:list', '/inventory/inventories', 'inventory/inventory/index', 'grid', 1),
+(19, 17, '库存流水', 2, 'inventory:flow:list', '/inventory/flows', 'inventory/flow/index', 'document', 2),
+-- 仓库管理(#16 前端页 2026-09-06:全 CRUD,库存管理目录下;spec=warehouse.txt)
+(20, 17, '仓库管理', 2, 'warehouse:list', '/inventory/warehouses', 'warehouse/warehouse/index', 'box', 3),
+-- 拉单日志(#4 前端观测页 2026-09-06:pull_log 只读列表,系统管理目录下;spec=pull-log.txt)
+(21, 1, '拉单日志', 2, 'shop:pulllog:list', '/system/pull-logs', 'shop/pull-log/index', 'document', 6),
+-- 通知中心(#14 完整列表面 2026-09-06:铃铛下拉之外的全量分页 + 已读过滤;页面动作仅本人已读状态无 permKey)
+(22, 1, '通知中心', 2, 'system:notification:list', '/system/notifications', 'system/notification/index', 'bell', 7),
+-- 商品分类(#5 前端树形页 2026-09-06:手写页,gen:page 不适用——树形域无分页端点;编辑态禁改父级,后端成环校验 TODO#7 待补)
+(23, 6, '分类管理', 2, 'goods:category:list', '/goods/categories', 'goods/category/index', 'tree', 4),
+-- 品牌管理(#5 gen:page 生成 2026-09-06,spec=goods-brand.txt;契约无业务过滤字段,页无搜索表单)
+(24, 6, '品牌管理', 2, 'goods:brand:list', '/goods/brands', 'goods/brand/index', 'shopping', 5);
 INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key) VALUES
 (200, 2, '新增', 3, 'system:user:add'),
 (201, 2, '编辑', 3, 'system:user:edit'),
@@ -109,14 +134,63 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key) VALU
 (233, 5, '平台授权', 3, 'shop:auth-url'),
 (240, 100, '新增', 3, 'system:dict:add'),
 (241, 100, '编辑', 3, 'system:dict:edit'),
-(242, 100, '删除', 3, 'system:dict:remove');
+(242, 100, '删除', 3, 'system:dict:remove'),
+-- 采购域按钮(#10 前端三页;id 段 = menuId*100+n,audit/close 后端另有 @PreAuthorize hasRole('admin') 双闸)
+(1101, 11, '新增', 3, 'purchase:supplier:add'),
+(1102, 11, '编辑', 3, 'purchase:supplier:edit'),
+(1103, 11, '删除', 3, 'purchase:supplier:remove'),
+(1201, 12, '新增', 3, 'purchase:order:add'),
+(1202, 12, '编辑', 3, 'purchase:order:edit'),
+(1203, 12, '删除', 3, 'purchase:order:remove'),
+(1204, 12, '审核', 3, 'purchase:order:audit'),
+(1205, 12, '关闭', 3, 'purchase:order:close'),
+(1301, 13, '确认入库', 3, 'purchase:inbound:confirm'),
+(1302, 13, '取消', 3, 'purchase:inbound:cancel'),
+-- 新建入库单(#10 建单表单人工扩展槽 2026-09-06,form=InboundCreateForm;已建库直接跑新增段)
+(1303, 13, '新建入库单', 3, 'purchase:inbound:add'),
+-- 发货单按钮(#11 前端页;id 段 = menuId*100+n,条件更新即守卫,后端不限 admin)
+(1401, 14, '确认发货', 3, 'fulfill:delivery:ship'),
+(1402, 14, '标记签收', 3, 'fulfill:delivery:deliver'),
+(1403, 14, '取消', 3, 'fulfill:delivery:cancel'),
+-- 新建发货单(#11 建单表单人工扩展槽 2026-09-06,form=DeliveryCreateForm;已建库直接跑新增段)
+(1404, 14, '新建发货单', 3, 'fulfill:delivery:add'),
+-- 编辑发货单(#11 后补物流信息槽位 2026-09-06,form=DeliveryEditForm;仅 PENDING,明细整体替换并重算占用)
+(1405, 14, '编辑发货单', 3, 'fulfill:delivery:edit'),
+-- 售后单按钮(#12 前端页,五动作按状态机裁剪)
+(1501, 15, '同意', 3, 'aftersale:order:agree'),
+(1502, 15, '拒绝', 3, 'aftersale:order:reject'),
+(1503, 15, '收退件', 3, 'aftersale:order:receive-return'),
+(1504, 15, '退款', 3, 'aftersale:order:refund'),
+(1505, 15, '完成', 3, 'aftersale:order:complete'),
+-- SKU匹配按钮(#5 前端页;sku_id 存在性校验在后端)
+(1601, 16, '人工绑定', 3, 'shop:product-sku:bind'),
+-- 仓库管理按钮(#16 前端页;id 段 = menuId*100+n)
+(2001, 20, '新增', 3, 'warehouse:add'),
+(2002, 20, '编辑', 3, 'warehouse:edit'),
+(2003, 20, '删除', 3, 'warehouse:remove'),
+-- 商品分类按钮(#5 前端树形页 2026-09-06)
+(2301, 23, '新增', 3, 'goods:category:add'),
+(2302, 23, '编辑', 3, 'goods:category:edit'),
+(2303, 23, '删除', 3, 'goods:category:remove'),
+-- 品牌管理按钮(#5 gen:page 生成 2026-09-06)
+(2401, 24, '新增', 3, 'goods:brand:add'),
+(2402, 24, '编辑', 3, 'goods:brand:edit'),
+(2403, 24, '删除', 3, 'goods:brand:remove');
 INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
 (1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(1,9),(1,100),(1,101),
 (1,200),(1,201),(1,202),(1,203),(1,204),(1,210),(1,211),(1,212),(1,213),
-(1,220),(1,221),(1,222),(1,230),(1,231),(1,232),(1,233),(1,240),(1,241),(1,242);
--- ⚠️ 已建库(种子 1~9 已插入)需手工执行对齐:INSERT IGNORE 不会更新 id=7 路径/组件 --
--- UPDATE sys_menu SET path='/goods/product', component='goods/product/index' WHERE id=7;
--- 再手工执行上面两条新增段(100/101 + 按钮段)与 sys_role_menu 新增段;
+(1,220),(1,221),(1,222),(1,230),(1,231),(1,232),(1,233),(1,240),(1,241),(1,242),
+(1,10),(1,11),(1,12),(1,13),(1,14),(1,15),(1,16),(1,17),(1,18),(1,19),
+(1,1101),(1,1102),(1,1103),(1,1201),(1,1202),(1,1203),(1,1204),(1,1205),(1,1301),(1,1302),
+(1,1401),(1,1402),(1,1403),(1,1404),(1,1405),
+(1,1501),(1,1502),(1,1503),(1,1504),(1,1505),
+(1,1601),
+(1,20),(1,2001),(1,2002),(1,2003),(1,21),(1,22),
+(1,23),(1,2301),(1,2302),(1,2303),(1,24),(1,2401),(1,2402),(1,2403);
+-- ⚠️ 已建库(旧种子已插入)需手工执行对齐 --
+-- UPDATE sys_menu SET path='/goods/product', component='goods/product/index' WHERE id=7;   -- IGNORE 不更新存量行
+-- 再执行上面对应新增段(各新增段均为全新 id,含后续追加的按钮/页面/授权行,整段重跑 INSERT IGNORE 即可,幂等);
+-- 菜单变更后重新登录生效
 
 CREATE TABLE IF NOT EXISTS sys_dict (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
@@ -486,8 +560,8 @@ CREATE TABLE IF NOT EXISTS inventory (
     sku_id       BIGINT NOT NULL COMMENT 'SKU ID(product_sku.id)',
     warehouse_id BIGINT NOT NULL COMMENT '仓库ID(warehouse.id)',
     qty_on_hand  INT    NOT NULL DEFAULT 0 COMMENT '在库',
-    qty_locked   INT    NOT NULL DEFAULT 0 COMMENT '占用(已分配未发货)',
-    qty_transit  INT    NOT NULL DEFAULT 0 COMMENT '在途(采购未入库)',
+    qty_locked   INT    NOT NULL DEFAULT 0 COMMENT '占用(发货单占用未发货,建单占用/取消·删除·改单释放,#11)',
+    qty_transit  INT    NOT NULL DEFAULT 0 COMMENT '在途(采购审核占用未入库,审核占/关闭释放,#10)',
     qty_available INT  NOT NULL DEFAULT 0 COMMENT '可用=在库-占用,由InventoryService同事务维护,禁止旁路update',
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -498,7 +572,7 @@ CREATE TABLE IF NOT EXISTS inventory_flow (
     id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
     sku_id       BIGINT      NOT NULL COMMENT 'SKU ID(product_sku.id)',
     warehouse_id BIGINT      NOT NULL COMMENT '仓库ID(warehouse.id)',
-    flow_type    VARCHAR(32) NOT NULL COMMENT 'IN_PURCHASE/OUT_SHIP/IN_RETURN/ADJUST/TRANSFER_OUT/TRANSFER_IN',
+    flow_type    VARCHAR(32) NOT NULL COMMENT 'IN_PURCHASE采购入库(核销在途)/OUT_SHIP销售出库(核销占用)/IN_RETURN售后退货入库/ADJUST人工调整/TRANSFER_OUT调拨出库/TRANSFER_IN调拨入库/IN_TRANSIT采购在途(审核占/关闭释放)/LOCK_SHIP发货单占用(建单占/取消释放)(#7 2026-09-06 八值)',
     quantity     INT         NOT NULL COMMENT '正负数',
     before_qty   INT         NOT NULL COMMENT '变更前可用库存',
     after_qty    INT         NOT NULL COMMENT '变更后可用库存',

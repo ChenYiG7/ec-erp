@@ -8,6 +8,7 @@ import com.own.erp.goods.mapper.ProductMapper;
 import com.own.erp.goods.mapper.ProductSkuMapper;
 import com.own.erp.goods.request.command.ProductSaveRequest;
 import com.own.erp.goods.request.command.ProductSkuSaveRequest;
+import com.own.erp.goods.response.SkuOptionResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DuplicateKeyException;
@@ -16,6 +17,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -106,6 +108,52 @@ class ProductServiceTest {
         assertFalse(productService.existsSku(404L));
         assertFalse(productService.existsSku(null));
         verifyNoInteractions(productMapper);
+    }
+
+    // ---------- 批量按 ID 查 SKU 选项(#7 专条,前端 skuId 列翻译数据源) ----------
+
+    @Test
+    void listSkuOptionsReturnsEmptyWithoutHittingMapperOnEmptyIds() {
+        assertTrue(productService.listSkuOptions(List.of()).isEmpty());
+        verifyNoInteractions(skuMapper, productMapper);
+    }
+
+    @Test
+    void listSkuOptionsAssemblesProductNameFromSpu() {
+        ProductSku sku = ProductSku.builder().id(7L).productId(3L).skuCode("SKU-001").build();
+        when(skuMapper.selectByIds(List.of(7L))).thenReturn(List.of(sku));
+        when(productMapper.selectByIds(List.of(3L))).thenReturn(List.of(
+                Product.builder().id(3L).name("手机壳").build()));
+
+        List<SkuOptionResponse> result = productService.listSkuOptions(List.of(7L));
+
+        assertEquals(1, result.size());
+        assertEquals(7L, result.get(0).id());
+        assertEquals("SKU-001", result.get(0).skuCode());
+        assertEquals("手机壳", result.get(0).productName());
+    }
+
+    @Test
+    void listSkuOptionsKeepsRowWithNullNameWhenSpuMissing() {
+        ProductSku sku = ProductSku.builder().id(7L).productId(404L).skuCode("SKU-001").build();
+        when(skuMapper.selectByIds(List.of(7L))).thenReturn(List.of(sku));
+        when(productMapper.selectByIds(List.of(404L))).thenReturn(List.of());
+
+        List<SkuOptionResponse> result = productService.listSkuOptions(List.of(7L));
+
+        assertEquals("SKU-001", result.get(0).skuCode());
+        assertNull(result.get(0).productName());
+    }
+
+    @Test
+    void listSkuOptionsOmitsUnknownIds() {
+        when(skuMapper.selectByIds(List.of(7L, 8L))).thenReturn(List.of(
+                ProductSku.builder().id(7L).productId(3L).skuCode("SKU-001").build()));
+
+        List<SkuOptionResponse> result = productService.listSkuOptions(List.of(7L, 8L));
+
+        assertEquals(1, result.size());
+        assertEquals(7L, result.get(0).id());
     }
 
     // ---------- skuCode 全局唯一(#5 收口) ----------

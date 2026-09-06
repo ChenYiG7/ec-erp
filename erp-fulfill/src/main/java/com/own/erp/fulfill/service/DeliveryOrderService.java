@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.InventoryChangeApi;
 import com.own.erp.contract.InventoryChangeCommand;
 import com.own.erp.contract.InventoryConsts;
@@ -37,12 +38,9 @@ import java.util.Map;
  * @Description : 发货单服务:delivery_order(+delivery_order_item 子表)域整域收口,Controller 不直连 Mapper(docs/07 §2.1)。
  *     发货单状态机(#11):PENDING(可改/删/取消)→ ship → SHIPPED(库存已动账,禁删改)→ DELIVERED(签收,终态);
  *     CANCELLED 仅 PENDING 可取消(终态,不占订单可发量)。
- *     ship = 本系统唯一出库动账路径(#11,同 #10 confirm 先例):同事务内 ①状态占位(条件更新防并发双确认)→
- *     ②逐行经 InventoryChangeApi 走 InventoryService.change 唯一入口写 flow(flow_type=OUT_SHIP,docs/07 铁律 4)→
- *     ③回写 shipped_at → ④发足判定,全部订单明细(仅 sku_id 已绑定行)发足时经 ShopOrderApi.casOrderStatus
- *     推进订单 WAIT_SHIP→SHIPPED(部分发货不推进,发货进度事实源 = delivery_order_item,
- *     不可存 shop_order_item——拉单 replaceItems 先删后插会冲掉)。
- *     任一步失败整体回滚,库存/流水/发货单状态/订单状态强一致。
+ *     占用生命周期(#7 2026-09-06 拍板升级:建单即占库存,取代旧"建单不动账"口径)——
+ *     save 占 LOCK_SHIP(占用+可用-,缺货建单即拦)→ ship 核销 OUT_SHIP(在库-占用-,可用不变)/
+ *     cancel·delete 释放(LOCK_SHIP 负数)/ update 释放旧占+重占新占(行锁串行化与 ship 竞态);
  *     建单前置:订单 WAIT_SHIP + 履约渠道 SELF_FULFILL(FBA/海外仓平台履约不产生系统内发货单,docs/03)+
  *     出库仓存在(WarehouseApi 防幻影库存,同 #10)
  */
@@ -54,18 +52,21 @@ public class DeliveryOrderService {
     private final ShopOrderApi shopOrderApi;
     private final WarehouseApi warehouseApi;
     private final InventoryChangeApi inventoryChangeApi;
+    private final CurrentUserApi currentUserApi;
 
     /** 契约接口注入一律 @Lazy 断构造环:实现收口 erp-api 反向注入域 Service,急切装配成环(docs/07 §2.2) */
     public DeliveryOrderService(DeliveryOrderMapper deliveryOrderMapper,
                                 DeliveryOrderItemMapper deliveryOrderItemMapper,
                                 @Lazy ShopOrderApi shopOrderApi,
                                 @Lazy WarehouseApi warehouseApi,
-                                @Lazy InventoryChangeApi inventoryChangeApi) {
+                                @Lazy InventoryChangeApi inventoryChangeApi,
+                                @Lazy CurrentUserApi currentUserApi) {
         this.deliveryOrderMapper = deliveryOrderMapper;
         this.deliveryOrderItemMapper = deliveryOrderItemMapper;
         this.shopOrderApi = shopOrderApi;
         this.warehouseApi = warehouseApi;
         this.inventoryChangeApi = inventoryChangeApi;
+        this.currentUserApi = currentUserApi;
     }
 
     /** 分页查询(按 id 倒序;过滤:发货单号模糊/订单/店铺/状态);列表不带明细 */
@@ -97,9 +98,11 @@ public class DeliveryOrderService {
     }
 
     /**
-     * 创建发货单(待发货):校验订单可发(存在/WAIT_SHIP/SELF_FULFILL)+ 出库仓存在 +
-     * 明细行合法(归属/sku_id 已绑定/不重复/剩余量预校验)→ PENDING + shop_id 按订单回填 →
-     * 落主表与明细(同事务)。单号/运单号撞 uk 捕 DuplicateKeyException 友好报错
+     * 创建发货单(待发货,建单即占用库存,#7 2026-09-06 拍板升级,#11):校验订单可发
+     * (存在/WAIT_SHIP/SELF_FULFILL)+ 出库仓存在 + 明细行合法(归属/sku_id 已绑定/不重复/剩余量预校验)
+     * → PENDING + shop_id 按订单回填 → 落主表与明细 → 逐行经 InventoryChangeApi 占库存
+     * (flow_type=LOCK_SHIP 正数:占用+数量、可用-数量,守卫=可用充足,可用不足即建单失败)。
+     * 任一步失败整体回滚,单据/明细/占用强一致。单号/运单号撞 uk 捕 DuplicateKeyException 友好报错
      */
     @Transactional(rollbackFor = Exception.class)
     public Long save(DeliveryOrderSaveRequest request) {
@@ -109,9 +112,11 @@ public class DeliveryOrderService {
         }
         List<DeliveryOrderItem> lines = assembleLines(request.items(), view, occupiedByOrderItem(view.orderId(), null));
         DeliveryOrder deliveryOrder = request.toEntity();
-        // 写前回填服务端管理列(setter 白名单):状态固定待发货,店铺按订单回填
+        // 写前回填服务端管理列(setter 白名单):状态固定待发货,店铺按订单回填,createdBy 按 SecurityContext
         deliveryOrder.setStatus(DeliveryConsts.DELIVERY_PENDING);
         deliveryOrder.setShopId(view.shopId());
+        Long operator = currentUserApi.currentUserId();
+        deliveryOrder.setCreatedBy(operator);
         try {
             deliveryOrderMapper.insert(deliveryOrder);
         } catch (DuplicateKeyException e) {
@@ -121,16 +126,21 @@ public class DeliveryOrderService {
             line.setDeliveryId(deliveryOrder.getId());
             deliveryOrderItemMapper.insert(line);
         }
+        occupyForDelivery(deliveryOrder.getId(), lines, request.warehouseId(),
+                "发货单占用:" + deliveryOrder.getDeliveryNo(), operator);
         return deliveryOrder.getId();
     }
 
     /**
      * 更新:仅 PENDING 可改(待发货单调整明细/物流信息);明细整体替换;不允许变更关联订单。
-     * 数量约束按当前占用(排除自身在途)预校验,真正的原子兜底在 ship(库存动账 change() 余额不足回滚)
+     * 行锁读(selectByIdForUpdate)串行化与 ship/cancel 的竞态(禁 check-then-act 串状态,docs/07 §6.3):
+     * 先改单则 ship 等 commit 后核销新占用,先 ship 则此处行锁读到 SHIPPED 即拒。
+     * 同事务释放旧占用(旧仓旧明细 LOCK_SHIP 负数)→ 替换单据与明细 → 重新占用(新仓新明细),
+     * 失败整体回滚;数量约束按当前占用(排除自身在途)预校验,原子兜底在占用动账与 ship 核销
      */
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, DeliveryOrderSaveRequest request) {
-        DeliveryOrder exist = deliveryOrderMapper.selectById(id);
+        DeliveryOrder exist = deliveryOrderMapper.selectByIdForUpdate(id);
         if (exist == null) {
             throw new BusinessException("发货单不存在:" + id);
         }
@@ -146,6 +156,7 @@ public class DeliveryOrderService {
         }
         List<DeliveryOrderItem> lines = assembleLines(request.items(), view,
                 occupiedByOrderItem(view.orderId(), id));
+        releaseOccupation(exist);
         DeliveryOrder deliveryOrder = request.toEntity();
         deliveryOrder.setId(id);
         try {
@@ -159,12 +170,15 @@ public class DeliveryOrderService {
             line.setDeliveryId(id);
             deliveryOrderItemMapper.insert(line);
         }
+        occupyForDelivery(id, lines, request.warehouseId(),
+                "发货单占用:" + request.deliveryNo(), exist.getCreatedBy());
     }
 
     /**
      * 确认发货(#11 核心,同 #10 confirm 先例):PENDING → SHIPPED,同事务完成出库动账与订单推进。
      * ①条件更新占位 SHIPPED(并发双确认/重复确认仅一个成功,affected=0 拒;失败由事务整体回滚);
-     * ②逐行库存变更(唯一入口 InventoryService.change,flow_type=OUT_SHIP 数量为负,biz 指向本发货单);
+     * ②逐行库存变更(唯一入口 InventoryService.change,flow_type=OUT_SHIP 数量为负 = 出库核销占用:
+     * 在库-数量、占用-数量,可用不变——建单时已占,守卫=在库/占用充足,biz 指向本发货单);
      * ③回写 shipped_at;
      * ④发足判定:按 order_item_id 聚合该订单全部非 CANCELLED 发货单明细,仅 sku_id 已绑定行全部发足时
      * casOrderStatus 推进 WAIT_SHIP→SHIPPED(未命中不报错——部分发货/订单已被拉单推进都属正常);
@@ -201,11 +215,17 @@ public class DeliveryOrderService {
         advanceOrderIfFullyShipped(delivery.getOrderId());
     }
 
-    /** 取消:仅 PENDING → CANCELLED(终态);已发货库存已动账,走不了取消 */
+    /**
+     * 取消(复合事务动作,#7 2026-09-06 占用释放):仅 PENDING → CANCELLED 条件更新占位
+     * (并发双取消/取消与 ship 竞态仅一个成功)→ 释放建单占用(逐行 LOCK_SHIP 负数,可用回补);
+     * 失败整体回滚,状态/占用强一致。已发货库存已核销出库,走不了取消
+     */
+    @Transactional(rollbackFor = Exception.class)
     public void cancel(Long id) {
         if (deliveryOrderMapper.casStatus(id, DeliveryConsts.DELIVERY_PENDING, DeliveryConsts.DELIVERY_CANCELLED) == 0) {
             throw new BusinessException("取消失败:发货单不存在或不是待发货状态");
         }
+        releaseOccupation(deliveryOrderMapper.selectById(id));
     }
 
     /** 标记签收:SHIPPED → DELIVERED(一期人工签收;平台物流轨迹自动签收随 #3 adapter 回传评估) */
@@ -215,7 +235,11 @@ public class DeliveryOrderService {
         }
     }
 
-    /** 删除:SHIPPED/DELIVERED 禁删(库存已动账,删单致账实无法追溯);PENDING/CANCELLED 连明细同事务删 */
+    /**
+     * 删除:SHIPPED/DELIVERED 禁删(库存已核销出库,删单致账实无法追溯);
+     * PENDING 先 cas→CANCELLED 占位(防与 ship/cancel 并发,占位后本事务行锁在手)再释放占用;
+     * CANCELLED 占用在取消时已释放,不重复释放。PENDING/CANCELLED 连明细同事务删
+     */
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         DeliveryOrder exist = deliveryOrderMapper.selectById(id);
@@ -226,9 +250,58 @@ public class DeliveryOrderService {
                 || DeliveryConsts.DELIVERY_DELIVERED.equals(exist.getStatus())) {
             throw new BusinessException("已发货单据禁止删除(库存已动账):" + id);
         }
+        boolean pending = DeliveryConsts.DELIVERY_PENDING.equals(exist.getStatus());
+        if (pending && deliveryOrderMapper.casStatus(id, DeliveryConsts.DELIVERY_PENDING,
+                DeliveryConsts.DELIVERY_CANCELLED) == 0) {
+            throw new BusinessException("删除失败:发货单状态已变化(可能已确认发货),请刷新重试:" + id);
+        }
+        if (pending) {
+            releaseOccupation(exist);
+        }
         deliveryOrderItemMapper.delete(new LambdaQueryWrapper<DeliveryOrderItem>()
                 .eq(DeliveryOrderItem::getDeliveryId, id));
         deliveryOrderMapper.deleteById(id);
+    }
+
+    /**
+     * 逐行占库存(建单/改单重占,#7):LOCK_SHIP 正数——占用+数量、可用-数量,
+     * 守卫=可用充足(缺货在占用时即拦,不再等到发货);经唯一入口 InventoryChangeApi(铁律 4)
+     */
+    private void occupyForDelivery(Long deliveryId, List<DeliveryOrderItem> lines, Long warehouseId,
+                                   String remark, Long operator) {
+        for (DeliveryOrderItem line : lines) {
+            inventoryChangeApi.change(InventoryChangeCommand.builder()
+                    .skuId(line.getSkuId())
+                    .warehouseId(warehouseId)
+                    .quantity(line.getShipQty())
+                    .flowType(InventoryConsts.FLOW_TYPE_LOCK_SHIP)
+                    .bizType(DeliveryConsts.BIZ_TYPE_DELIVERY_ORDER)
+                    .bizId(deliveryId)
+                    .remark(remark)
+                    .createdBy(operator)
+                    .build());
+        }
+    }
+
+    /**
+     * 释放建单占用(cancel/update 重占前/delete,同事务调用):按单据存量明细逐行 LOCK_SHIP 负数
+     * (数量与建单占用镜像,仓库取单据出库仓);行不存在/守卫不足由 change() 拒绝并随事务回滚
+     */
+    private void releaseOccupation(DeliveryOrder delivery) {
+        for (DeliveryOrderItem line : deliveryOrderItemMapper.selectList(
+                new LambdaQueryWrapper<DeliveryOrderItem>()
+                        .eq(DeliveryOrderItem::getDeliveryId, delivery.getId()))) {
+            inventoryChangeApi.change(InventoryChangeCommand.builder()
+                    .skuId(line.getSkuId())
+                    .warehouseId(delivery.getWarehouseId())
+                    .quantity(-line.getShipQty())
+                    .flowType(InventoryConsts.FLOW_TYPE_LOCK_SHIP)
+                    .bizType(DeliveryConsts.BIZ_TYPE_DELIVERY_ORDER)
+                    .bizId(delivery.getId())
+                    .remark("发货单释放:" + delivery.getDeliveryNo())
+                    .createdBy(delivery.getCreatedBy())
+                    .build());
+        }
     }
 
     /** 订单可发校验(#11 建单/改单前置):存在 + WAIT_SHIP + SELF_FULFILL,返回发货视图 */

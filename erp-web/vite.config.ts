@@ -140,8 +140,11 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
               dropConsole: viteEnv.VITE_DROP_CONSOLE,
             },
           },
-          // 手动分块（替代已废弃的 manualChunks）。返回 null 的模块交由 Rolldown 自动分块。
+          // 手动分块(替代已废弃的 manualChunks)。返回 null 的模块交由 Rolldown 自动分块。
           codeSplitting: {
+            // 禁递归捕获:默认行为会把被捕获组的依赖整体拖进该组(不带约束),
+            // 字母序最靠前的页面组(aftersale-*)会吞掉 element-plus/ProTable 等共享闭包,产物失衡
+            includeDependenciesRecursively: false,
             groups: [
               {
                 name: getChunkName,

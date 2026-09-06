@@ -3,6 +3,7 @@ package com.own.erp.platform.gateway;
 import com.own.erp.platform.AdapterRegistry;
 import com.own.erp.platform.AuthToken;
 import com.own.erp.platform.PlatformClient;
+import com.own.erp.platform.PlatformShipment;
 import com.own.erp.platform.PlatformType;
 import com.own.erp.platform.ShopSession;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,10 +64,16 @@ class PlatformGatewayTest {
 
     @Test
     void writeMethodsAcquireWriteBucket() {
-        gateway.uploadTracking(session, "111-222", "SF123", "SF");
+        PlatformShipment shipment = PlatformShipment.builder()
+                .platformOrderId("111-222").trackingNo("SF123").carrierCode("SF")
+                .shipTime(START)
+                .items(List.of(PlatformShipment.Item.builder().platformOrderItemId("i-1").quantity(1).build()))
+                .build();
+
+        gateway.uploadTracking(session, shipment);
 
         verify(rateGuard).acquire(PlatformType.AMAZON, 1L, PlatformRateGuard.BUCKET_WRITE);
-        verify(delegate).uploadTracking(session, "111-222", "SF123", "SF");
+        verify(delegate).uploadTracking(session, shipment);
     }
 
     @Test

@@ -1,8 +1,10 @@
 package com.own.erp.platform.adapter.amazon;
 
 import cn.hutool.core.util.StrUtil;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.own.erp.platform.AuthToken;
 import com.own.erp.platform.PlatformClient;
+import com.own.erp.platform.PlatformShipment;
 import com.own.erp.platform.PlatformType;
 import com.own.erp.platform.ShopSession;
 import com.own.erp.platform.unified.UnifiedOrder;
@@ -30,6 +32,12 @@ import java.util.List;
  *           NextToken 翻页,假服务单测);AWS 密钥走环境变量/local.properties(键=环境变量名,禁入配置文件),
  *           配置 role-arn 时经 STS 换临时凭证并缓存、过期前 10 分钟刷新(与 LWA 刷新节奏同口径,docs/04);
  *           剩余真凭证联调(Seller Central 应用授权 + IAM 权限),SP-API 限流真值随实调按响应头校准
+ *         - 已落地(2026-09-06 #3 联调预备骨架):pullProducts 选型 Reports GET_MERCHANT_LISTINGS_ALL_DATA
+ *           (SpApiReportsClient 三步异步链 + AmazonListingTranslator TSV 翻译)/ pullRefunds 选型
+ *           Finances listFinancialEvents(SpApiFinancesClient 窗口翻页 + AmazonRefundTranslator);
+ *           翻译 fixture 为官方模板/schema 推导样例,真凭证样本到位后 --force 校准(docs/07 §8);
+ *           uploadTracking 已脱机落地(2026-09-06,MFN confirmShipment + SPI PlatformShipment 签名收口,
+ *           假服务单测;#11 ship 编排接线随联调)
  *         - 已落地(2026-09-04):OAuth 回调 + Token 刷新收口 erp-shop 授权中心(applyOAuthToken 复用加密链路,
  *           docs/04 授权中心)、按 shop 限流(PlatformGateway→PlatformRateGuard,配额窗口状态持久化 Redis)
  *         - 默认不注册 Bean:erp.adapter.amazon.enabled=true 才启用;未启用时拉单调度按"adapter 未接入"自动跳过
@@ -48,6 +56,8 @@ public class AmazonClient implements PlatformClient {
 
     private final LwaTokenClient lwaTokenClient;
     private final SpApiOrdersClient spApiOrdersClient;
+    private final SpApiFinancesClient spApiFinancesClient;
+    private final SpApiReportsClient spApiReportsClient;
     private final StsTokenClient stsTokenClient;
     private final Clock clock;
 
@@ -141,22 +151,64 @@ public class AmazonClient implements PlatformClient {
         return cached.credentials();
     }
 
-    /** TODO(#3): listing 同步走 Listings Items API(按 sellerSku 逐个)或 Reports 异步报表,与 #5 upsert 对接 */
+    /**
+     * listing 同步(#3 联调预备骨架,2026-09-06 选型拍板:Reports 全量快照,docs/04):
+     * GET_MERCHANT_LISTINGS_ALL_DATA 报表三步异步链(创建→轮询→下载)全走完再翻译落库,
+     * start/end 时间窗不参与过滤(全量快照 + uk upsert 幂等,PRODUCT 游标仅作拉取频率控制)。
+     * TODO(#3): 报表平台侧生成 15~60 分钟,轮询在拉单线程内同步等待,ProductPullJob 接真凭证后
+     * 实测时长,必要时演进"一天一拉 + 异步任务化";Sku.currency 已按站点静态表推导
+     * (AmazonMarketplace,2026-09-06 无凭证落地,真凭证到位后抽样核对)
+     */
     @Override
     public List<UnifiedProduct> pullProducts(ShopSession session, Instant start, Instant end) {
-        throw new UnsupportedOperationException("TODO(#3): Amazon listing 拉取待 Listings/Reports API 选型,见 docs/04");
+        if (session == null || session.getToken() == null
+                || StrUtil.isBlank(session.getToken().getAccessToken())) {
+            throw new IllegalStateException("ShopSession 缺 LWA accessToken,无法调用 SP-API");
+        }
+        // 币种先于报表创建推导:未配置/未收录站点即报错,不空耗平台侧 15~60 分钟报表生成
+        String currency = AmazonMarketplace.currencyOf(spApiReportsClient.marketplaceId());
+        String accessToken = session.getToken().getAccessToken();
+        SpApiSigner.AwsCredentials awsCredentials = currentAwsCredentials();
+        String reportId = spApiReportsClient.requestListingReport(accessToken, awsCredentials);
+        String documentId = spApiReportsClient.awaitListingReportDocument(accessToken, awsCredentials, reportId);
+        String tsv = spApiReportsClient.fetchListingReportContent(accessToken, awsCredentials, documentId);
+        return AmazonListingTranslator.translate(tsv, session.getShopId(), platform(), currency);
     }
 
-    /** TODO(#3): 退款对账走 Finances API listRefunds(FBA 退货不产生实物流,docs/04 国内 vs 跨境差异表) */
+    /**
+     * 退款同步(#3 联调预备骨架,2026-09-06 选型拍板:Finances listFinancialEvents,docs/04):
+     * PostedAfter/Before 记账时间窗 + NextToken 翻页拉 RefundEventList,逐条翻译
+     * (FINISHED + REFUND_ONLY → #12 saveUnifiedRefund 分流 REFUNDED 终态回传);
+     * 售后拉单 Job 接线随真凭证(接早了会对假报文产生 pull_log 失败噪音,#12 口径)
+     */
     @Override
     public List<UnifiedRefund> pullRefunds(ShopSession session, Instant start, Instant end) {
-        throw new UnsupportedOperationException("TODO(#3): Amazon 退款拉取待 Finances API,见 docs/04");
+        if (session == null || session.getToken() == null
+                || StrUtil.isBlank(session.getToken().getAccessToken())) {
+            throw new IllegalStateException("ShopSession 缺 LWA accessToken,无法调用 SP-API");
+        }
+        List<JsonNode> events = spApiFinancesClient.pullRefundEvents(
+                session.getToken().getAccessToken(), currentAwsCredentials(), start, end);
+        return events.stream()
+                .map(event -> AmazonRefundTranslator.translateRefund(event, session.getShopId(), platform()))
+                .toList();
     }
 
-    /** 自发货 MFN 回传走 shipping/v1;FBA 平台自履约不回传(docs/04);统一待 #11 发货域一起实现 */
+    /**
+     * MFN 自发货确认发货回传(2026-09-06 #3 脱机落地,docs/04 拍板):
+     * POST /orders/v0/orders/{orderId}/shipment,行级发运 + 包裹物流详情,
+     * 请求形态见 {@link SpApiOrdersClient#confirmShipment};
+     * FBA/海外仓平台自履约不回传(编排侧裁剪不装配,docs/04 国内 vs 跨境差异表);
+     * 时序拍板:#11 ship 本地推进后回传,回传成功才视为发货闭环,失败记 pull_log 告警但不回滚本地发货
+     * (平台侧可手工补)——ship 编排接线随 #11 联调;真凭证联调时校准请求形态(docs/07 §8)
+     */
     @Override
-    public void uploadTracking(ShopSession session, String platformOrderId, String trackingNo, String logisticsCode) {
-        throw new UnsupportedOperationException("TODO(#3): 运单回传随 #11 发货域实现(MFN 专用,FBA 不回传)");
+    public void uploadTracking(ShopSession session, PlatformShipment shipment) {
+        if (session == null || session.getToken() == null
+                || StrUtil.isBlank(session.getToken().getAccessToken())) {
+            throw new IllegalStateException("ShopSession 缺 LWA accessToken,无法调用 SP-API");
+        }
+        spApiOrdersClient.confirmShipment(session.getToken().getAccessToken(), currentAwsCredentials(), shipment);
     }
 
     /** 跨境平台无电子面单取号(docs/04),恒不支持 */

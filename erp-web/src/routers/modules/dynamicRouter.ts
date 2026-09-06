@@ -5,8 +5,8 @@ import { ElNotification } from 'element-plus'
 import { useUserStore } from '@/stores/modules/user'
 import { useAuthStore } from '@/stores/modules/auth'
 
-// 引入 views 文件夹下所有 vue 文件
-const modules = import.meta.glob('@/views/**/*.vue')
+// 引入 views 文件夹下所有 vue 文件(排除页面私有 components/ 子目录:私有组件禁入路由注册表)
+const modules = import.meta.glob(['@/views/**/*.vue', '!@/views/**/components/**'])
 
 /**
  * @description 初始化动态路由

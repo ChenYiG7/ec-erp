@@ -28,6 +28,13 @@ pnpm gen:page --spec tools/specs/<domain>.txt   # 生成页面四件 + 菜单 SQ
 - spec 语法/生成物/边界见 `tools/README.md`;样板:`tools/specs/shop.txt`(带动作)、`tools/specs/shop-product.txt`(只读)
 - 冒烟回归:`GEN_OPENAPI_PATH=tools/test/smoke-openapi.json node tools/gen-page.mjs --spec tools/test/smoke-spec.txt`(验后删产物)
 
+## 输出纪律(token 收口)
+
+- 生成器产物在磁盘、本就不在上下文里:禁整读/回显;要改则 Grep 定位 + 最小 Edit 片段,禁整文件重写
+- 查契约 `tools/openapi.json` 一律 Grep 定位按段读,禁整读
+- ≥3 文件同款改动(补 import/改样板)一律临时脚本或正则批量(范本 b0bbe68),禁逐文件手改
+- 新页面只产出 spec 文件 + 补 TODO 槽位,禁在回复中预写 Vue 样板
+
 ## 高频契约事实(细节以 docs/09 §3 为准)
 
 - `Result{code,msg,data}` 已在拦截器解包;双错误形态(HTTP 200+code≠200 / 真 401·403)收口 `src/utils/request/base.ts`,业务禁重复处理

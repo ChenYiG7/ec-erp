@@ -54,9 +54,11 @@ public interface PlatformClient {
     // ---- 回写 ----
 
     /**
-     * 上传物流单号(发货回传)。FBA 订单不需要实现(抛 UnsupportedOperationException)
+     * 上传物流单号(发货回传,MFN 自发货)。FBA/海外仓平台自履约不回传(抛 UnsupportedOperationException),
+     * 由编排侧裁剪不装配;命令要素见 {@link PlatformShipment}
+     * (2026-09-06 签名收口:原四散参形态缺行级 quantity/shipTime,撑不起 Amazon confirmShipment 必填项)
      */
-    void uploadTracking(ShopSession session, String platformOrderId, String trackingNo, String logisticsCode);
+    void uploadTracking(ShopSession session, PlatformShipment shipment);
 
     /**
      * 抓取平台电子面单(国内平台);跨境平台可返回 null

@@ -16,7 +16,8 @@ import java.util.List;
  * @Date : 2026/9/3
  * @Description : 发货单写侧入参(docs/07 §1:XxxSaveRequest,创建/更新共用,id 由路径携带不入参)。
  *     #11 激活改造:status/shippedAt 服务端管理、shopId 按订单回填、skuId 按订单明细回填,均从入参剔除;
- *     发货明细整单提交,更新时整体替换
+ *     发货明细整单提交,更新时整体替换;
+ *     createdBy 亦入参剔除(#11 遗留收口 2026-09-06):Service 经 CurrentUserApi 按 SecurityContext 服务端回填
  */
 @Builder
 public record DeliveryOrderSaveRequest(
@@ -52,16 +53,13 @@ public record DeliveryOrderSaveRequest(
         @Size(max = 512)
         String waybillUrl,
 
-        /** 创建人(sys_user.id),前端工程接线 SecurityContext 前暂由调用方传 */
-        Long createdBy,
-
         /** 发货明细(创建/更新整单提交;仅 sku_id 已绑定的订单明细行) */
         @NotEmpty
         @Valid
         List<DeliveryOrderItemSaveRequest> items
 ) {
 
-    /** 请求 → 实体显式逐字段映射(禁反射拷贝);status/shopId 由 Service 服务端回填,不入映射 */
+    /** 请求 → 实体显式逐字段映射(禁反射拷贝);status/shopId/createdBy 由 Service 服务端回填,不入映射 */
     public DeliveryOrder toEntity() {
         return DeliveryOrder.builder()
                 .deliveryNo(deliveryNo)
@@ -72,7 +70,6 @@ public record DeliveryOrderSaveRequest(
                 .logisticsCompany(logisticsCompany)
                 .trackingNo(trackingNo)
                 .waybillUrl(waybillUrl)
-                .createdBy(createdBy)
                 .build();
     }
 }

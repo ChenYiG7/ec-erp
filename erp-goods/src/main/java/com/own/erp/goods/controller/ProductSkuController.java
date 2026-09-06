@@ -3,6 +3,7 @@ package com.own.erp.goods.controller;
 import com.own.erp.common.api.Result;
 import com.own.erp.goods.request.command.ProductSkuSaveRequest;
 import com.own.erp.goods.response.ProductSkuResponse;
+import com.own.erp.goods.response.SkuOptionResponse;
 import com.own.erp.goods.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,6 +40,13 @@ public class ProductSkuController {
     @GetMapping
     public Result<List<ProductSkuResponse>> list(@RequestParam Long productId) {
         return Result.ok(productService.listSkusByProductId(productId));
+    }
+
+    @Operation(summary = "批量按 ID 查 SKU", description = "跨页 skuId 列翻译数据源(#7 专条):"
+            + "库存/采购/入库/发货/售后/订单明细行与 SKU 匹配页;查无的 ID 不在结果中,前端回落显示裸 ID")
+    @GetMapping("/batch")
+    public Result<List<SkuOptionResponse>> listBatch(@RequestParam List<Long> ids) {
+        return Result.ok(productService.listSkuOptions(ids));
     }
 
     @Operation(summary = "新增 SKU", description = "TODO#5:skuCode 全局唯一校验待补")

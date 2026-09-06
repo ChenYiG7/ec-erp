@@ -1,0 +1,28 @@
+# 入库单 spec(gen:page 拍板表;#10 采购域:列表 + confirm/cancel + 收货明细展开行)
+# 契约:GET /api/purchase/inbounds + GET /api/purchase/inbounds/{id} + POST /{id}/confirm /{id}/cancel
+# 建入库单表单(选 PO + 逐行收货量,服务端校验剩余量)不在本期射程,人工扩展;readonly 只裁 Form/写按钮,动作端点照常生成
+module=purchase
+domain=inbound
+base=purchase/inbounds
+entity=PurchaseInbound
+nameZh=入库单
+permPrefix=purchase:inbound
+todoId=10
+menuParent=10
+menuId=13
+path=/purchase/inbounds
+component=purchase/inbound/index
+readonly=true
+icon=box
+
+field=inboundNo   role=column label=入库单号  width=180
+field=poId        role=column label=采购单ID  width=110
+field=warehouseId role=column label=仓库ID    width=110
+field=status      role=column label=状态      enum=PENDING:待入库:warning|RECEIVED:已入库:success|CANCELLED:已取消:info  width=100  tag
+field=createdBy   role=column label=创建人    width=90
+field=createdAt   role=column label=创建时间  width=170
+field=remark      role=column label=备注
+
+# 页面级动作槽位(confirm()/cancel() api 已生成,按钮与调用人工补)
+todo=confirm:PENDING→RECEIVED,同事务逐行 IN_PURCHASE 动账+arrived_qty 累加,确认弹窗后调用
+todo=cancel:仅 PENDING 可取消,确认弹窗后调用

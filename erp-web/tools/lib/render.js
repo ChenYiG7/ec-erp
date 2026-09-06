@@ -602,7 +602,8 @@ export function renderForm(ctx) {
     if (f.dict) {
       control = `<Dict v-model="formData.${f.name}" code="${f.dict}" type="select" />`
     } else if (f.enumMap) {
-      const opts = f.enumMap.map(e => `          <el-option label="${e.label}" :value="${JSON.stringify(e.value)}" />`)
+      // string 值产单引号字面量(':value="'SELF'"'),JSON.stringify 的双引号会与属性引号嵌套出错(2026-09-06 warehouse 域抓获)
+      const opts = f.enumMap.map(e => `          <el-option label="${e.label}" :value="${typeof e.value === 'string' ? `'${e.value}'` : JSON.stringify(e.value)}" />`)
       control = [`<el-select v-model="formData.${f.name}" clearable ${placeholder}>`, ...opts, `        </el-select>`].join('\n')
     } else if (f.ts === 'boolean') {
       control = `<el-switch v-model="formData.${f.name}" />`
@@ -734,7 +735,8 @@ export function renderMenuSql(ctx) {
     parent: ctx.menuParent,
     name: ctx.nameZh,
     type: 2,
-    perm: null,
+    // 菜单行 perm_key = <permPrefix>:list(与 01_schema_init.sql 既有种子约定一致,RBAC 按菜单授权的粒度)
+    perm: `${ctx.permPrefix}:list`,
     path: ctx.path,
     comp: ctx.component,
     icon: ctx.icon,

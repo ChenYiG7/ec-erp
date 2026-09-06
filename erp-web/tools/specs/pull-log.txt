@@ -1,0 +1,28 @@
+# 拉单日志 spec(gen:page 拍板表;#4 pull_log 观测面:只读列表,游标与告警的事实源,禁人工写)
+# 契约:GET /api/pull-logs + GET /api/pull-logs/{id};无动作
+# 词表与 DDL COMMENT 三方同步:data_type=ORDER/PRODUCT/REFUND,pull_way=JOB/MANUAL
+# Query 仅 shopId/dataType/success 可过滤(时间窗只展示);店铺名称列翻译随店铺 options 数据源另议
+module=shop
+domain=pull-log
+base=pull-logs
+entity=PullLog
+nameZh=拉单日志
+permPrefix=shop:pulllog
+todoId=16
+menuParent=1
+menuId=21
+path=/system/pull-logs
+component=shop/pull-log/index
+readonly=true
+icon=document
+
+field=shopId      role=all    label=店铺ID    width=100
+field=dataType    role=all    label=数据类型  enum=ORDER:订单拉取:primary|PRODUCT:商品同步:success|REFUND:售后同步:warning  width=120
+field=success     role=all    label=结果      enum=1:成功:success|0:失败:danger  width=90  tag
+field=windowStart role=column label=窗口起点   width=170
+field=windowEnd   role=column label=窗口终点   width=170
+field=pulledCount role=column label=拉取条数   width=100
+field=durationMs  role=column label=耗时(ms)  width=100
+field=pullWay     role=column label=触发方式   enum=JOB:定时:info|MANUAL:手动:primary  width=100
+field=errorMsg    role=column label=失败原因
+field=createdAt   role=column label=创建时间   width=170

@@ -61,12 +61,12 @@ export function useTable<TableItem>(
    * */
   const getTableList = async () => {
     try {
-      // 先把初始化参数和分页参数放到总参数里面
+      // 先把初始化参数和分页参数放到总参数里面(发参收口:后端 PageQuery 收 pageNo,pageable 内部态仍叫 pageNum)
       Object.assign(
         state.totalParam,
         initParam,
         pagination !== ProTablePaginationEnum.NONE
-          ? { pageNum: state.pageable.pageNum, pageSize: state.pageable.pageSize }
+          ? { pageNo: state.pageable.pageNum, pageSize: state.pageable.pageSize }
           : {}
       )
 
@@ -88,10 +88,10 @@ export function useTable<TableItem>(
       }
 
       if (pagination === ProTablePaginationEnum.FE) {
-        const { pageNum, pageSize, ...rest } = state.totalParam
+        const { pageNo, pageSize, ...rest } = state.totalParam
         const queryKeys = Object.keys(rest)
         const filterData = queryKeys.length ? fePaginationFilterMethod!(rest) : (data as TableItem[])
-        listData = filterData.slice((pageNum - 1) * pageSize, pageNum * pageSize)
+        listData = filterData.slice((pageNo - 1) * pageSize, pageNo * pageSize)
         state.pageable.total = queryKeys.length ? filterData.length : (data as TableItem[]).length
       }
       // @ts-expect-error 类型不兼容

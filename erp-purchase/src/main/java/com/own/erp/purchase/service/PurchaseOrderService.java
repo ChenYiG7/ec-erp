@@ -4,7 +4,11 @@ import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.GoodsSkuApi;
+import com.own.erp.contract.InventoryChangeApi;
+import com.own.erp.contract.InventoryChangeCommand;
+import com.own.erp.contract.InventoryConsts;
 import com.own.erp.contract.WarehouseApi;
 import com.own.erp.purchase.constant.PurchaseConsts;
 import com.own.erp.purchase.entity.PurchaseInbound;
@@ -35,6 +39,8 @@ import java.util.List;
  * @Date : 2026/9/3
  * @Description : 采购单服务:purchase_order(+purchase_order_item 子表)域整域收口,Controller 不直连 Mapper(docs/07 §2.1)
  *     状态机(#10):DRAFT(可改/删)→ audit → AUDITED(可入库/关闭)→ (PARTIAL_RECEIVED)→ RECEIVED → CLOSED;
+ *     在途生命周期(#7 2026-09-06):audit 占 qty_transit(IN_TRANSIT 正数)→ 入库核销 IN_PURCHASE 转可用
+ *     (收口 PurchaseInboundService)→ close 释放未到货在途(IN_TRANSIT 负数);
  *     流转一律走条件更新(WHERE 即守卫,docs/07 §6.3 禁先查后改),禁旁路 update 状态列;
  *     totalAmount 服务端按 Σ(数量×单价) 计算,与明细强一致;跨域存在性校验走 erp-contract(禁横向依赖,铁律 2)
  */
@@ -47,6 +53,8 @@ public class PurchaseOrderService {
     private final SupplierMapper supplierMapper;
     private final GoodsSkuApi goodsSkuApi;
     private final WarehouseApi warehouseApi;
+    private final CurrentUserApi currentUserApi;
+    private final InventoryChangeApi inventoryChangeApi;
 
     /** 契约接口注入一律 @Lazy 断构造环:实现收口 erp-api 反向注入域 Service,急切装配成环(docs/07 §2.2) */
     public PurchaseOrderService(PurchaseOrderMapper purchaseOrderMapper,
@@ -54,13 +62,17 @@ public class PurchaseOrderService {
                                 PurchaseInboundMapper purchaseInboundMapper,
                                 SupplierMapper supplierMapper,
                                 @Lazy GoodsSkuApi goodsSkuApi,
-                                @Lazy WarehouseApi warehouseApi) {
+                                @Lazy WarehouseApi warehouseApi,
+                                @Lazy CurrentUserApi currentUserApi,
+                                @Lazy InventoryChangeApi inventoryChangeApi) {
         this.purchaseOrderMapper = purchaseOrderMapper;
         this.purchaseOrderItemMapper = purchaseOrderItemMapper;
         this.purchaseInboundMapper = purchaseInboundMapper;
         this.supplierMapper = supplierMapper;
         this.goodsSkuApi = goodsSkuApi;
         this.warehouseApi = warehouseApi;
+        this.currentUserApi = currentUserApi;
+        this.inventoryChangeApi = inventoryChangeApi;
     }
 
     /** 入库核销回写行:po_item_id + 本次入库数量(confirm 逐行调用,同事务) */
@@ -125,9 +137,10 @@ public class PurchaseOrderService {
     public Long save(PurchaseOrderSaveRequest request) {
         validateRefs(request);
         PurchaseOrder purchaseOrder = request.toEntity();
-        // 写前回填服务端管理列(setter 白名单:status 固定草稿,金额按明细汇总)
+        // 写前回填服务端管理列(setter 白名单:status 固定草稿,金额按明细汇总,createdBy 按 SecurityContext)
         purchaseOrder.setStatus(PurchaseConsts.PO_DRAFT);
         purchaseOrder.setTotalAmount(sumTotal(request.items()));
+        purchaseOrder.setCreatedBy(currentUserApi.currentUserId());
         try {
             purchaseOrderMapper.insert(purchaseOrder);
         } catch (DuplicateKeyException e) {
@@ -164,17 +177,57 @@ public class PurchaseOrderService {
         insertItems(id, request.items());
     }
 
-    /** 审核:DRAFT → AUDITED(管理权限在 Controller @PreAuthorize);非草稿/单不存在即拒 */
+    /**
+     * 审核(复合事务动作,#7 2026-09-06 在途占位,同 #10 confirm 先例):DRAFT → AUDITED 条件更新占位
+     * (并发双审仅一个成功,失败随事务回滚)→ 逐行经 InventoryChangeApi 占在途
+     * (flow_type=IN_TRANSIT 正数,biz=PURCHASE_ORDER/采购单ID;qty_transit 随行动账,无行自动建行);
+     * 任一步失败整体回滚,状态/在途强一致。审核不可逆,错审单据走关闭释放在途
+     */
+    @Transactional(rollbackFor = Exception.class)
     public void audit(Long id) {
         if (purchaseOrderMapper.casStatus(id, PurchaseConsts.PO_DRAFT, PurchaseConsts.PO_AUDITED) == 0) {
             throw new BusinessException("审核失败:采购单不存在或不是草稿状态");
         }
+        adjustTransit(id, 1, "采购单审核占在途");
     }
 
-    /** 关闭:AUDITED/PARTIAL_RECEIVED/RECEIVED → CLOSED(剩余量作废);草稿单走删除 */
+    /**
+     * 关闭(复合事务动作,#7 2026-09-06 在途释放):AUDITED/PARTIAL_RECEIVED/RECEIVED → CLOSED 条件更新占位
+     * → 逐行释放未到货在途(flow_type=IN_TRANSIT 负数,数量 = quantity - arrived_qty,已收齐行跳过);
+     * 与入库核销 advanceOnReceive 并发互斥(关闭占位命中则核销回滚,反之亦然)。草稿单走删除
+     */
+    @Transactional(rollbackFor = Exception.class)
     public void close(Long id) {
         if (purchaseOrderMapper.closeOrder(id) == 0) {
             throw new BusinessException("关闭失败:采购单不存在或已是终态(草稿/已关闭)");
+        }
+        adjustTransit(id, -1, "采购单关闭释放在途");
+    }
+
+    /**
+     * 逐行占/释在途(audit 占满量 / close 释放未到货,同事务):在途动账经 InventoryChangeApi 唯一入口,
+     * 铁律 4 禁旁路;仓库/操作人取单据管理列(仓库在建单/改单时已校验存在,防幻影库存)。
+     * 剩余量 ≤ 0 的行跳过(close 全收齐时即纯状态关闭)
+     */
+    private void adjustTransit(Long poId, int sign, String action) {
+        PurchaseOrder purchaseOrder = purchaseOrderMapper.selectById(poId);
+        List<PurchaseOrderItem> items = listItemEntities(poId);
+        for (PurchaseOrderItem item : items) {
+            int quantity = sign > 0 ? nvl(item.getQuantity())
+                    : nvl(item.getQuantity()) - nvl(item.getArrivedQty());
+            if (quantity <= 0) {
+                continue;
+            }
+            inventoryChangeApi.change(InventoryChangeCommand.builder()
+                    .skuId(item.getSkuId())
+                    .warehouseId(purchaseOrder.getWarehouseId())
+                    .quantity(sign * quantity)
+                    .flowType(InventoryConsts.FLOW_TYPE_IN_TRANSIT)
+                    .bizType(PurchaseConsts.BIZ_TYPE_PURCHASE_ORDER)
+                    .bizId(poId)
+                    .remark(action + ":" + purchaseOrder.getPoNo())
+                    .createdBy(purchaseOrder.getCreatedBy())
+                    .build());
         }
     }
 

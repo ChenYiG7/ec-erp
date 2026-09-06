@@ -1,6 +1,7 @@
 package com.own.erp.fulfill.service;
 
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.InventoryChangeApi;
 import com.own.erp.contract.InventoryChangeCommand;
 import com.own.erp.contract.ShopOrderApi;
@@ -33,9 +34,10 @@ import static org.mockito.Mockito.when;
  * @author : chenyi
  * @Date : 2026/9/4
  * @Description : DeliveryOrderService #11 激活单测(AIR:mock Mapper 与契约接口,不依赖数据库):
- *     建单校验链(订单可发/仓库存在/明细归属与剩余量)/ ship 守卫与出库动账/发足推进订单状态/
- *     cancel·deliver·delete 守卫。注:occupiedByOrderItem/明细装配内部用 Lambda wrapper
- *     .ne(cond,...) 条件重载与 .in(),纯 Mockito 环境可构造(懒解析),Mapper 一律 any() 打桩
+ *     建单校验链(订单可发/仓库存在/明细归属与剩余量)/ 建单占用与取消·删除释放(#7 2026-09-06)/
+ *     ship 守卫与出库动账/发足推进订单状态/ cancel·deliver·delete 守卫/ 改单释放重占。
+ *     注:occupiedByOrderItem/明细装配内部用 Lambda wrapper .ne(cond,...) 条件重载与 .in(),
+ *     纯 Mockito 环境可构造(懒解析),Mapper 一律 any() 打桩
  */
 class DeliveryOrderServiceTest {
 
@@ -47,6 +49,7 @@ class DeliveryOrderServiceTest {
     private ShopOrderApi shopOrderApi;
     private WarehouseApi warehouseApi;
     private InventoryChangeApi inventoryChangeApi;
+    private CurrentUserApi currentUserApi;
     private DeliveryOrderService deliveryOrderService;
 
     @BeforeEach
@@ -56,8 +59,11 @@ class DeliveryOrderServiceTest {
         shopOrderApi = mock(ShopOrderApi.class);
         warehouseApi = mock(WarehouseApi.class);
         inventoryChangeApi = mock(InventoryChangeApi.class);
-        deliveryOrderService = new DeliveryOrderService(
-                deliveryOrderMapper, deliveryOrderItemMapper, shopOrderApi, warehouseApi, inventoryChangeApi);
+        currentUserApi = mock(CurrentUserApi.class);
+        deliveryOrderService = new DeliveryOrderService(deliveryOrderMapper, deliveryOrderItemMapper,
+                shopOrderApi, warehouseApi, inventoryChangeApi, currentUserApi);
+        // createdBy 服务端按 SecurityContext 回填(CurrentUserApi,#11 遗留收口)
+        when(currentUserApi.currentUserId()).thenReturn(9L);
     }
 
     // ---------- 造数 ----------
@@ -203,6 +209,8 @@ class DeliveryOrderServiceTest {
         assertEquals("PENDING", orderCaptor.getValue().getStatus());
         assertEquals(2L, orderCaptor.getValue().getShopId());
         assertEquals(WAREHOUSE_ID, orderCaptor.getValue().getWarehouseId());
+        // createdBy 服务端按 SecurityContext 回填,不收客户端值
+        assertEquals(9L, orderCaptor.getValue().getCreatedBy());
 
         ArgumentCaptor<DeliveryOrderItem> lineCaptor = ArgumentCaptor.forClass(DeliveryOrderItem.class);
         verify(deliveryOrderItemMapper).insert(lineCaptor.capture());
@@ -219,6 +227,39 @@ class DeliveryOrderServiceTest {
                 () -> deliveryOrderService.save(request(line(11L, 1))));
 
         assertTrue(e.getMessage().contains("已存在"));
+        verify(inventoryChangeApi, never()).change(any());
+    }
+
+    @Test
+    void saveLocksInventoryPerLine() {
+        // 建单即占库存(#7):逐行 LOCK_SHIP 正数,占用+数量/可用-数量,缺货建单即拦
+        stubDeliverableOrder();
+        when(deliveryOrderMapper.insert(any(DeliveryOrder.class))).thenAnswer(inv -> {
+            inv.getArgument(0, DeliveryOrder.class).setId(88L);
+            return 1;
+        });
+
+        deliveryOrderService.save(request(line(11L, 4)));
+
+        ArgumentCaptor<InventoryChangeCommand> captor = ArgumentCaptor.forClass(InventoryChangeCommand.class);
+        verify(inventoryChangeApi).change(captor.capture());
+        InventoryChangeCommand lock = captor.getValue();
+        assertEquals(1001L, lock.skuId());
+        assertEquals(WAREHOUSE_ID, lock.warehouseId());
+        assertEquals(4, lock.quantity());
+        assertEquals("LOCK_SHIP", lock.flowType());
+        assertEquals("DELIVERY_ORDER", lock.bizType());
+        assertEquals(88L, lock.bizId());
+        assertEquals(9L, lock.createdBy());
+    }
+
+    @Test
+    void savePropagatesLockShortageFromInventory() {
+        // 可用不足:占用动账抛业务异常,单据不落(事务回滚语义由 @Transactional 保证,此处验传播)
+        stubDeliverableOrder();
+        when(inventoryChangeApi.change(any())).thenThrow(new BusinessException("可用库存不足:当前0,变动4"));
+
+        assertThrows(BusinessException.class, () -> deliveryOrderService.save(request(line(11L, 4))));
     }
 
     // ---------- ship 确认发货 ----------
@@ -321,15 +362,25 @@ class DeliveryOrderServiceTest {
         when(deliveryOrderMapper.casStatus(1L, "PENDING", "CANCELLED")).thenReturn(0);
 
         assertThrows(BusinessException.class, () -> deliveryOrderService.cancel(1L));
-        verify(deliveryOrderMapper, never()).deleteById(1L);
+        verify(inventoryChangeApi, never()).change(any());
     }
 
     @Test
-    void cancelAllowedWhenPending() {
+    void cancelReleasesOccupationWhenPending() {
+        // 取消释放(#7):cas 占位后按存量明细逐行 LOCK_SHIP 负数,仓库取单据出库仓
         when(deliveryOrderMapper.casStatus(1L, "PENDING", "CANCELLED")).thenReturn(1);
+        when(deliveryOrderMapper.selectById(1L)).thenReturn(DeliveryOrder.builder()
+                .id(1L).deliveryNo("D001").warehouseId(WAREHOUSE_ID).createdBy(9L).status("CANCELLED").build());
+        when(deliveryOrderItemMapper.selectList(any())).thenReturn(List.of(
+                DeliveryOrderItem.builder().deliveryId(1L).orderItemId(11L).skuId(1001L).shipQty(4).build()));
 
         deliveryOrderService.cancel(1L);
-        verify(deliveryOrderMapper).casStatus(1L, "PENDING", "CANCELLED");
+
+        ArgumentCaptor<InventoryChangeCommand> captor = ArgumentCaptor.forClass(InventoryChangeCommand.class);
+        verify(inventoryChangeApi).change(captor.capture());
+        assertEquals(-4, captor.getValue().quantity());
+        assertEquals(WAREHOUSE_ID, captor.getValue().warehouseId());
+        assertEquals("LOCK_SHIP", captor.getValue().flowType());
     }
 
     @Test
@@ -351,13 +402,34 @@ class DeliveryOrderServiceTest {
     }
 
     @Test
-    void deleteRemovesLinesAndMasterWhenPending() {
+    void deleteReleasesOccupationWhenPending() {
         when(deliveryOrderMapper.selectById(1L)).thenReturn(
-                DeliveryOrder.builder().id(1L).status("PENDING").build());
+                DeliveryOrder.builder().id(1L).deliveryNo("D001").warehouseId(WAREHOUSE_ID).status("PENDING").build());
+        when(deliveryOrderMapper.casStatus(1L, "PENDING", "CANCELLED")).thenReturn(1);
+        when(deliveryOrderItemMapper.selectList(any())).thenReturn(List.of(
+                DeliveryOrderItem.builder().deliveryId(1L).orderItemId(11L).skuId(1001L).shipQty(4).build()));
 
         deliveryOrderService.delete(1L);
 
+        // 先 cas 占位防 ship 竞态,再释放占用,最后删行
+        verify(deliveryOrderMapper).casStatus(1L, "PENDING", "CANCELLED");
+        ArgumentCaptor<InventoryChangeCommand> captor = ArgumentCaptor.forClass(InventoryChangeCommand.class);
+        verify(inventoryChangeApi).change(captor.capture());
+        assertEquals(-4, captor.getValue().quantity());
         verify(deliveryOrderItemMapper).delete(any());
+        verify(deliveryOrderMapper).deleteById(1L);
+    }
+
+    @Test
+    void deleteSkipsReleaseWhenAlreadyCancelled() {
+        // CANCELLED 的占用已在取消时释放,删除不得重复释放
+        when(deliveryOrderMapper.selectById(1L)).thenReturn(
+                DeliveryOrder.builder().id(1L).warehouseId(WAREHOUSE_ID).status("CANCELLED").build());
+
+        deliveryOrderService.delete(1L);
+
+        verify(deliveryOrderMapper, never()).casStatus(any(), any(), any());
+        verify(inventoryChangeApi, never()).change(any());
         verify(deliveryOrderMapper).deleteById(1L);
     }
 
@@ -365,7 +437,7 @@ class DeliveryOrderServiceTest {
 
     @Test
     void updateRejectedWhenAlreadyShipped() {
-        when(deliveryOrderMapper.selectById(1L)).thenReturn(
+        when(deliveryOrderMapper.selectByIdForUpdate(1L)).thenReturn(
                 DeliveryOrder.builder().id(1L).orderId(ORDER_ID).status("SHIPPED").build());
 
         BusinessException e = assertThrows(BusinessException.class,
@@ -377,7 +449,7 @@ class DeliveryOrderServiceTest {
 
     @Test
     void updateRejectedWhenSwitchingOrder() {
-        when(deliveryOrderMapper.selectById(1L)).thenReturn(
+        when(deliveryOrderMapper.selectByIdForUpdate(1L)).thenReturn(
                 DeliveryOrder.builder().id(1L).orderId(ORDER_ID).status("PENDING").build());
 
         // 换绑订单:构造 orderId 不同的请求
@@ -392,15 +464,33 @@ class DeliveryOrderServiceTest {
     }
 
     @Test
-    void updateReplacesLinesWhenPending() {
+    void updateReplacesLinesWithReleaseAndReoccupy() {
         stubDeliverableOrder();
-        when(deliveryOrderMapper.selectById(1L)).thenReturn(
-                DeliveryOrder.builder().id(1L).orderId(ORDER_ID).status("PENDING").build());
+        when(deliveryOrderMapper.selectByIdForUpdate(1L)).thenReturn(DeliveryOrder.builder()
+                .id(1L).orderId(ORDER_ID).deliveryNo("D001").warehouseId(WAREHOUSE_ID).status("PENDING").build());
+        // 存量占用明细(旧锁):shipQty 4
+        when(deliveryOrderItemMapper.selectList(any())).thenReturn(List.of(
+                DeliveryOrderItem.builder().deliveryId(1L).orderItemId(11L).skuId(1001L).shipQty(4).build()));
 
         deliveryOrderService.update(1L, request(line(11L, 3)));
 
+        // 释放旧占用(−4)→ 替换 → 重新占用(+3),同事务失败回滚
+        ArgumentCaptor<InventoryChangeCommand> captor = ArgumentCaptor.forClass(InventoryChangeCommand.class);
+        verify(inventoryChangeApi, times(2)).change(captor.capture());
+        assertEquals(-4, captor.getAllValues().get(0).quantity());
+        assertEquals(3, captor.getAllValues().get(1).quantity());
         verify(deliveryOrderMapper).updateById(any(DeliveryOrder.class));
         verify(deliveryOrderItemMapper).delete(any());
         verify(deliveryOrderItemMapper).insert(any(DeliveryOrderItem.class));
+    }
+
+    @Test
+    void updateRejectedWhenShippedWinsRaceBeforeRowLock() {
+        // 行锁读到 SHIPPED(ship 先行)= 拒改,不释放已核销单据的占用
+        when(deliveryOrderMapper.selectByIdForUpdate(1L)).thenReturn(
+                DeliveryOrder.builder().id(1L).orderId(ORDER_ID).status("SHIPPED").build());
+
+        assertThrows(BusinessException.class, () -> deliveryOrderService.update(1L, request(line(11L, 1))));
+        verify(inventoryChangeApi, never()).change(any());
     }
 }

@@ -1,0 +1,28 @@
+# 采购单 spec(gen:page 拍板表;#10 采购域:列表 + audit/close(admin) + 建单表单)
+# 契约:GET/POST /api/purchase/orders + GET/PUT/DELETE /api/purchase/orders/{id} + POST /{id}/audit /{id}/close
+# 明细行(items)编辑为人工槽位;createdBy 不传,后端接 SecurityContext 回填(#10 遗留验证位)
+module=purchase
+domain=order
+base=purchase/orders
+entity=PurchaseOrder
+nameZh=采购单
+permPrefix=purchase:order
+todoId=10
+menuParent=10
+menuId=12
+path=/purchase/orders
+component=purchase/order/index
+icon=tickets
+
+field=poNo        role=all    label=采购单号  width=180  required
+field=supplierId  role=all    label=供应商ID  width=100  required
+field=warehouseId role=all    label=仓库ID    width=100  required
+field=status      role=column label=状态      enum=DRAFT:草稿:info|AUDITED:已审核:primary|PARTIAL_RECEIVED:部分入库:warning|RECEIVED:已入库:success|CLOSED:已关闭:danger  width=130  tag
+field=totalAmount role=column label=总金额    money  width=130
+field=createdBy   role=column label=创建人    width=90
+field=createdAt   role=column label=创建时间  width=170
+field=remark      role=form   label=备注
+
+# 页面级动作槽位(audit()/close() api 已生成,按钮与调用人工补;后端 @PreAuthorize hasRole('admin'))
+todo=audit:DRAFT→AUDITED,确认弹窗后调用,完成刷新
+todo=close:AUDITED/PARTIAL_RECEIVED/RECEIVED→CLOSED,剩余未收量作废,确认弹窗后调用

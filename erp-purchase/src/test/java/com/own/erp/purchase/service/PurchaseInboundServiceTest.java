@@ -2,6 +2,7 @@ package com.own.erp.purchase.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.InventoryChangeApi;
 import com.own.erp.contract.InventoryChangeCommand;
 import com.own.erp.contract.InventoryConsts;
@@ -50,6 +51,7 @@ class PurchaseInboundServiceTest {
     private PurchaseInboundItemMapper purchaseInboundItemMapper;
     private PurchaseOrderService purchaseOrderService;
     private InventoryChangeApi inventoryChangeApi;
+    private CurrentUserApi currentUserApi;
     private PurchaseInboundService purchaseInboundService;
 
     /** 可收货采购单 88(仓库 2)与其明细 501(SKU 1001,采购 100 已收 0) */
@@ -61,8 +63,11 @@ class PurchaseInboundServiceTest {
         purchaseInboundItemMapper = mock(PurchaseInboundItemMapper.class);
         purchaseOrderService = mock(PurchaseOrderService.class);
         inventoryChangeApi = mock(InventoryChangeApi.class);
+        currentUserApi = mock(CurrentUserApi.class);
         purchaseInboundService = new PurchaseInboundService(purchaseInboundMapper, purchaseInboundItemMapper,
-                purchaseOrderService, inventoryChangeApi);
+                purchaseOrderService, inventoryChangeApi, currentUserApi);
+        // createdBy 服务端按 SecurityContext 回填(CurrentUserApi,#10 遗留收口)
+        when(currentUserApi.currentUserId()).thenReturn(9L);
     }
 
     private PurchaseOrder receivableOrder() {
@@ -116,6 +121,8 @@ class PurchaseInboundServiceTest {
             assertEquals(PurchaseConsts.INBOUND_PENDING, inboundCaptor.getValue().getStatus());
             // 入库仓锁采购单收货仓,不收客户端值
             assertEquals(2L, inboundCaptor.getValue().getWarehouseId());
+            // createdBy 服务端按 SecurityContext 回填,不收客户端值
+            assertEquals(9L, inboundCaptor.getValue().getCreatedBy());
 
             ArgumentCaptor<PurchaseInboundItem> lineCaptor = ArgumentCaptor.forClass(PurchaseInboundItem.class);
             verify(purchaseInboundItemMapper).insert(lineCaptor.capture());

@@ -1,8 +1,14 @@
 package com.own.erp.platform.adapter.amazon;
 
 import cn.hutool.core.util.StrUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.own.erp.platform.PlatformShipment;
 import com.own.erp.platform.unified.UnifiedOrder;
+import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
@@ -30,8 +36,14 @@ import java.util.TreeMap;
  *         - 异常消息只带 HTTP 状态码,禁回显响应原文(docs/07 §7)
  *         - 已知边界(真凭证联调时校准):getOrderItems 属页内循环调用,未单独走 PlatformRateGuard
  *           (横切统一施加在 pull 入口,docs/04),窗口单量大时是否需要页内 pacing 随 SP-API 真值评估
+ *         - 回写(2026-09-06 #3 脱机落地):MFN 确认发货 POST /orders/v0/orders/{orderId}/shipment
+ *           (confirmShipment,行级发运 + 包裹详情,shipDate 必填;成功 = 2xx 无响应体);
+ *           请求体经 Jackson 构建(运单号/承运商名等外部值,禁手工拼接防注入),真凭证联调时校准请求形态
  */
 public class SpApiOrdersClient {
+
+    /** Jackson 线程安全,静态共享;仅用树模型不配特性 */
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final String ORDERS_PATH = "/orders/v0/orders";
     private static final String ORDER_ITEMS_PATH = "/orders/v0/orders/";
@@ -117,6 +129,97 @@ public class SpApiOrdersClient {
             }
         }
         throw new IllegalStateException("getOrderItems 翻页超出防御上限 order=" + platformOrderId);
+    }
+
+    /**
+     * MFN 自发货确认发货(POST /orders/v0/orders/{orderId}/shipment,#3 2026-09-06 脱机落地,
+     * #11 ship 后由 erp-api 编排接线):行级发运(platformOrderItemId+quantity)+ 包裹详情
+     * (运单号/承运商 code 或 name 兜底/shipDate 必填);成功 = 2xx(Amazon 返回 204 无响应体);
+     * 入参校验先于网络调用,非法要素友好报错禁半配置出请求
+     */
+    public void confirmShipment(String lwaAccessToken, SpApiSigner.AwsCredentials awsCredentials,
+                                PlatformShipment shipment) {
+        if (StrUtil.isBlank(marketplaceIds)) {
+            throw new IllegalStateException("未配置 erp.adapter.amazon.marketplace-ids,无法回传发货");
+        }
+        validateShipment(shipment);
+        String path = "/orders/v0/orders/" + shipment.platformOrderId() + "/shipment";
+        String body = buildShipmentBody(shipment);
+        // POST body 参与签名载荷(Reports 客户端同款);查询串取签名器回传规范串,禁二次拼参
+        SpApiSigner.SignedHeaders signed = signer.sign(new SpApiSigner.SpApiRequest(
+                "POST", path, new TreeMap<>(), Map.of("Host", baseUri.getHost()), body),
+                awsCredentials, region, SERVICE, Instant.now(clock));
+        String url = baseUri + path + "?" + signed.canonicalQueryString();
+        try {
+            RestClient.RequestHeadersSpec<?> spec = restClient.post()
+                    .uri(URI.create(url))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .header("Authorization", signed.authorization())
+                    .header("X-Amz-Date", signed.xAmzDate())
+                    .header("x-amz-access-token", lwaAccessToken);
+            if (StrUtil.isNotBlank(awsCredentials.sessionToken())) {
+                spec = spec.header("X-Amz-Security-Token", awsCredentials.sessionToken());
+            }
+            spec.retrieve().toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            // 响应原文可能含调用参数与账号上下文,只透出状态码定位问题(docs/07 §7)
+            throw new IllegalStateException("SP-API confirmShipment 调用失败:HTTP " + e.getStatusCode().value(), e);
+        }
+    }
+
+    /** 回传要素校验:平台单号/运单号/发货时间/承运商(编码与名称至少其一)/行级明细(行 ID 非空+数量正数) */
+    private void validateShipment(PlatformShipment shipment) {
+        if (shipment == null || StrUtil.isBlank(shipment.platformOrderId())) {
+            throw new IllegalStateException("发货回传缺 platformOrderId");
+        }
+        if (StrUtil.isBlank(shipment.trackingNo())) {
+            throw new IllegalStateException("发货回传缺运单号 trackingNo");
+        }
+        if (shipment.shipTime() == null) {
+            throw new IllegalStateException("发货回传缺发货时间 shipTime");
+        }
+        if (StrUtil.isBlank(shipment.carrierCode()) && StrUtil.isBlank(shipment.carrierName())) {
+            throw new IllegalStateException("发货回传缺物流公司(carrierCode/carrierName 至少其一)");
+        }
+        if (shipment.items() == null || shipment.items().isEmpty()) {
+            throw new IllegalStateException("发货回传缺行级发运明细 items");
+        }
+        for (PlatformShipment.Item item : shipment.items()) {
+            if (item == null || StrUtil.isBlank(item.platformOrderItemId()) || item.quantity() <= 0) {
+                throw new IllegalStateException("发货回传行级明细不合法(缺 platformOrderItemId 或数量非正数)");
+            }
+        }
+    }
+
+    /**
+     * 确认发货请求体(marketplaceId + shipment.orderItems 行级 + packageDetails 包裹详情);
+     * Jackson 树模型构建——运单号/承运商名是外部值,禁手工字符串拼接(docs/07 §7 注入防护)
+     */
+    private String buildShipmentBody(PlatformShipment shipment) {
+        ObjectNode root = MAPPER.createObjectNode();
+        root.put("marketplaceId", marketplaceIds);
+        ObjectNode shipmentNode = root.putObject("shipment");
+        ArrayNode orderItems = shipmentNode.putArray("orderItems");
+        for (PlatformShipment.Item item : shipment.items()) {
+            ObjectNode node = orderItems.addObject();
+            node.put("orderItemId", item.platformOrderItemId());
+            node.put("quantity", item.quantity());
+        }
+        ObjectNode packageDetails = shipmentNode.putObject("packageDetails");
+        packageDetails.put("trackingNumber", shipment.trackingNo());
+        if (StrUtil.isNotBlank(shipment.carrierCode())) {
+            packageDetails.put("carrierCode", shipment.carrierCode());
+        }
+        if (StrUtil.isNotBlank(shipment.carrierName())) {
+            packageDetails.put("carrierName", shipment.carrierName());
+        }
+        packageDetails.put("shipDate", AMZ_ISO.format(shipment.shipTime()));
+        try {
+            return MAPPER.writeValueAsString(root);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("发货回传请求体序列化失败", e);
+        }
     }
 
     /** 签名(service=execute-api,时间戳取注入 Clock,固定时钟单测);查询串取签名器回传的规范串拼 URL */

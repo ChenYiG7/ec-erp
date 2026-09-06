@@ -1,0 +1,35 @@
+# 售后单 spec(gen:page 拍板表;#12 售后域:列表 + 五动作人工处理 + 收退件复合表单 + 退货明细展开行)
+# 契约:GET /api/aftersale/orders + GET /api/aftersale/orders/{id}(带 returnItems)
+#      + POST /{id}/agree /{id}/reject /{id}/receive-return /{id}/refund /{id}/complete
+# 系统写入表(平台同步 upsert + 人工状态机),无建单/编辑/删除接口,readonly;收退件表单 = 人工槽(拉订单明细枚举可退行)
+module=aftersale
+domain=order
+base=aftersale/orders
+entity=AftersaleOrder
+nameZh=售后单
+permPrefix=aftersale:order
+todoId=12
+menuParent=8
+menuId=15
+path=/aftersale/orders
+component=aftersale/order/index
+readonly=true
+icon=service
+
+field=aftersaleNo  role=column label=售后单号  width=180
+field=orderId      role=all    label=订单ID    width=110
+field=shopId       role=all    label=店铺ID    width=100
+field=type         role=column label=类型      enum=REFUND_ONLY:仅退款:info|RETURN_REFUND:退货退款:warning|EXCHANGE:换货:primary|RESEND:补发:success  width=110  tag
+field=status       role=column label=状态      enum=PENDING:待处理:warning|APPROVED:已同意:primary|RETURNING:待收退件:warning|RETURN_RECEIVED:已收退件:primary|REFUNDED:已退款:success|COMPLETED:已完成:success|REJECTED:已拒绝:danger|CANCELLED:已取消:info  width=130  tag
+field=refundAmount role=column label=退款金额  money  width=120
+field=currency     role=column label=币种      width=80
+field=reason       role=column label=售后原因
+field=result       role=column label=处理结果
+field=createdAt    role=column label=创建时间  width=170
+
+# 页面级动作槽位(api 已生成,含请求体类型;按钮与调用人工补;条件更新即守卫,失败弹拦截器报错)
+todo=agree:PENDING→APPROVED|RETURNING 按 type 分流,确认弹窗后调用
+todo=reject:PENDING→REJECTED,result 必填(prompt 录入拒绝原因)
+todo=receive-return:RETURNING→RETURN_RECEIVED,复合表单(仓库ID+逐行实收明细,仅 sku_id 已绑定行),同事务 IN_RETURN 动账
+todo=refund:APPROVED|RETURN_RECEIVED→REFUNDED,前置白名单即类型血缘(退货类强制已收退件),确认弹窗后调用
+todo=complete:REFUNDED→COMPLETED 终态收尾,确认弹窗后调用

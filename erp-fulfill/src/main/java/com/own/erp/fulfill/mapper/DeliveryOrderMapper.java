@@ -3,6 +3,7 @@ package com.own.erp.fulfill.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.own.erp.fulfill.entity.DeliveryOrder;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 /**
@@ -20,4 +21,13 @@ public interface DeliveryOrderMapper extends BaseMapper<DeliveryOrder> {
      */
     @Update("UPDATE delivery_order SET status = #{toStatus} WHERE id = #{id} AND status = #{fromStatus}")
     int casStatus(@Param("id") Long id, @Param("fromStatus") String fromStatus, @Param("toStatus") String toStatus);
+
+    /**
+     * 行锁读(改单专用,#7 占用/释放入场后禁 check-then-act 串状态):
+     * FOR UPDATE 持行锁至提交——改单释放/重占期间 ship 的 casStatus 会阻塞在本行,
+     * 二者天然串行化(先改单:ship 等 commit 后照常核销新占用;先 ship:改单行锁读到 SHIPPED 即拒),
+     * 防"改单释放了已发货单据的占用"库存错账
+     */
+    @Select("SELECT * FROM delivery_order WHERE id = #{id} FOR UPDATE")
+    DeliveryOrder selectByIdForUpdate(@Param("id") Long id);
 }

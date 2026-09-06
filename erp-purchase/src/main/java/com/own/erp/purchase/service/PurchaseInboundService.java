@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.InventoryChangeApi;
 import com.own.erp.contract.InventoryChangeCommand;
 import com.own.erp.contract.InventoryConsts;
@@ -35,7 +36,9 @@ import java.util.Map;
  * @Description : 采购入库单服务:purchase_inbound(+purchase_inbound_item 子表)域整域收口,Controller 不直连 Mapper(docs/07 §2.1)
  *     入库单状态机(#10):PENDING(可改/删/取消)→ confirm → RECEIVED(核销完成,禁删改)/ CANCELLED(终态);
  *     confirm = 本系统唯一动库存的入库路径:同事务内 ①状态占位(条件更新防并发双确认)→
- *     ②逐行经 InventoryChangeApi 走 InventoryService.change 唯一入口写 flow(flow_type=IN_PURCHASE,docs/07 铁律 4)→
+ *     ②逐行经 InventoryChangeApi 走 InventoryService.change 唯一入口写 flow
+ *     (flow_type=IN_PURCHASE = 核销在途转可用:在途-数量、在库+数量、可用+数量,守卫=在途充足,
+ *     docs/07 铁律 4;在途由采购单审核占位,#7 2026-09-06)→
  *     ③PurchaseOrderService.receiveQuantities 回写 arrived_qty 并推进采购单状态;
  *     任一步失败整体回滚,库存/流水/核销/状态四者强一致
  */
@@ -46,16 +49,19 @@ public class PurchaseInboundService {
     private final PurchaseInboundItemMapper purchaseInboundItemMapper;
     private final PurchaseOrderService purchaseOrderService;
     private final InventoryChangeApi inventoryChangeApi;
+    private final CurrentUserApi currentUserApi;
 
     /** 契约接口注入一律 @Lazy 断构造环:实现收口 erp-api 反向注入域 Service,急切装配成环(docs/07 §2.2) */
     public PurchaseInboundService(PurchaseInboundMapper purchaseInboundMapper,
                                   PurchaseInboundItemMapper purchaseInboundItemMapper,
                                   PurchaseOrderService purchaseOrderService,
-                                  @Lazy InventoryChangeApi inventoryChangeApi) {
+                                  @Lazy InventoryChangeApi inventoryChangeApi,
+                                  @Lazy CurrentUserApi currentUserApi) {
         this.purchaseInboundMapper = purchaseInboundMapper;
         this.purchaseInboundItemMapper = purchaseInboundItemMapper;
         this.purchaseOrderService = purchaseOrderService;
         this.inventoryChangeApi = inventoryChangeApi;
+        this.currentUserApi = currentUserApi;
     }
 
     /** 分页查询(默认按 id 倒序;过滤条件在 PurchaseInboundQuery 加字段后在此补 Wrapper 条件);列表不带明细 */
@@ -91,9 +97,10 @@ public class PurchaseInboundService {
         Map<Long, PurchaseOrderItem> poItemById = poItemMap(purchaseOrder.getId());
         List<PurchaseInboundItem> lines = assembleLines(request.items(), poItemById);
         PurchaseInbound purchaseInbound = request.toEntity();
-        // 写前回填服务端管理列(setter 白名单):状态固定待入库,入库仓锁采购单收货仓
+        // 写前回填服务端管理列(setter 白名单):状态固定待入库,入库仓锁采购单收货仓,createdBy 按 SecurityContext
         purchaseInbound.setStatus(PurchaseConsts.INBOUND_PENDING);
         purchaseInbound.setWarehouseId(purchaseOrder.getWarehouseId());
+        purchaseInbound.setCreatedBy(currentUserApi.currentUserId());
         try {
             purchaseInboundMapper.insert(purchaseInbound);
         } catch (DuplicateKeyException e) {

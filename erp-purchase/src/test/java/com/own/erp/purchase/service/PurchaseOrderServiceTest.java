@@ -2,7 +2,11 @@ package com.own.erp.purchase.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.GoodsSkuApi;
+import com.own.erp.contract.InventoryChangeApi;
+import com.own.erp.contract.InventoryChangeCommand;
+import com.own.erp.contract.InventoryConsts;
 import com.own.erp.contract.WarehouseApi;
 import com.own.erp.purchase.constant.PurchaseConsts;
 import com.own.erp.purchase.entity.PurchaseOrder;
@@ -53,6 +57,8 @@ class PurchaseOrderServiceTest {
     private SupplierMapper supplierMapper;
     private GoodsSkuApi goodsSkuApi;
     private WarehouseApi warehouseApi;
+    private CurrentUserApi currentUserApi;
+    private InventoryChangeApi inventoryChangeApi;
     private PurchaseOrderService purchaseOrderService;
 
     @BeforeEach
@@ -63,12 +69,15 @@ class PurchaseOrderServiceTest {
         supplierMapper = mock(SupplierMapper.class);
         goodsSkuApi = mock(GoodsSkuApi.class);
         warehouseApi = mock(WarehouseApi.class);
+        currentUserApi = mock(CurrentUserApi.class);
+        inventoryChangeApi = mock(InventoryChangeApi.class);
         purchaseOrderService = new PurchaseOrderService(purchaseOrderMapper, purchaseOrderItemMapper,
-                purchaseInboundMapper, supplierMapper, goodsSkuApi, warehouseApi);
+                purchaseInboundMapper, supplierMapper, goodsSkuApi, warehouseApi, currentUserApi, inventoryChangeApi);
         // 默认放行引用校验,各用例按需覆盖
         when(supplierMapper.selectById(any())).thenReturn(new Supplier());
         when(warehouseApi.existsWarehouse(any())).thenReturn(true);
         when(goodsSkuApi.existsSku(any())).thenReturn(true);
+        when(currentUserApi.currentUserId()).thenReturn(9L);
     }
 
     // 注:countItemRefsBySkuIds 内部用 Lambda wrapper .in()(急切解析列元数据),纯 Mockito 环境不可直测;
@@ -98,6 +107,8 @@ class PurchaseOrderServiceTest {
             verify(purchaseOrderMapper).insert(poCaptor.capture());
             assertEquals(PurchaseConsts.PO_DRAFT, poCaptor.getValue().getStatus());
             assertEquals(new BigDecimal("25.0"), poCaptor.getValue().getTotalAmount());
+            // createdBy 服务端按 SecurityContext 回填(CurrentUserApi,#10 遗留收口)
+            assertEquals(9L, poCaptor.getValue().getCreatedBy());
 
             ArgumentCaptor<PurchaseOrderItem> itemCaptor = ArgumentCaptor.forClass(PurchaseOrderItem.class);
             verify(purchaseOrderItemMapper, org.mockito.Mockito.times(2)).insert(itemCaptor.capture());
@@ -192,23 +203,73 @@ class PurchaseOrderServiceTest {
     class StateMachine {
 
         @Test
-        void auditSucceedsOnCasHitAndFailsOnMiss() {
+        void auditOccupiesTransitPerLineOnCasHit() {
             when(purchaseOrderMapper.casStatus(1L, PurchaseConsts.PO_DRAFT, PurchaseConsts.PO_AUDITED)).thenReturn(1);
+            when(purchaseOrderMapper.selectById(1L)).thenReturn(order(1L, "PO001", 2L, 7L));
+            when(purchaseOrderItemMapper.selectList(any())).thenReturn(List.of(
+                    item(501L, 0, 10, 100L), item(502L, 0, 3, 200L)));
+
             purchaseOrderService.audit(1L);
 
-            when(purchaseOrderMapper.casStatus(2L, PurchaseConsts.PO_DRAFT, PurchaseConsts.PO_AUDITED)).thenReturn(0);
-            assertTrue(assertThrows(BusinessException.class, () -> purchaseOrderService.audit(2L))
-                    .getMessage().contains("审核失败"));
+            // 复合事务动作(#7):cas 占位后逐行占在途,仓库/操作人取单据管理列
+            ArgumentCaptor<InventoryChangeCommand> captor = ArgumentCaptor.forClass(InventoryChangeCommand.class);
+            verify(inventoryChangeApi, org.mockito.Mockito.times(2)).change(captor.capture());
+            InventoryChangeCommand first = captor.getAllValues().get(0);
+            assertEquals(100L, first.skuId());
+            assertEquals(2L, first.warehouseId());
+            assertEquals(10, first.quantity());
+            assertEquals(InventoryConsts.FLOW_TYPE_IN_TRANSIT, first.flowType());
+            assertEquals(PurchaseConsts.BIZ_TYPE_PURCHASE_ORDER, first.bizType());
+            assertEquals(1L, first.bizId());
+            assertEquals(7L, first.createdBy());
+            assertEquals(3, captor.getAllValues().get(1).quantity());
         }
 
         @Test
-        void closeSucceedsOnCasHitAndFailsOnMiss() {
+        void auditFailsOnCasMissWithoutTransitOccupied() {
+            when(purchaseOrderMapper.casStatus(2L, PurchaseConsts.PO_DRAFT, PurchaseConsts.PO_AUDITED)).thenReturn(0);
+            assertTrue(assertThrows(BusinessException.class, () -> purchaseOrderService.audit(2L))
+                    .getMessage().contains("审核失败"));
+            verify(inventoryChangeApi, never()).change(any());
+        }
+
+        @Test
+        void closeReleasesRemainingTransitSkippingReceivedLines() {
             when(purchaseOrderMapper.closeOrder(1L)).thenReturn(1);
+            when(purchaseOrderMapper.selectById(1L)).thenReturn(order(1L, "PO001", 2L, 7L));
+            // 一行已收齐(跳过),一行部分到货(释放 10-3=7)
+            when(purchaseOrderItemMapper.selectList(any())).thenReturn(List.of(
+                    item(501L, 10, 10, 100L), item(502L, 3, 10, 200L)));
+
             purchaseOrderService.close(1L);
 
+            ArgumentCaptor<InventoryChangeCommand> captor = ArgumentCaptor.forClass(InventoryChangeCommand.class);
+            verify(inventoryChangeApi, org.mockito.Mockito.times(1)).change(captor.capture());
+            InventoryChangeCommand release = captor.getValue();
+            assertEquals(200L, release.skuId());
+            assertEquals(-7, release.quantity());
+            assertEquals(InventoryConsts.FLOW_TYPE_IN_TRANSIT, release.flowType());
+            assertEquals(1L, release.bizId());
+        }
+
+        @Test
+        void closeWithoutRemainingTransitSkipsInventoryCalls() {
+            // 全部收齐后关闭 = 纯状态关闭,无在途可释放
+            when(purchaseOrderMapper.closeOrder(1L)).thenReturn(1);
+            when(purchaseOrderMapper.selectById(1L)).thenReturn(order(1L, "PO001", 2L, 7L));
+            when(purchaseOrderItemMapper.selectList(any())).thenReturn(List.of(item(501L, 10, 10, 100L)));
+
+            purchaseOrderService.close(1L);
+
+            verify(inventoryChangeApi, never()).change(any());
+        }
+
+        @Test
+        void closeFailsOnCasMissWithoutRelease() {
             when(purchaseOrderMapper.closeOrder(2L)).thenReturn(0);
             assertTrue(assertThrows(BusinessException.class, () -> purchaseOrderService.close(2L))
                     .getMessage().contains("关闭失败"));
+            verify(inventoryChangeApi, never()).change(any());
         }
     }
 
@@ -295,11 +356,26 @@ class PurchaseOrderServiceTest {
     }
 
     private PurchaseOrderItem item(Long id, int arrivedQty, int quantity) {
+        return item(id, arrivedQty, quantity, 0L);
+    }
+
+    private PurchaseOrderItem item(Long id, int arrivedQty, int quantity, long skuId) {
         PurchaseOrderItem item = new PurchaseOrderItem();
         item.setId(id);
         item.setArrivedQty(arrivedQty);
         item.setQuantity(quantity);
+        item.setSkuId(skuId);
         return item;
+    }
+
+    /** 已落库采购单(审核/关闭在途动账断言用):仓库/单号/创建人取管理列 */
+    private PurchaseOrder order(Long id, String poNo, long warehouseId, long createdBy) {
+        PurchaseOrder purchaseOrder = new PurchaseOrder();
+        purchaseOrder.setId(id);
+        purchaseOrder.setPoNo(poNo);
+        purchaseOrder.setWarehouseId(warehouseId);
+        purchaseOrder.setCreatedBy(createdBy);
+        return purchaseOrder;
     }
 
     @Test

@@ -7,8 +7,8 @@
     <!--
       Spring Boot 4.x 世代(Spring Framework 7):
       - Spring AI Alibaba 2.0 与 AgentScope 2.0 均要求 Boot 4.x,故基础栈固定在 4.0 稳定线
-      - 注意:Spring AI 2.0.0-M5 / spring-ai-alibaba 2.0.0-M1.1 / agentscope 2.0.0-RC5 尚未 GA,
-        版本升级时关注:Spring AI 2.0 GA、AgentScope 2.0 GA、Boot 4.1 GA(预计 2026-11)
+      - 版本现状(2026-09-06 三期开工 Maven Central 核实):Spring AI 2.0.1 GA / agentscope 2.0.2 GA 已就位,
+        spring-ai-alibaba 2.0.0-M1.1 仍为里程碑(无 GA),升级只动本文件三属性;后续关注 SAA GA 与 Boot 4.1 GA(预计 2026-11)
     -->
     <parent>
         <groupId>org.springframework.boot</groupId>
@@ -51,9 +51,9 @@
         <java.version>21</java.version>
         <!-- MyBatis-Plus:Boot 4 必须用 boot4 专用 starter -->
         <mybatis-plus.version>3.5.17</mybatis-plus.version>
-        <spring-ai.version>2.0.0-M5</spring-ai.version>
+        <spring-ai.version>2.0.1</spring-ai.version>
         <spring-ai-alibaba.version>2.0.0-M1.1</spring-ai-alibaba.version>
-        <agentscope.version>2.0.0-RC5</agentscope.version>
+        <agentscope.version>2.0.2</agentscope.version>
         <jjwt.version>0.13.0</jjwt.version>
         <hutool.version>5.8.47</hutool.version>
         <!-- springdoc 3.x 对应 Boot 4(2.8.x 对应 Boot 3,勿跨线);注解对齐 swagger-core 2.2.5x 同代 -->

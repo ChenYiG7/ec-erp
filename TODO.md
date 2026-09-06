@@ -61,8 +61,44 @@
       假服务单测 9 个(SpApiOrdersClientTest 7:查询串/签名头/翻页/明细挂载/安全令牌头/错误只透状态码/防御上限;
       AmazonClientTest 适配新构造 +2 守卫);已知边界:getOrderItems 页内循环未单独走限流,随实调真值评估
 - [ ] SP-API 真凭证联调(剩余部分):Seller Central 应用授权 + IAM 权限/role-arn 上线 + getOrders 冒烟;
-      SP-API 限流真值按响应头 x-amzn-RateLimit-Limit 校准;pullProducts(Listings/Reports 选型)、
-      pullRefunds(Finances API)、uploadTracking(随 #11)仍占位 UnsupportedOperationException(docs/07 §12)
+      SP-API 限流真值按响应头 x-amzn-RateLimit-Limit 校准;~~pullProducts/pullRefunds 占位~~
+      (✅ 2026-09-06 联调预备骨架落地,见下条)/ ~~uploadTracking 占位~~(✅ 2026-09-06 脱机落地,见下条)(docs/07 §12)
+- [x] 2026-09-06 #3 联调预备骨架落地(选型拍板进 docs/04「Amazon 拉取/回写面选型拍板」节,代码 adapter/amazon):
+      ①pullProducts 选型 **Reports GET_MERCHANT_LISTINGS_ALL_DATA**(Listings Items API 无枚举能力,
+      报表全量快照 + saveUnifiedProduct upsert 幂等,PRODUCT 游标退化为频率控制)——SpApiReportsClient
+      三步异步链(createReport/轮询 getReport 至 DONE 防御上限/getReportDocument→S3 预签名下载不走 SigV4
+      →GZIP 解压)+ AmazonListingTranslator TSV 按列名解析(行按 asin1 分组,币种已按站点静态表推导收口,
+      见下方站点映射条目);②pullRefunds 选型 **Finances listFinancialEvents**
+      (PostedAfter/Before 记账窗 + NextToken)——SpApiFinancesClient + AmazonRefundTranslator
+      (事件无原生退款 ID,组合幂等键 OrderId|Sku|PostedDate 拍板;FINISHED+REFUND_ONLY → #12 分流
+      REFUNDED 终态回传契合"仅平台终态回传条件推进"设计);③uploadTracking 占位消除**规划**拍板:
+      MFN = POST /orders/v0/orders/{orderId}/shipment,#11 ship 本地推进后回传、失败记 pull_log 不回滚本地
+      (✅ 实现已无凭证脱机落地,见下方回传条目);单测 +17(SpApiReportsClientTest 6 + SpApiFinancesClientTest 4 + 两翻译器 7,
+      假服务/官方模板推导 fixture,真凭证样本到位后 --force 校准一轮,docs/07 §8);
+      ⚠️ 已知边界:报表轮询同步阻塞拉单线程(平台侧生成 15~60 分钟),接真凭证实测时长必要时异步任务化;
+      ⚠️ 售后拉单 Job(AftersaleRefundPullJob)仍不接线,随真凭证(接早了对假报文产生 pull_log 失败噪音,#12 口径)
+- [x] 2026-09-06 站点↔币种映射收口(**无凭证落地**,TODO(#3) 槽位消除):listing 报表无币色列,
+      Sku.currency 改由适配器按 marketplaceId 静态表推导——`AmazonMarketplace` 封闭枚举 23 站点全收录
+      (官方 SP-API「Store Identifiers」文档逐项核对,抓出瑞典 A2NODRKZP88ZB9/沙特 A17E79C6D8DWNP 两个易错 ID;
+      真凭证到位后抽样核对即可),未配置/未收录站点拉单即报错拒静默(禁猜币种落脏账),
+      且先于报表创建推导(不空耗平台侧 15~60 分钟报表生成);
+      旧口径"币种置空由落库侧按店铺站点推导"作废——平台知识归防腐层,落库侧 saveUnifiedProduct 零改动;
+      单测 AmazonMarketplaceTest(官方值抽查/穷举完整性 23 站守卫/未收录即拒)+
+      翻译器透传断言 + AmazonClient 未收录先拒守卫,共 +6 用例
+- [x] 2026-09-06 uploadTracking 脱机落地(**无凭证实现**,用户拍板提前,TODO(#3) 回传占位消除):
+      MFN 确认发货 = POST /orders/v0/orders/{orderId}/shipment(`SpApiOrdersClient.confirmShipment`,
+      行级发运 platformOrderItemId+quantity + 包裹详情 trackingNumber/carrierCode·carrierName 兜底/
+      shipDate 必填;Jackson 树模型构建请求体防注入(运单号/承运商名为外部值禁手工拼接);
+      成功 = 2xx 无响应体,异常只透状态码 docs/07 §7;入参校验链先于网络调用——平台单号/运单号/
+      发货时间/承运商 code·name 至少其一/行级明细非空正数,禁半配置出请求);
+      **SPI 签名收口**:`uploadTracking` 四散参 → `PlatformShipment` 命令(record+@Builder,同
+      InventoryChangeCommand 拍板防相邻同类型错位)——原形态缺行级 quantity 与 shipTime,
+      撑不起 confirmShipment 必填要素,趁单 adapter 窗口改签名(零存量实现迁移成本);
+      PlatformGateway 回写桶限流透传同步适配;AmazonClient 守卫(缺 LWA token/未配 AWS 密钥)同拉单口径;
+      单测 +7(SpApiOrdersClientTest 7→13:POST 形态与签名/请求体逐字段/承运商兜底省空字段/
+      安全令牌头/错误透状态码/校验守卫/配置守卫;AmazonClientTest 占位测试改双守卫);
+      ⚠️ **#11 ship 编排接线仍留**(发货明细行→platformOrderItemId 翻译经 ShopOrderApi 契约、
+      回传失败记 pull_log 不回滚本地发货,docs/04)——随联调需要另做,本条目只交付 adapter 能力面
 - [x] 2026-09-04 OAuth 回调 + Token 刷新落地(脱机部分,erp-shop 授权中心):
       `GET /{id}/auth-url` 实装(state 加密签发)→ `GET /api/shops/oauth/callback`(SecurityConfig 放行,浏览器直跳无 JWT)
       → OAuthStateService 校验(state = AES-GCM 加密 `用途|shopId|到期ms`,复用 ERP_TOKEN_KEY,10 分钟 TTL,
@@ -114,6 +150,12 @@
 - [x] 2026-09-04 连续失败 3 次告警落地(#14 站内通知):`PullLogService.shouldAlertContinuousFailure` 无状态判定
       (最近 3 次全失败且恰达阈值→true,连续段只告警一次,成功即重新计数),OrderPullJob catch 内接线,
       通知写失败只记日志不阻断拉单
+- [x] 2026-09-06 前端拉单日志页落地(#16 add-page 逐域铺开,pull_log 观测面只读):
+      列表 + shopId/dataType(订单·商品·售后)/success 三过滤,success 结果标签、errorMsg 失败原因列;
+      菜单种子:系统管理下 id=21(perm shop:pulllog:list),回写 01_schema_init.sql(已建库直接跑新增段,重登录生效);
+      ~~店铺名称列翻译随店铺 options 共享数据源另议~~(✅ 2026-09-06 收口:api/apis/shop/options.ts,
+      订单/拉单日志/平台商品/售后单/发货单五页 shopId 列 enum 翻译停用店铺不参与;~~SKU 名称列翻译契约缺口挂账见 #7 专条~~
+      (✅ 2026-09-06 收口,见 #7 专条))
 - 模块边界演进(2026-09-04):erp-order 新增 erp-platform-sdk 依赖,**仅消费 UnifiedOrder 落库模型,禁止调平台 API**;
   后续 erp-goods(UnifiedProduct)/erp-aftersale(UnifiedRefund)落库同规约(docs/07 §2.2 已同步)
 
@@ -142,10 +184,20 @@
 - [x] bind 接口 sku_id 存在性校验(2026-09-04 同上收口):ShopProductSkuService.bind 经 GoodsSkuApi 校验,
       查无此 SKU 禁绑定(此前信任入参);ShopProductSkuServiceTest 同步(+1 用例改 2 处打桩)
 - [x] 连续失败 3 次告警推通知渠道(2026-09-04 已落地,#14 站内通知,同 #4,ProductPullJob catch 内接线)
+- [x] 2026-09-06 前端 SKU匹配页落地(#16 add-page 生成器逐域铺开,系统心脏人工闭环):待匹配处理台
+      (init-param 固定 matchStatus=0)+ 人工绑定(prompt 录内部SKU ID,存在性校验在后端,重复绑定幂等);
+      菜单种子:商品中心下 id=16 + 按钮 1601,回写 01_schema_init.sql;~~SKU 搜索下拉随 goods 域页面完善~~
+      (✅ 2026-09-06 随 #16 SkuSelector 收口,bind 升级搜索选择器弹窗)
 - [x] sku_code 全局唯一校验(2026-09-04 收口,TODO(#5) 槽位消除):createSku/updateSku/createProduct 前置查重
       给友好报错(updateSku 排除自身;createProduct 先拒请求内重复再逐码查库,eq 逐码而非 in 聚合——
       in 急切解析列元数据纯 Mockito 单测不可直测,SPU 下 SKU 个位数开销可忽略),并发窗口 uk_sku 兜底
       捕 DuplicateKeyException 转业务异常(同 #10 po_no 模式);ProductServiceTest +8 用例共 14 个
+- [x] 2026-09-06 前端商品域基础数据两页(#16 铺开续):品牌管理 gen:page 生成(spec=goods-brand.txt,菜单 id=24;
+      契约三特性——save body=Brand 本体、无 detail 端点、GET 仅 PageQuery 无业务过滤——编辑回填走行数据,
+      页无搜索表单,生成器均天然兼容);分类管理手写树形页(菜单 id=23,gen:page 不适用:无分页/详情端点 +
+      树形布局双踩边界)——树表格 + 新增子级/编辑/删除,编辑态禁改父级 + 前端挡子节点删除
+      (TODO(#7) 后端成环校验/引用拦截补齐前的前端兜底);categoryApi 扩 CRUD,
+      category.ts 过时"届时走 gen:page"注释修正
 
 ## #6 AI(三期,依赖已就位、代码全部占位)
 - [ ] `ErpChatService.chat`:按类注释实现 ChatClient + tools;接口 SSE 流式
@@ -177,8 +229,19 @@
   ```
 - [x] 库存统一入口 `InventoryService.change(flow)`(2026-09-03):@Transactional 同事务更新 inventory + 写 inventory_flow,
       before/after 记 qty_available 轨迹,行不存在自动建行(其余数量列 0 起步),after<0 拒绝;
-      遗留(代码 TODO(#7) 注释在 change 内):按 flow_type 差异化维护 qty_locked/qty_transit(发货占用/取消释放,随 #4)、
-      TRANSFER 跨仓上层组合
+      ~~按 flow_type 差异化维护 qty_locked/qty_transit(发货占用/取消释放)、TRANSFER 跨仓上层组合~~
+      (✅ 2026-09-06 差异化收口,**FlowOps 列语义矩阵**(InventoryService 内枚举,枚举名即字面量):
+      新增 IN_TRANSIT 采购在途(审核占 +q/关闭释放 -q,仅动 qty_transit)+ LOCK_SHIP 发货占用
+      (建单 +q:占用+q/可用-q;取消·删除·改单释放 -q)两 flow_type(词表三方同步 InventoryConsts ↔
+      01_schema_init.sql ↔ docs/03);IN_PURCHASE 改**核销在途**(在途-q/在库+q/可用+q,守卫=在途充足,未审核即入库在此拦截);
+      OUT_SHIP 改**占用转出库**(在库/占用双降,可用不变——建单时已占,守卫防未占用先发货);
+      IN_RETURN/ADJUST/TRANSFER_OUT/TRANSFER_IN 保持通用形(on_hand/available 同步±,可用守卫);
+      每类型一条原子 UPDATE(守卫全下 SQL),首建分支按类型收窄(通用形正数与 IN_TRANSIT 正数允许建行,
+      占用/出库/核销需存量行);未知 flow_type 封闭枚举拒绝;InventoryService.transfer() 收口跨仓组合
+      (两腿同事务,biz=INVENTORY_TRANSFER,暂无调拨单域直调预留);单测翻新 29 个
+      (并发分支以 ADJUST 代表通用形 + 类型矩阵逐类断言);
+      ⚠️ **开发库数据回补**(改造前已审核/已在途的单据无占位记录,见 #10/#11 条目内回补 SQL);
+      before/after 记 qty_available 轨迹,IN_TRANSIT/OUT_SHIP 不动可用(前后相等属正常))
 - [x] change() 并发安全原子化(2026-09-04 #13 锁选型同日落地,docs/07 §1① 正确性锁落 DB):
       存量行 check-then-act(selectOne→算术→updateById)重写为一条原子 UPDATE `updateAvailableDelta`
       (`SET qty_on_hand = qty_on_hand + ?, qty_available = qty_available + ? WHERE sku_id = ? AND warehouse_id = ? AND qty_available + ? >= 0`,
@@ -186,6 +249,26 @@
       首建并发**弃 INSERT IGNORE 改捕 DuplicateKeyException 回退原子 UPDATE 重试一轮**(IGNORE 会把非重复键错误一并吞成 warning,
       与 TODO 原指引的偏差,已拍板);两轮仍冲突按业务冲突上抛;单测 11 个(新增并发首建撞 uk/回查窗口重试/持续冲突三分支)
 - [x] pull_log 观测列 `duration_ms` / `pull_way`(脚本已加;开发库已生效,2026-09-03 验证)
+- [x] 2026-09-06 前端库存两页落地(#16 add-page 生成器逐域铺开,均只读):库存查询 + 库存流水
+      (flow_type 六值枚举与 DDL COMMENT/InventoryConsts 对齐);菜单种子:新建库存管理目录 id=17 +
+      两页 18/19,回写 01_schema_init.sql;仓库列翻译已随仓库管理页收口,~~SKU 名称列翻译挂账见 #7 专条(契约缺口)~~
+      (✅ 2026-09-06 随批量端点收口)
+- [x] 2026-09-06 前端仓库管理页落地(#16 生成器逐域铺开,全 CRUD):库存管理目录第三页,
+      菜单种子 id=20 + 按钮段 2001~2003,回写 01_schema_init.sql(全新 id,已建库直接跑新增段,重登录生效);
+      同款裸 ID 一并收口:售后收退件/采购建单表单仓库手填改下拉(供应商手填同款改下拉)+ 库存两页/采购单/
+      入库单/发货单列表仓库列 ID 翻译仓库名(共享数据源 api/apis/warehouse/options.ts + ProTable enum 函数形态);
+      ~~SKU 明细行手填保留(SKU 搜索选择器随 goods 域页面完善)~~(✅ 2026-09-06 随 #16 SkuSelector 收口,
+      采购建单明细行换搜索选择器)
+- [x] 前端 SKU 名称列翻译收口(2026-09-06,后端契约补齐 + 前端一处收口):
+      后端新增 `GET /api/goods/skus/batch?ids=`(ProductSkuController,出参 SkuOptionResponse{id,skuCode,productName}——
+      product_sku 无名称列,SPU 名称两步组装收口 ProductService.listSkuOptions,双表组装属 Service 同 getProductDetail 口径;
+      selectByIds 走 BaseMapper 内建规避 .in() 急切解析坑(docs/07 §10)且纯单测可直测;不过滤 status,禁用 SKU 历史单据仍可翻译);
+      前端 `api/apis/goods/options.ts` 一处收口(模块级缓存跨页累积 + 按页去重 ids 批量取 + 串行队列防并发重复请求,
+      查无 ID 记空串哨兵回落裸 ID 不重复请求);调用点 11 处裸 ID 清零:库存两页 + SKU 匹配页(ProTable #skuId 插槽 +
+      request-api 包装预取)/ 订单·入库·发货·售后明细展开行 / 发货建单·编辑 / 收退件 / 建入库单表单明细行,
+      label = "skuCode · SPU名称"(SkuSelector 同款);
+      SkuSelector 仍走"商品keyword→SPU内SKU"两段式(批量端点按 id 翻译,不覆盖关键词搜索;全局搜索端点另议);
+      单测 ProductServiceTest 14→18;api:sync 快照 71→72 路径
 - [ ] 逻辑删除:实体加 `@TableLogic` + 表加 `deleted` 列(当前为物理删除,先保持简单)
 - [x] 商品分类管理校验补齐(2026-09-04 收口,TODO(#7) 分类槽位消除):create/update 父分类存在性校验(非根防孤儿)+
       成环校验(沿父链上走,链上出现自身即拒=自己/自己子孙禁挂;visited 集合兼防存量脏数据环死循环)+
@@ -268,8 +351,35 @@
   建单校验/confirm 守卫与链路/取消删除 + SupplierServiceTest 6);erp-api 新增 InventoryChangeApiImplTest/WarehouseApiImplTest;
   ⚠️ MP 3.5.17 BaseMapper.insert/updateById 有 Collection 重载,mockito any() 需类型化 any(Entity.class)
 - [ ] 遗留:supplier 名称唯一性(表无 uk 列,需业务确认后改表)/ ~~仓库删除引用校验~~(✅ 2026-09-04 已随 #7 收口,
-      WarehouseApi 扩 countWarehouseRefs)/ 单据 createdBy 与确认人接 SecurityContext 随 #16 前端工程 /
-      采购在途 qty_transit 维护随 #7 change() 按 flow_type 差异化(审核占在途→入库转可用)
+      WarehouseApi 扩 countWarehouseRefs)/ ~~单据 createdBy 接 SecurityContext~~(✅ 2026-09-06 收口:契约新增
+      CurrentUserApi 实现收口 erp-api 走 AuthContext,采购单/入库单 save 服务端回填,SaveRequest 剔除 createdBy 入参;
+      "确认人"无落库列,随需求演进另立项)/ ~~采购在途 qty_transit 维护随 #7 change() 按 flow_type 差异化~~
+      (✅ 2026-09-06 收口:audit 升级复合事务动作——cas DRAFT→AUDITED 占位 + 逐行 IN_TRANSIT 正数占在途
+      (biz=PURCHASE_ORDER);close 升级复合——cas→CLOSED + 逐行释放未到货在途(quantity-arrived>0 的行负数,
+      已收齐行跳过);confirm 的 IN_PURCHASE 由 change() 新矩阵承接核销在途(守卫=在途充足);
+      ⚠️ **开发库回补 SQL**(改造前已审核未收齐的采购单无在途占位,不回补则入库核销/关闭释放在途报"在途库存不足",
+      执行前备份,幂等性靠 ODKU 累加保证):
+      ```sql
+      INSERT INTO inventory (sku_id, warehouse_id, qty_on_hand, qty_locked, qty_transit, qty_available)
+      SELECT i.sku_id, po.warehouse_id, 0, 0, SUM(i.quantity - i.arrived_qty), 0
+      FROM purchase_order_item i
+      JOIN purchase_order po ON po.id = i.po_id
+      WHERE po.status IN ('AUDITED','PARTIAL_RECEIVED')
+      GROUP BY i.sku_id, po.warehouse_id
+      HAVING SUM(i.quantity - i.arrived_qty) > 0
+      ON DUPLICATE KEY UPDATE qty_transit = qty_transit + VALUES(qty_transit);
+      ```
+- [x] 2026-09-05 前端三页落地(#16 生成器逐域铺开,add-page 流程):supplier 全 CRUD 热身 / 采购单 列表+建单表单
+      (明细行编辑人工槽,单价金额 string 红线)+ audit/close(按钮 permKey purchase:order:audit/close,后端
+      @PreAuthorize hasRole('admin') 双闸,按钮按状态机裁剪显示)/ 入库单 列表+confirm/cancel(仅 PENDING)+
+      收货明细展开行(懒加载详情 items;**建入库单表单不在本期射程**,后端接口已备,页 spec 注明人工扩展);
+      菜单种子:采购管理目录 id=10 + 三页 11/12/13 + 按钮段 1101~1103/1201~1205/1301~1302(menuId*100+n 新段),
+      回写 01_schema_init.sql(全新 id,已建库直接跑新增段即可,重登录生效);嵌套明细 purchasePrice 生成器不标
+      money,人工按 docs/09 §6 收 string(重生成 --force 前注意 diff)
+- [x] 2026-09-06 建入库单表单落地(#10 建单槽位收口,后端接口已备):新建入库单弹窗(选 AUDITED/PARTIAL_RECEIVED
+      采购单[Query 无状态过滤参数,取前 100 单客户端裁剪]→ 拉明细剩余行[已收满行不列,预填全收可改]逐行录收货量)
+      → 新增 PENDING;入库仓 = 采购单收货仓服务端定(前端只读展示),超收预校验在后端;
+      按钮 1303 purchase:inbound:add,回写 01_schema_init.sql(已建库直接跑新增段)
 
 ## #11 发货域(二期)✅ 2026-09-04 激活(拍板:3列+子表 / 全部发足才 SHIPPED / 未绑定行不参与)
 - [x] 2026-09-03 前置就位:delivery_order 域骨架已生成(人工建单全 CRUD,运单号唯一、可多条 NULL)
@@ -312,9 +422,63 @@
 - [x] 2026-09-04 未绑定 SKU 行策略(拍板):不参与发货与发足判定,不进发货单;补绑后补发机制待 SKU 匹配完善后评估
 - 单测 23 个(DeliveryOrderServiceTest 全翻新:建单校验链 8 分支/ship 守卫与出库动账/发足推进 vs 部分发货/
   cancel·deliver·delete·update 守卫);⚠️ MP .in() 急切解析坑再次验证:占用聚合逐单 eq 查规避(docs/07 §10 已有记载)
-- [ ] 遗留:电子面单/运单号回传平台随 #3 adapter(AmazonClient TODO(#11) 占位)/ 签收回传平台物流轨迹 /
-      createdBy 接 SecurityContext 随 #16 前端工程 / 并发建单超发窗口(一期人工低频接受,ship 动账余额兜底)/
-      发货单类型 FBA/OVERSEAS 的供应商代发与海外仓发货流程待业务确认后细化
+- [x] 2026-09-06 前端发货单页落地(#16 add-page 生成器逐域铺开):列表 + ship/deliver/cancel 动作
+      (按钮按状态机裁剪,发货弹窗注明扣库存不可回退)+ 发货明细展开行(懒加载详情 items);
+      菜单种子:订单中心下 id=14 + 按钮段 1401~1403,回写 01_schema_init.sql(全新 id,已建库直接跑新增段,重登录生效);
+      建发货单表单(选 WAIT_SHIP+SELF_FULFILL 订单 → 仅 sku_id 已绑定行 → 逐行 ship_qty)不在本期射程,spec 注明人工扩展
+- [x] 2026-09-06 建发货单表单落地(#11 建单槽位收口,后端接口已备):新建发货单弹窗(选 WAIT_SHIP 订单
+      [orderStatus 服务端过滤 + 客户端裁 SELF_FULFILL,前 100 单]→ 订单明细仅 sku_id 已绑定行逐行预填全量可改)
+      → 新增 PENDING;出库仓必选(动账发生在 ship,建单不动账——~~旧口径~~,同日被下方占用模型条目升级取代);
+      type 固定 SELF_FULFILL;跨发货单累计超发预校验留后端;物流公司/运单号选填可后补(update 仅 PENDING);
+      按钮 1404 fulfill:delivery:add,回写 01_schema_init.sql(已建库直接跑新增段)
+- [x] 2026-09-06 发货单占用模型落地(#7 change() 差异化同日收口,**拍板升级:建单即占库存**,
+      取代 2026-09-04"动账发生在 ship,建单不动账"旧口径——qty_locked 列语义"占用(已分配未发货)"本就预设
+      建单分配,且旧模型 PENDING 在途单不持有库存、缺货要到 ship 才暴露):
+      save 落单后逐行 LOCK_SHIP 占用(可用不足建单即拦,取消"建单成功、发货才缺货"的滞后暴露);
+      cancel 升级复合(cas→CANCELLED + 释放占用);delete(PENDING)先 cas 占位防 ship 竞态再释放
+      (CANCELLED 单占用已在取消时释放,删除不重复释放);update 升级行锁读(selectByIdForUpdate,FOR UPDATE
+      串行化与 ship 的 check-then-act 竞态,防"改单释放了已发货单据的占用"错账)+ 释放旧占用(旧仓旧明细)
+      → 替换 → 重占新占用(新仓新明细);ship 的 OUT_SHIP 语义转占用核销(在库/占用双降,可用不变);
+      附带收益:并发建单超发窗口被占用守卫闭合(两单同抢同行库存,后到者占用失败回滚);
+      前端建单表单文案同步("建单即占用;确认发货核销出库;取消/删除自动释放");
+      单测翻新 27 个(建单占用/取消释放/删除释放与 CANCELLED 不重复释放/改单释放重占/行锁拒已发货);
+      ⚠️ **开发库回补 SQL**(改造前创建、仍 PENDING 的发货单无占用记录,不回补则 ship 报"出库占用不足",
+      可用不足的行即历史超发,人工核账后处理):
+      ```sql
+      -- 行已存在:累加占用
+      UPDATE inventory inv JOIN (
+          SELECT d.warehouse_id, i.sku_id, SUM(i.ship_qty) lock_qty
+          FROM delivery_order d JOIN delivery_order_item i ON i.delivery_id = d.id
+          WHERE d.status = 'PENDING'
+          GROUP BY d.warehouse_id, i.sku_id
+      ) t ON inv.sku_id = t.sku_id AND inv.warehouse_id = t.warehouse_id
+      SET inv.qty_locked = inv.qty_locked + t.lock_qty, inv.qty_available = inv.qty_available - t.lock_qty
+      WHERE inv.qty_available >= t.lock_qty;
+      -- 行不存在:首建(报错改用 SELECT 先核对其库存行缺失场景)
+      INSERT INTO inventory (sku_id, warehouse_id, qty_on_hand, qty_locked, qty_transit, qty_available)
+      SELECT t.sku_id, t.warehouse_id, 0, t.lock_qty, 0, -t.lock_qty
+      FROM (
+          SELECT d.warehouse_id, i.sku_id, SUM(i.ship_qty) lock_qty
+          FROM delivery_order d JOIN delivery_order_item i ON i.delivery_id = d.id
+          WHERE d.status = 'PENDING'
+          GROUP BY d.warehouse_id, i.sku_id
+      ) t
+      ON DUPLICATE KEY UPDATE qty_locked = qty_locked + VALUES(qty_locked),
+                              qty_available = qty_available - VALUES(qty_available);
+      ```
+      (第二条与第一条同跑会双重累加——二选一:行齐全跑第一条,含缺行场景只跑第二条 ODKU 版)
+- [x] 2026-09-06 前端订单明细展开行 + 发货单编辑表单落地(#16 人工槽收尾):
+      ①订单页 expand 懒加载详情 items(OrderItems,明细行自带 productName/platformSku 平台侧快照,
+      ~~内部SKU 列翻译仍挂 #7 专条~~ ✅ 2026-09-06 随批量端点收口);②发货单页编辑弹窗(DeliveryEditForm,仅 PENDING;射程=后补/修正
+      物流公司与运单号,仓库/明细只读——改仓改量走"取消后重建",前端不放开占用重算入口;
+      后端 update 全量 SaveRequest 明细整体替换,释放旧占→替换→重占由后端事务收口);
+      按钮 1405 fulfill:delivery:edit,回写 01_schema_init.sql(已建库直接跑新增段);
+      ⚠️ 顺手修 1404 漏配:sys_role_menu 缺 (1,1404) 授权行,admin 看不到"新建发货单"按钮,已补
+- [ ] 遗留:电子面单/运单号回传平台随 #3 adapter(✅ 2026-09-06 adapter 侧脱机落地,见 #3 条目;
+      **ship 编排接线仍留**——发货明细行翻译 + 失败记 pull_log,随联调需要)/ 签收回传平台物流轨迹 /
+      ~~createdBy 接 SecurityContext~~(✅ 2026-09-06 已随 #10 同款收口:CurrentUserApi,发货单 save 服务端回填)/
+      ~~并发建单超发窗口~~(✅ 2026-09-06 随占用模型闭合:并发建单在占用动账处被 inventory 行锁 + 可用守卫串行化,
+      后到者占用失败整体回滚)/ 发货单类型 FBA/OVERSEAS 的供应商代发与海外仓发货流程待业务确认后细化
 
 ## #12 售后域(二期)
 - [x] 2026-09-03 前置就位:aftersale_order 域骨架已生成(readOnly=true 系统写入表,对外只读查询,写入口留 TODO)
@@ -361,6 +525,12 @@
       erp-aftersale pom 新引 erp-contract;超退上限按订单行数量放宽不误拦(按发货量收紧精确口径留 TODO(#12) 在 Service javadoc,
       随发货域数据完善后评估);testgen spec receiveReturn 行删除(复合动作出射程,同 ship/confirm);
       单测 17 个(状态机 11 + 收退件复合 6:动账 captor 逐字段/校验链全分支/占位脱靶无副作用)
+- [x] 2026-09-06 前端售后单页落地(#16 add-page 生成器逐域铺开):列表 + 五动作按状态机裁剪
+      (agree/reject(PENDING)·receive-return(RETURNING)·refund(APPROVED|RETURN_RECEIVED)·complete(REFUNDED);
+      reject 走 prompt 录拒绝原因 result 必填)+ 收退件复合表单(仓库ID + 拉订单明细枚举仅 sku_id 已绑定行逐行录实收,
+      超退预校验留在后端)+ 退货明细展开行(懒加载详情 returnItems);
+      菜单种子:订单中心下 id=15 + 按钮段 1501~1505,回写 01_schema_init.sql;~~仓库改下拉随 warehouse 页建设另议~~
+      (✅ 2026-09-06 已随仓库管理页收口,收退件表单下拉选仓)
 - [ ] 退款金额与财务勾稽(三期 settlement)
 - ⚠️ 已建库手工 ALTER(#12 状态机注释定版,仅注释无数据变更):
       `ALTER TABLE aftersale_order MODIFY COLUMN status VARCHAR(32) NOT NULL COMMENT 'PENDING待处理/APPROVED已同意/RETURNING待收退件/RETURN_RECEIVED已收退件/REFUNDED已退款/COMPLETED已完成/REJECTED已拒绝/CANCELLED已取消(#12 状态机 2026-09-04 定版)';`
@@ -412,7 +582,12 @@
 - [x] 拉单告警接线(#4/#5 收口):`PullConsts.FAILURE_ALERT_THRESHOLD=3`;
       `PullLogService.shouldAlertContinuousFailure` 无状态判定(pull_log 自身去重,恰达阈值轮次告警一次);
       OrderPullJob/ProductPullJob catch 内接线,告警写失败不阻断主流程
-- [ ] 后续渠道:邮件/短信/IM 推送(在 pushAllUsers 出口扩展,不提前抽象);前端通知中心页面(菜单种子随前端工程统一登记)→ 通知铃铛+已读随 **#16** 落地
+- [x] 2026-09-06 前端通知中心页落地(#14 前端面收口,铃铛下拉之外的全量分页):系统管理目录新页 id=22
+      (perm system:notification:list,菜单种子回写 01_schema_init.sql,已建库直接跑新增段,重登录生效);
+      readStatus 搜索过滤 + 单条/全部已读(个人操作后端归属校验,无 permKey),操作后同步铃铛徽标 store;
+      NotificationApi.page 统一 {list,total} 程式(铃铛消费点同步适配);手写页(gen:page 存在即跳过会撞
+      P2 手工 api 文件,程式对齐生成页);⚠️ 顺手修种子漏配:sys_role_menu 缺 (1,21) 拉单日志授权行,已连同 (1,22) 补上
+- [ ] 后续渠道:邮件/短信/IM 推送(在 pushAllUsers 出口扩展,不提前抽象);通知铃铛+已读 ✅ 随 #16 落地
 
 ## #15 公开前治理与发布策略(2026-09-05 边界定稿;旧仓库 ChenYiG7/erp 已删库重建,现仓库 ChenYiG7/ec-erp 私有)
 
@@ -497,7 +672,22 @@ docs/design/、docs/devlog/。历史排查结论(2026-09-05 两轮盘点):15 提
       (角色授权重登录生效/店铺 auth-url 跳转/通知已读/字典联动);② 菜单 icon 渲染体系已浏览器核对收口(EP 组件名体系可用,无需改造);
       验收过程沉淀:element-plus 已按需显式导入(main.ts 不再全局注册),模板用 el-* 漏 import = 运行时
       Failed to resolve component——生成器 render.js 新增 elImportsFor() 按表单实际控件精确收口 + 15 个存量页面/组件手工补导,
-      验收线七段全通,#16 全清 ✅
+      验收线七段全通,#16 全清 ✅;
+      ⚠️ 坑(2026-09-06 补记):Rolldown codeSplitting 分组默认**递归捕获依赖**(不带约束),
+      字母序最靠前的页面组会吞掉 element-plus/ProTable 等共享闭包(新增 aftersale 页即触发,单 chunk 1.2MB 失衡、
+      共享 chunk 全部消失);修复 = vite.config `includeDependenciesRecursively: false` + dynamicRouter glob
+      排除 `views/**/components/**`(私有组件禁入路由注册表);修复后 vendor 按包拆分、页面 chunk 0.1~12KB;
+      ⚠️ 坑(2026-09-06 二记):gen:page 表单 enum 产 el-option 时 string 值 JSON.stringify 双引号与属性引号嵌套
+      (`:value=""SELF""`),运行时 value 为空串且 type:check 查不出——修复 render.js 产单引号字面量
+      (`:value="'SELF'"`,数字/布尔不受影响);warehouse 域首个 string enum 下拉当场抓获,存量域无受害(均 dict/数字枚举);
+      ⚠️ 盲区补修(2026-09-06 三记):gen:page 菜单行 perm_key 硬编码 null → 改产 `<permPrefix>:list`
+      (对齐 01_schema_init.sql 既有 menuType=2 种子约定,拉单日志页当场触发,免回写时人工补);菜单 sort 仍固定 1,回写种子时人工调整
+
+- [x] 2026-09-06 前端人工槽收尾(SkuSelector 公共组件,src/components/SkuSelector/index.vue):
+      契约无全局 SKU 搜索端点(GET /api/goods/skus 仅 SPU 内列表,ProductQuery 仅 keyword/categoryId)——
+      组件内部 = 商品 keyword 搜索(top5)→ 各 SPU 并行拉 SKU 拍平(300ms 防抖 + 序号防竞态,选项上限 50);
+      接线两处裸 ID 手填:采购建单明细行(PurchaseOrderForm)+ SKU匹配人工绑定(prompt 升级 BindDialog 弹窗);
+      后端若补全局 SKU 搜索端点仅换组件内部实现,调用方不动;apis/goods/sku.ts + interface/goods/sku.ts 契约外人工登记
 
 验收线:登录→动态菜单→系统四页 CRUD(用户含角色分配、角色含菜单授权、菜单树形、字典含 type)→ 通知红点+已读 →
 店铺页 auth-url 跳转按钮 → 商品列表分页过滤,全部走通 ✅ 2026-09-05 深夜(#16 全清;后续域页面按 add-page 生成器逐域铺开)

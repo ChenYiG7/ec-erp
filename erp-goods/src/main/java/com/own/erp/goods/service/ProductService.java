@@ -15,6 +15,7 @@ import com.own.erp.goods.request.command.ProductSkuSaveRequest;
 import com.own.erp.goods.request.query.ProductQuery;
 import com.own.erp.goods.response.ProductResponse;
 import com.own.erp.goods.response.ProductSkuResponse;
+import com.own.erp.goods.response.SkuOptionResponse;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * @author : chenyi
@@ -96,6 +98,26 @@ public class ProductService {
         return skuMapper.selectList(new LambdaQueryWrapper<ProductSku>()
                         .eq(ProductSku::getProductId, productId))
                 .stream().map(ProductSkuResponse::from).toList();
+    }
+
+    /**
+     * 批量按 ID 查 SKU 选项(#7 专条 2026-09-06 收口,前端跨页 skuId 列翻译数据源):
+     * 两步组装(product_sku → product 名称,双表组装属 Service,同 getProductDetail 口径);
+     * selectByIds 走 BaseMapper 内建,规避 LambdaWrapper.in() 急切解析列元数据坑(docs/07 §10,单测可直测);
+     * 查无的 ID 不在结果中,前端回落显示裸 ID;不过滤 status——禁用 SKU 的历史单据仍需翻译
+     */
+    public List<SkuOptionResponse> listSkuOptions(Collection<Long> ids) {
+        if (CollUtil.isEmpty(ids)) {
+            return List.of();
+        }
+        List<ProductSku> skus = skuMapper.selectByIds(ids);
+        if (skus.isEmpty()) {
+            return List.of();
+        }
+        List<Long> productIds = skus.stream().map(ProductSku::getProductId).distinct().toList();
+        Map<Long, Product> products = productMapper.selectByIds(productIds).stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+        return skus.stream().map(sku -> SkuOptionResponse.from(sku, products.get(sku.getProductId()))).toList();
     }
 
     /**

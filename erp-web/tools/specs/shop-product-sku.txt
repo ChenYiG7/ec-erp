@@ -1,0 +1,28 @@
+# SKU 匹配 spec(gen:page 拍板表;#5 SKU 映射:待匹配列表 + 人工绑定;系统心脏的人工闭环)
+# 契约:GET /api/shop-product-skus + GET /api/shop-product-skus/{id} + PUT /{id}/bind(body SkuBindRequest{skuId})
+# 只读域 + bind 动作;默认 init-param 只看待匹配(matchStatus=0);SKU 搜索下拉随 goods 域页面完善,先 ID 直输
+module=shop
+domain=shop-product-sku
+base=shop-product-skus
+entity=ShopProductSku
+nameZh=SKU匹配
+permPrefix=shop:product-sku
+todoId=5
+menuParent=6
+menuId=16
+path=/goods/shop-product-skus
+component=shop/shop-product-sku/index
+readonly=true
+icon=connection
+
+field=sellerSku     role=column label=卖家SKU    width=180
+field=shopProductId role=all    label=平台商品ID width=130
+field=skuId         role=column label=内部SKU    width=130
+field=matchStatus   role=column label=匹配状态   enum=0:待匹配:warning|1:自动匹配:success|2:人工绑定:primary  width=110  tag
+field=quantity      role=column label=可售数量   width=100
+field=price         role=column label=平台售价   money  width=110
+field=currency      role=column label=币种      width=80
+field=createdAt     role=column label=创建时间   width=170
+
+# 页面级动作槽位(bind() api 已生成,按钮与调用人工补;sku_id 存在性校验在后端,查无此 SKU 拒绝)
+todo=bind:仅待匹配行(matchStatus=0),回填 sku_id 并置 match_status=2,重复绑定同一 SKU 幂等

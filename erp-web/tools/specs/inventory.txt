@@ -1,0 +1,23 @@
+# 库存查询 spec(gen:page 拍板表;#7 库存域:只读列表,变更唯一入口 InventoryService.change 不出人工写接口)
+# 契约:GET /api/inventory/inventories + GET /api/inventory/inventories/{id};无动作
+module=inventory
+domain=inventory
+base=inventory/inventories
+entity=Inventory
+nameZh=库存查询
+permPrefix=inventory:list
+todoId=7
+menuParent=17
+menuId=18
+path=/inventory/inventories
+component=inventory/inventory/index
+readonly=true
+icon=grid
+
+field=skuId        role=all    label=内部SKU  width=130
+field=warehouseId  role=all    label=仓库ID   width=110
+field=qtyOnHand    role=column label=在库数量 width=110
+field=qtyLocked    role=column label=占用数量 width=110
+field=qtyTransit   role=column label=在途数量 width=110
+field=qtyAvailable role=column label=可用数量 width=110
+field=updatedAt    role=column label=更新时间 width=170

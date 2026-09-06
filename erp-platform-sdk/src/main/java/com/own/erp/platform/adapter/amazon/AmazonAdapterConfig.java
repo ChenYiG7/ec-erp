@@ -32,6 +32,27 @@ public class AmazonAdapterConfig {
         return new SpApiOrdersClient(baseUrl, region, marketplaceIds, clock);
     }
 
+    /** Finances 客户端(退款事件,账号级接口无 marketplace 参数,#3 联调预备骨架) */
+    @Bean
+    public SpApiFinancesClient spApiFinancesClient(
+            @Value("${erp.adapter.amazon.spapi-base-url:https://sellingpartnerapi-na.amazon.com}") String baseUrl,
+            @Value("${erp.adapter.amazon.spapi-region:us-east-1}") String region,
+            Clock clock) {
+        return new SpApiFinancesClient(baseUrl, region, clock);
+    }
+
+    /** Reports 客户端(listing 全量快照;轮询间隔默认 30s,平台侧报表生成约 15~60 分钟,#3 联调预备骨架) */
+    @Bean
+    public SpApiReportsClient spApiReportsClient(
+            @Value("${erp.adapter.amazon.spapi-base-url:https://sellingpartnerapi-na.amazon.com}") String baseUrl,
+            @Value("${erp.adapter.amazon.spapi-region:us-east-1}") String region,
+            @Value("${erp.adapter.amazon.marketplace-ids:}") String marketplaceIds,
+            Clock clock,
+            @Value("${erp.adapter.amazon.report-poll-interval-ms:30000}") long reportPollIntervalMs) {
+        return new SpApiReportsClient(baseUrl, region, marketplaceIds, clock,
+                java.time.Duration.ofMillis(reportPollIntervalMs));
+    }
+
     @Bean
     public StsTokenClient stsTokenClient(
             @Value("${erp.adapter.amazon.sts-base-url:https://sts.amazonaws.com}") String baseUrl,

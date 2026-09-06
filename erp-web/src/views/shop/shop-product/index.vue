@@ -17,6 +17,7 @@ import { ref } from 'vue'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
 import { shopProductApi } from '@/api/apis/shop/shop-product'
+import { fetchShopOptions } from '@/api/apis/shop/options'
 import type { ShopProductResponse } from '@/api/interface/shop/shop-product'
 
 // ProTable 实例(getTableList 供刷新)
@@ -25,7 +26,7 @@ const proTableRef = ref<InstanceType<typeof ProTable>>()
 // 列配置(gen:page 按 spec role=column/all 产出;enum/dict 选项同时供搜索下拉)
 const columns: ColumnProps<ShopProductResponse>[] = [
   { type: 'index', label: '#', width: 55 },
-  { prop: 'shopId', label: '店铺ID', width: 100 },
+  { prop: 'shopId', label: '店铺', width: 130, enum: fetchShopOptions },
   { prop: 'platformProductId', label: '平台商品ID', width: 160 },
   { prop: 'productId', label: '内部SPU', width: 120 },
   { prop: 'listingStatus', label: 'listing状态', width: 120 },

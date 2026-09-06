@@ -18,7 +18,8 @@ public record InventoryChangeCommand(
         /** 仓库ID(warehouse.id) */
         Long warehouseId,
 
-        /** 变动数量,正负数(IN_PURCHASE/IN_RETURN 为正,OUT_SHIP/TRANSFER_OUT 为负,ADJUST 皆可) */
+        /** 变动数量,正负数(IN_PURCHASE/IN_RETURN/IN_TRANSIT/LOCK_SHIP 为正,OUT_SHIP/TRANSFER_OUT 为负,
+         *  ADJUST/IN_TRANSIT/LOCK_SHIP 可正可负;列语义矩阵见 InventoryConsts 各值注释) */
         Integer quantity,
 
         /** 流水类型,取 InventoryConsts.FLOW_TYPE_* */
