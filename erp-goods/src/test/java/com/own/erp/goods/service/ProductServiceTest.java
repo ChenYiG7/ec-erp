@@ -51,6 +51,26 @@ class ProductServiceTest {
     }
 
     @Test
+    void getSkuByCodeReturnsMappedResponseWhenHit() {
+        when(skuMapper.selectOne(any())).thenReturn(ProductSku.builder()
+                .id(7L).productId(1L).skuCode("SKU-1").costPrice(new java.math.BigDecimal("12.5000")).build());
+
+        var response = productService.getSkuByCode("SKU-1");
+
+        assertEquals(7L, response.id());
+        assertEquals("SKU-1", response.skuCode());
+        assertEquals(new java.math.BigDecimal("12.5000"), response.costPrice());
+    }
+
+    @Test
+    void getSkuByCodeReturnsNullWhenMissingOrBlank() {
+        when(skuMapper.selectOne(any())).thenReturn(null);
+        assertNull(productService.getSkuByCode("NOPE"));
+        assertNull(productService.getSkuByCode(" "));
+        verify(skuMapper, times(1)).selectOne(any());
+    }
+
+    @Test
     void deleteSkuRejectedWhenReferenced() {
         when(referenceApi.countSkuRefs(List.of(7L))).thenReturn(2L);
 

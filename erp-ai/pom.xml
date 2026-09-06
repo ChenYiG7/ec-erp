@@ -10,9 +10,9 @@
     </parent>
 
     <artifactId>erp-ai</artifactId>
-    <description>AI能力层(全部留TODO由人工实现):
-    1. Spring AI 2.0 —— ChatClient + @Tool 自然语言查询(参考启航);
-    2. Spring AI Alibaba 2.0 —— Graph Core 工作流编排(异常监控/补货建议);
+    <description>AI能力层(#6 三期开工):
+    1. Spring AI 2.0 —— ChatClient + @Tool 自然语言查询(tools/ 只读工具,取数走 erp-contract 查询契约);
+    2. Spring AI Alibaba 2.0 —— Graph Core 工作流编排(异常监控/补货建议,下一会话);
     3. AgentScope Java 2.0 —— 多Agent(智能客服/自动运营,四期)。
     模型走 OpenAI 兼容接口(DeepSeek/通义/GLM 可切换)。</description>
 
@@ -20,6 +20,11 @@
         <dependency>
             <groupId>com.own.erp</groupId>
             <artifactId>erp-common</artifactId>
+        </dependency>
+        <!-- 跨域契约接口(#6 AI 取数唯一正道,禁横向依赖各业务域,铁律 2):只依赖接口,实现收口 erp-api(docs/07 §2.2) -->
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-contract</artifactId>
         </dependency>
         <!-- 1. Spring AI 2.0:OpenAI 兼容模型接入(DeepSeek/通义/Doubao/GLM 均兼容) -->
         <dependency>
@@ -35,6 +40,34 @@
         <dependency>
             <groupId>io.agentscope</groupId>
             <artifactId>agentscope-spring-boot-starter</artifactId>
+        </dependency>
+        <!-- 本模块含 Controller(chat/建议闭环),自带 web + mybatis-plus;由 erp-api 聚合运行 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- 参数校验(@Valid) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-extension</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+        </dependency>
+        <!-- 单测(Mockito/JUnit,AIR 原则) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

@@ -199,15 +199,128 @@
       (TODO(#7) 后端成环校验/引用拦截补齐前的前端兜底);categoryApi 扩 CRUD,
       category.ts 过时"届时走 gen:page"注释修正
 
-## #6 AI(三期,依赖已就位、代码全部占位)
-- [ ] `ErpChatService.chat`:按类注释实现 ChatClient + tools;接口 SSE 流式
-- [ ] `tools/` 只读 @Tool 集(查订单/库存/销量/ACOS);写操作必须人工确认
-- [ ] `graph/`:SAA Graph Core 补货建议工作流(节点=取数LLM→规则校验→报告)
-- [ ] `agent/`(四期):AgentScope ReActAgent 多 Agent(客服/运营)
-- [ ] AI 建议闭环:产出一律写 `ai_suggestion` 建议表(待确认/已采纳/已忽略),人工确认后走业务接口,禁直接写业务表(docs/03 §7 草案表)
-- [ ] 会话持久化:`ai_chat_session` / `ai_chat_message` 落库;异常监控用"规则引擎先筛 + LLM 评分"两段式控成本(docs/05)
-- ⚠️ 版本提示:Spring AI 2.0.0-M5、SAA 2.0.0-M1.1、AgentScope 2.0.0-RC5 均未 GA,
-  三期开工前先看有没有 GA 版本,升级只动根 pom 三个属性
+## #6 AI(三期开工 2026-09-06:地基已落地,graph/agent/前端页留待后续)
+- [x] 版本定版(2026-09-06 核实 Maven Central):Spring AI 2.0.1(GA)/ AgentScope 2.0.2(GA)/ SAA 2.0.0-M1.1
+      (2.0 线仅此里程碑,1.1.2.3 GA 对齐 Boot3 不可降级);升级只动根 pom 三属性
+- [x] ai_* 三表落库(2026-09-06 定稿进 01_schema_init.sql,docs/03 §7 定稿;CREATE IF NOT EXISTS 幂等,已建库重跑即补建)
+- [x] erp-contract 只读查询契约四件(OrderQueryApi/InventoryQueryApi/GoodsQueryApi/AftersaleQueryApi:
+      过滤 record + 行视图 record + QueryPage,全 record 不引 MP 类型;实现收口 erp-api 委托各域 Service.page;
+      erp-ai 取数唯一正道,铁律 2)
+- [x] `tools/` 只读 @Tool 首批四类(OrderTools/InventoryTools/GoodsTools/AftersaleTools,取数走契约;
+      余量:Shop/Purchase/Delivery/Report 等待随查询契约扩容,ACOS 无数据不开;写操作必须人工确认,铁律 7)
+- [x] `ErpChatService.chat/chatStream`:ChatClient + system prompt 集中 ErpAiProperties(yml `erp.ai.system-prompt` 可覆盖);
+      无 AI_API_KEY 调用友好报错、启动不炸
+- [x] `ErpChatController`:POST /api/ai/chat/sessions/{id}/chat(SSE 流式)+ chat-sync 同步 + 会话新建/列表/历史
+      (归属服务端强制,仅本人可见,越权统一"会话不存在");登录即可
+- [x] 会话持久化:ai_chat_session(首条消息截断作 title,默认"新会话"由 renameIfDefault 回填)/ ai_chat_message
+      (USER/AI 双行;同步带 usage,流式 token 取不到置 NULL;~~TOOL 中间行 Spring AI 不透出~~
+      ✅ 2026-09-06 已补:**AuditingToolCallback 装饰器**包装 ToolCallback,invoke 前落 TOOL 行
+      (工具名+入参 JSON 截断,erp.ai.tool-audit-max-length 可配;先落库再委托,工具执行失败也留痕,
+      异常原样上抛不吞),同步/流式双通道统一生效,tokens 不适用置 NULL);userId 走 CurrentUserApi
+      (AuditingToolCallbackTest 5 用例)
+- [x] AI 建议闭环:ai_suggestion 三态 cas 守卫(0待确认→1已采纳/2已忽略,条件更新即守卫,同 UPDATE 回填确认人/时间)
+      + POST /{id}/adopt、/{id}/ignore 动作端点 + AI 产出内部 save 唯一入口(必填校验);
+      testgen-ai.txt 产 AiSuggestionStateMachineTest(守卫四类)
+- [x] `graph/`:SAA Graph Core 补货建议工作流 ✅ 2026-09-06 落地(四节点链 START→collect→calculate→
+      条件边(无可补项直达 END)→summarize→persist→END,图构造器装配 compile 一次持有可重复 invoke;
+      **拍板偏离 TODO 原文"取数LLM"**:程序取数+程序计算、LLM 只写报告——公式确定性强/零 token
+      (铁律 8 判断归 AI、执行归程序)。collect 分页扫 inventory(可用≤阈值)按 skuId 跨仓合并(可用/在途求和);
+      calculate 纯公式 max(最小建议量,覆盖天数×日均销量估计−可用−在途),V1 简化口径——
+      TODO(#6): 待销量数据面落地后按近期动销重估公式;summarize 单次 LLM 调用产逐 SKU 摘要,
+      **三重降级**(apiKey 空/调用失败/解析失败,含 ``` 围栏容错)统一落模板串 degraded=true 照跑照落库——
+      模型故障不阻断建议产出;persist 经 AiSuggestionService.save 唯一入口落 ai_suggestion(type=REPLENISH,
+      风险分级:可用≤0 即缺货 HIGH 否则 MID;payloadJson 存 三数量,不碰业务单据);
+      触发 = POST /api/ai/replenishment/run(登录即可);TODO(#6): 定时接线(每日低峰,参考 AlertJob 模式)待拍板间隔后接;
+      单测 12 个(Collect 扫描护栏+跨仓合并/Calculate 公式/Summarize 三重降级+解析/Persist 落库字段/Workflow 条件边);
+      ⚠️ **victools 仲裁钉版**(根 pom,T1 当场炸出):spring-ai 2.0.1 JsonSchemaGenerator 静态引
+      jsonschema-module-jackson 的 JacksonSchemaModule(仅 5.0.0 有,4.38.0 已更名),agentscope 2.0.2
+      直依赖 4.38.0 参与仲裁 nearest-wins 拉低版本 → 启动即 NoClassDefFound;钉 5.0.0 保 spring-ai,
+      agentscope 四期启用时若不兼容 5.0.0 再评估)
+- [ ] `agent/`(四期):AgentScope ReActAgent 多 Agent(客服/运营)。**2026-09-07 开工勘察已毕**(2.0.2 GA 实测):
+      ①starter(AgentscopeAutoConfiguration)只装配**单例** ReActAgent 且要求外部提供 io.agentscope.core.model.Model
+      Bean——多 Agent 需自建(绕开 starter 默认 Bean 或 @Primary);②Model 接口仅 5 方法 4 default
+      (stream(List<Msg>,List<ToolSchema>,GenerateOptions)→Flux<ChatResponse> + getModelName),
+      Spring AI ChatModel 桥接 adapter 一个类可通(复用 spring.ai.openai.* 连接与密钥,不重复建键);
+      ③Agent 调用面:call(String)→Mono<Msg> 同步 / streamEvents(Msg)→Flux<AgentEvent> 流式,ReAct 循环框架自带;
+      ④工具:Toolkit + ReflectiveFunctionTool 反射注册——现有 tools/ 只读 @Tool 四类是 Spring AI 形态,
+      复用待探(桥接 Toolkit 注册 or 反射重标)。**V1 拍板建议**(开工时确认):两 Agent(客服=tools/ 四件只读查询;
+      运营=库存+建议只读),InMemoryMemory 不做跨轮持久化,同步 call 端点先行(POST /api/ai/agents/{role}/chat)
+      流式随 SSE 联调;审计复用 ai_chat_message 加 role=AGENT?或独立表开工拍板;密钥同 spring.ai.openai
+- [x] 库存预警规则引擎 ✅ 2026-09-06 落地(alert/ + erp-api AlertJob,V1 三规则:
+      低库存(可用≤阈值聚一条,明细 topN)/ 发货超时(WAIT_SHIP 且下单超 N 小时)/
+      退款异常(窗口内按店铺聚合 REFUNDED 单数达阈值);滞销/积压依赖销量统计面(现无销量表/视图)——
+      TODO(#6): 待销量数据面落地后补规则(口径 docs/02"规则引擎先筛"两段式;qihang 同款销售额为零等规则
+      一并纳入,见 #17 落位表)。取数只走只读查询契约(铁律 2/7);分页扫全量,
+      scanPageSize/scanMaxRows 护栏钳制防大表拖死;单规则失败隔离只记日志不殃及本轮其余规则;
+      出口仅产 AlertEvent,推送/静默去重收口 **erp-api AlertJob**(erp-ai 不依赖 erp-system,
+      模式同 OrderPullJob:每小时 fixedDelay 开关→抢锁(LockService alert:scan 效率锁,漏扫一轮无损失)→
+      评估→静默期去重→#14 扇出);静默期按 notifyType 全局判(erp.alert.quiet-hours 默认 24h),
+      **sys_notification 自身即"上次告警时间"存储免建去重表**(SysNotificationService.existsRecent 新增,
+      告警量级走 idx_created 范围条件足够);阈值/静默期/护栏全走 erp.alert.* 配置(yml 已布默认值,
+      enabled 默认 true 纯本地扫描无外呼,可置 false 灰度);时间统一注入 Clock(docs/07 §10);
+      单测 15 个(AlertEngine 8 规则命中/空轮/护栏/单规则隔离 + AlertJob 6 开关/锁/静默/隔离 + existsRecent 1))
+- [x] `graph/` 订单异常检测工作流 ✅ 2026-09-07 落地(docs/02 §13 两段式:规则引擎先筛 → LLM 只评可疑样本控成本,
+      三节点链 scan → 条件边(无可疑单直达 END 零 LLM 成本)→ score → persist;照 ReplenishWorkflow 母本)。
+      规则半边纯程序零 token:V1 四规则(2026-09-06 拍板)UNPAID_TIMEOUT(WAIT_PAY 超时未付,LOW)/
+      BIG_AMOUNT(已支付且 orderAmount×exchangeRate ≥ 10000 本位币,MID,汇率缺省按 1 #4 落库口径)/
+      ZERO_AMOUNT(已支付且 orderAmount ≤ 0,HIGH)/ HIGH_DISCOUNT(已支付且 discountAmount ≥ orderAmount×0.5,MID),
+      规则→基线风险映射收口 AnomalyRule 枚举,同单多规则命中合并一行取 max;不含发货超时逐单版
+      (AlertEngine 已有同款聚合告警避免双出口);**金额类规则一律 paidTime 判空守卫**——Amazon Pending 单
+      落库金额归零,无此守卫整批误报;扫描只扫 WAIT_PAY/WAIT_SHIP 两态(待处理可干预,终态不扫防重复命中),
+      分页走 OrderQueryApi 只读契约(铁律 2/7),scanPageSize/scanMaxRows 单态钳制,单态扫描失败隔离只记日志;
+      时间统一注入 Clock(docs/07 §10)。LLM 半边批量单次调用 JSON 数组按 orderId 对齐,
+      输入无 PII(OrderView 收件人/地址/buyer_note 不出契约);护栏 llmMaxItems=20 超限按基线风险降序截断,
+      未送评单直接规则定级**不算 degraded**;三重降级(apiKey 空/调用失败/解析失败,含 ``` 围栏容错)与
+      逐单漏回/词表外 riskLevel → 规则定级+模板 summary+degraded=true 照跑照落库;
+      prompt 集中 ErpAiProperties.Anomaly.scorePrompt(docs/07 §9)。落库经 AiSuggestionService.save 唯一入口
+      (type=ANOMALY/refType=SHOP_ORDER/refId=orderId/payloadJson={hitRules,ruleRisk,金额汇率,时间,llmScored});
+      重复 run 产生新一批 = 已接受语义(同补货),**接定时前必须先拍去重语义 → TODO(#6)**;
+      触发 = POST /api/ai/anomaly/run(登录即可),返回 {scannedCount,suspiciousCount,persistedCount,llmScoredCount,degraded};
+      定时接线与补货同张 TODO 一并拍板;HIGH 推通知随实际告警量评估 → TODO(#6);「同买家批量下单」
+      契约无 buyer 字段(PII 不出契约)随 V2 契约扩容再上 → TODO(#6);
+      单测 19 个(Scan 9 规则命中边界/paidTime 守卫/汇率缺省/合并取 max/护栏/单态隔离 +
+      Score 6 三重降级/围栏对齐/词表外回落/截断不算降级 + Persist 2 + Workflow 2);
+      mvn -DskipTests compile ✅ + -pl erp-ai -am test 68 全绿(新 19 + 存量 49 不回退))
+- [x] 两工作流定时接线 + 去重语义 ✅ 2026-09-07 拍板落地(补货 ReplenishJob cron 默认 02:00 / 异常 AnomalyJob
+      cron 默认 02:30 错峰,erp.ai.{replenish,anomaly}.cron 占位符可配(enabled 默认 true,无 key 自动降级不炸);
+      **去重语义拍板:同键存在待确认(status=0)建议即跳过**——异常按 refId/补货按 skuId,收口 scan 段
+      LLM 评分前省 token,旧建议被采纳/忽略后若单据仍命中允许再产出,确认闭环自然运转;
+      查询 eq 全量待确认行+内存交集规避 .in() 急切解析坑(docs/07 §10),无可疑单不查库;
+      调度编排在 erp-api job(模式同 AlertJob:MDC traceId→开关→LockService 抢锁 replenish:run/anomaly:run→
+      跑工作流→日志摘要;效率锁语义+去重兜底,双跑无害);cron 不进 ErpAiProperties 重复建键(@Scheduled 占位符
+      直读 Environment);单测 +12(AiSuggestionService 去重读侧 2 + Scan/Collect 去重各 1 + 两 Job 各 4),
+      erp-ai 74 / erp-api 65 全绿)
+- [x] 销量数据面 ✅ 2026-09-07 落地(表 order_sales_daily,docs/03 §7.1 定稿:支付日×SKU 合计购买数量,
+      已支付态 WAIT_SHIP/SHIPPED/COMPLETED 口径,未绑定 SKU 不统计;V1 只落数量维,金额维随选品/ACOS 面再加列;
+      归属 erp-order,erp-api SalesSnapshotJob 每日 01:00 窗口重算近 30 天(erp.sales.rebuild-days 可配,
+      单语句原子 upsert uk_sku_date 幂等,覆盖状态回传/取消单修正;30 天外不回刷为 V1 已知边界;
+      锁 sales:snapshot 效率锁);读侧 = 查询契约第五件 SalesQueryApi(erp-api Impl 委托 OrderSalesDailyService,
+      sumQtyBySku 近 N 天合计,未记录 sku 调用方按 0 兜底)。**两个 TODO(#6) 槽位同日收口**:
+      ①补货动销公式重估——calculate 弃固定 assumedDailySales,日均销量 = 窗口销量合计/窗口天数
+      (分数速率向上取整,不在中间截断),建议量 = max(min, ceil(覆盖×日均)−可用−在途),
+      **零动销死 SKU 与库存充足者剔除不再硬补**(旧公式会给零动销 SKU 每日补 minSuggestQty);
+      ②预警引擎 V1 三规则→五规则:滞销(有库存但窗口内零动销,SLOW_MOVING)/
+      积压(可用/日均 ≥ overstock-days 默认 90,OVERSTOCK)聚一条 topN 明细;
+      notify_type 词表同步 AlertEvent ↔ 01_schema_init.sql COMMENT(已建库 COMMENT 变更可选手工 ALTER,
+      仅注释无功能影响);inventory_snapshot_daily(库存快照/周转报表面)仍留草案,与销量面相互独立;
+      单测 +15(erp-order OrderSalesDailyService 3 / erp-api SalesSnapshotJob 4 + SalesQueryApiImpl 1 /
+      erp-ai Calculate 重写 7 + AlertEngine +3),全 reactor 18 模块 BUILD SUCCESS(erp-ai 80 / erp-api 70)
+- [x] 前端聊天页/AI 建议页(✅ 2026-09-06 T4 收口:AI对话页手写(会话列表+SSE 流式+首条自动建会话,
+      每轮结束服务端历史回读兜底;markdown 渲染/停止生成留余量,引库需拍板)+ AI建议页 gen:page
+      (readonly + adopt/ignore 动作,payloadJson 详情抽屉,动作按钮不带 v-auth 同通知中心口径);
+      菜单种子 25/26/27 已回写 01_schema_init.sql,已建库整段重跑 INSERT IGNORE 即可,变更后重登生效)
+- [x] SSE 帧格式真模型联调校准 ✅ 2026-09-07 全程收口(真调 DashScope qwen-plus:
+      base-url/model 接线修复——yml 此前硬编码 DeepSeek 地址且只读 AI_API_KEY,用户真 key/地址在
+      Windows 环境变量 OPENAI_BASE_URL/OPENAI_API_KEY 一直没被读;yml 改占位符
+      OPENAI_BASE_URL/OPENAI_API_KEY:${AI_API_KEY}/AI_MODEL,缺省回落 DeepSeek;
+      local.properties 补 AI_MODEL=qwen-plus。**帧形态**:Spring SSE `data:` 帧前导无空格、
+      无 [DONE],前端解析零改动兼容;chunk 逐词增量 ✅、只读工具闭环 ✅(模型自发调 queryInventory,
+      TOOL 审计行+AI 行落库)、错误帧兜底 ✅。联调炸出并修掉三 bug:①yml 空 mapping 登记块启动即炸
+      (Boot 4 ConverterNotFound,登记块须留真键);②流式错误穿透伪装 401 未登录(转可见错误帧+失败轮不落 AI 行);
+      ③四类 tools 分页参数基础类型 int 拆箱 NPE(模型不传可选参数时)——统一 Integer+空值回退 0,
+      归一收口 Filter record,回归测试 4 个)
+- ℹ️ 版本提示(2026-09-06 回写):Spring AI 2.0.1 与 AgentScope 2.0.2 已 GA;SAA 仍为里程碑,
+  graph/ 开工前再核实有无 GA;升级照旧只动根 pom 三属性
 
 ## #7 其他(随二期推进)
 - [x] 时间戳两列补齐(2026-09-03 规约落地,docs/07 §6.1;脚本已改;实体侧 Brand/ProductSku/ProductCategory/SysDict/SysRole 已同步补 updatedAt;
@@ -350,7 +463,15 @@
 - 单测 45 个(erp-purchase:PurchaseOrderServiceTest 21 状态机/金额汇总/删除校验/核销回写 + PurchaseInboundServiceTest 18
   建单校验/confirm 守卫与链路/取消删除 + SupplierServiceTest 6);erp-api 新增 InventoryChangeApiImplTest/WarehouseApiImplTest;
   ⚠️ MP 3.5.17 BaseMapper.insert/updateById 有 Collection 重载,mockito any() 需类型化 any(Entity.class)
-- [ ] 遗留:supplier 名称唯一性(表无 uk 列,需业务确认后改表)/ ~~仓库删除引用校验~~(✅ 2026-09-04 已随 #7 收口,
+- [x] ~~遗留:supplier 名称唯一性~~ ✅ 2026-09-07 拍板收口(表加 uk_name + Service 友好查重:
+      save/update 同名上抛"供应商名称已存在",update 查重排除自身,部分更新 name=null 跳过校验;
+      并发窗口漏网由 uk 兜底;docs/03 supplier 段同步 UNIQUE 标注;单测 +3);
+      **已建库环境需手工执行**(先清重再加键,否则存量重名会让 ALTER 失败):
+      ```sql
+      SELECT name, COUNT(*) c FROM supplier GROUP BY name HAVING c > 1;  -- 有结果先人工合并
+      ALTER TABLE supplier ADD UNIQUE KEY uk_name (name);
+      ```
+      / ~~仓库删除引用校验~~(✅ 2026-09-04 已随 #7 收口,
       WarehouseApi 扩 countWarehouseRefs)/ ~~单据 createdBy 接 SecurityContext~~(✅ 2026-09-06 收口:契约新增
       CurrentUserApi 实现收口 erp-api 走 AuthContext,采购单/入库单 save 服务端回填,SaveRequest 剔除 createdBy 入参;
       "确认人"无落库列,随需求演进另立项)/ ~~采购在途 qty_transit 维护随 #7 change() 按 flow_type 差异化~~
@@ -710,6 +831,10 @@ docs/design/、docs/devlog/。历史排查结论(2026-09-05 两轮盘点):15 提
 确需参考表结构时在 devlog 记出处。
 
 ### OmniTrade 9 大 AI 服务 → ec-erp 落位(主体挂三期 #6,归属列记排期)
+
+> **三期开工注记(2026-09-06)**:#6 AI 地基已落地(查询契约四件 + 只读 tools 首批四类 + chat 同步/SSE 双通道 +
+> ai_suggestion 确认闭环 + TOOL 行审计,详见 #6 勾选);**库存预警规则引擎(V1 三规则)与 graph/ 补货工作流
+> 同日收口**;智能采购/定价/文案维持三期候选量力后移,报表/客服(向量库)/选品四期再议。
 
 | OmniTrade 服务 | 功能面 | ec-erp 落位 | 归属 |
 |---|---|---|---|

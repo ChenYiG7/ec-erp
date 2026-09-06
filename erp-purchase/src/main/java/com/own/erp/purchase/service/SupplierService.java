@@ -15,8 +15,9 @@ import org.springframework.stereotype.Service;
  * @author : chenyi
  * @Date : 2026/9/3
  * @Description : 供应商服务:supplier 域整域收口,Controller 不直连 Mapper(docs/07 §2.1)
- *     API 模型收口(docs/07 §1):读入参 query/XxxQuery、写入参 command/XxxSaveRequest(CQRS 分包),出参 response/XxxResponse,entity 不出本层
- *     TODO(#10): 名称唯一性(supplier 无 uk 列,如需强约束先改表)与启用校验等随业务确认补齐
+ *     API 模型收口(docs/07 §1):读入参 query/XxxQuery、写入参 command/XxxSaveRequest(CQRS 分包),出参 response/XxxResponse,entity 不出本层。
+ *     名称唯一性(2026-09-07 拍板收口):友好校验在 Service(查重上抛业务异常),硬约束收口表 uk_name
+ *     (并发窗口漏网由唯一键兜底);启用校验等随业务确认补齐
  */
 @Service
 @RequiredArgsConstructor
@@ -40,20 +41,33 @@ public class SupplierService {
         return supplier == null ? null : SupplierResponse.from(supplier);
     }
 
-    /** 新增,返回自增ID */
+    /** 新增,返回自增ID;名称查重(uk_name 硬约束兜底) */
     public Long save(SupplierSaveRequest request) {
-        // TODO(#10): 落库/删除前业务校验在此补齐(docs/07 §1)
+        requireNameFree(request.name(), null);
         Supplier supplier = request.toEntity();
         supplierMapper.insert(supplier);
         return supplier.getId();
     }
 
-    /** 更新(MP 忽略 null 可部分更新;id 只认路径参数) */
+    /** 更新(MP 忽略 null 可部分更新;id 只认路径参数);名称查重排除自身 */
     public void update(Long id, SupplierSaveRequest request) {
-        // TODO(#10): 落库/删除前业务校验在此补齐(docs/07 §1)
+        requireNameFree(request.name(), id);
         Supplier supplier = request.toEntity();
         supplier.setId(id);
         supplierMapper.updateById(supplier);
+    }
+
+    /** 名称查重:name 非空才校验(部分更新允许不改名);excludeId 非空时排除自身(更新场景) */
+    private void requireNameFree(String name, Long excludeId) {
+        if (name == null || name.isBlank()) {
+            return;
+        }
+        Long count = supplierMapper.selectCount(new LambdaQueryWrapper<Supplier>()
+                .eq(Supplier::getName, name)
+                .ne(excludeId != null, Supplier::getId, excludeId));
+        if (count != null && count > 0) {
+            throw new BusinessException("供应商名称已存在:" + name);
+        }
     }
 
     /** 删除(一期硬删):已发生采购业务禁删(#10 删除校验),引导改状态停用 */

@@ -58,6 +58,16 @@ public class SysNotificationService {
         return userIds.size();
     }
 
+    /**
+     * 近期是否已发过同类型告警(#6 预警引擎静默期去重):sys_notification 自身即"上次告警时间"存储,
+     * 免建去重表;走 idx_created 范围条件,告警量级(每日个位数)足够。仅查系统侧扇出行,不限用户
+     */
+    public boolean existsRecent(String notifyType, LocalDateTime since) {
+        return sysNotificationMapper.selectCount(new LambdaQueryWrapper<SysNotification>()
+                .eq(SysNotification::getNotifyType, notifyType)
+                .gt(SysNotification::getCreatedAt, since)) > 0;
+    }
+
     /** 我的通知分页(归属固定当前用户;过滤:已读状态/通知类型) */
     public Page<SysNotificationResponse> page(Long userId, SysNotificationQuery query) {
         Page<SysNotification> result = sysNotificationMapper.selectPage(

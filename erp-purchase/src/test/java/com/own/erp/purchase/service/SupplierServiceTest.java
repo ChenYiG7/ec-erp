@@ -44,10 +44,38 @@ class SupplierServiceTest {
     @Test
     void saveMapsRequestAndInserts() {
         SupplierSaveRequest request = SupplierSaveRequest.builder().name("冒烟供应商").build();
+        when(supplierMapper.selectCount(any())).thenReturn(0L);
         supplierService.save(request);
         ArgumentCaptor<Supplier> captor = ArgumentCaptor.forClass(Supplier.class);
         verify(supplierMapper).insert(captor.capture());
         assertEquals("冒烟供应商", captor.getValue().getName());
+    }
+
+    @Test
+    void saveRejectsDuplicateName() {
+        when(supplierMapper.selectCount(any())).thenReturn(1L);
+
+        assertTrue(assertThrows(BusinessException.class,
+                        () -> supplierService.save(SupplierSaveRequest.builder().name("重名供应商").build()))
+                .getMessage().contains("供应商名称已存在"));
+        verify(supplierMapper, never()).insert(any(Supplier.class));
+    }
+
+    @Test
+    void updateRejectsDuplicateNameOfOtherAndAllowsKeepingOwn() {
+        // 改成别人的名字:拒
+        when(supplierMapper.selectCount(any())).thenReturn(1L);
+        assertTrue(assertThrows(BusinessException.class,
+                        () -> supplierService.update(9L, SupplierSaveRequest.builder().name("别人家的名字").build()))
+                .getMessage().contains("供应商名称已存在"));
+        verify(supplierMapper, never()).updateById(any(Supplier.class));
+
+        // 保持自己原名(查重排除自身,selectCount=0):放行
+        when(supplierMapper.selectCount(any())).thenReturn(0L);
+        supplierService.update(9L, SupplierSaveRequest.builder().name("自己原名").build());
+        ArgumentCaptor<Supplier> captor = ArgumentCaptor.forClass(Supplier.class);
+        verify(supplierMapper).updateById(captor.capture());
+        assertEquals(9L, captor.getValue().getId());
     }
 
     @Test

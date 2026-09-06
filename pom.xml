@@ -100,6 +100,14 @@
                 <artifactId>mybatis-plus-jsqlparser</artifactId>
                 <version>${mybatis-plus.version}</version>
             </dependency>
+            <!-- victools 仲裁钉版(#6 T1 发现):spring-ai 2.0.1 JsonSchemaGenerator 静态引用 JacksonSchemaModule(仅 5.0.0 有,
+                 4.38.0 已更名 JacksonModule);agentscope 2.0.2 直依赖 4.38.0 参与仲裁会把 5.0.0 拉低,nearest-wins 下启动即
+                 NoClassDefFound。钉 5.0.0 保 spring-ai 可用;agentscope 四期启用时若不兼容 5.0.0 再评估(四期风险登记 devlog) -->
+            <dependency>
+                <groupId>com.github.victools</groupId>
+                <artifactId>jsonschema-module-jackson</artifactId>
+                <version>5.0.0</version>
+            </dependency>
             <!-- 工具库:StrUtil/CollUtil/时间转换等,全模块通用(2026-09-03 登记,5.8 GA 线) -->
             <dependency>
                 <groupId>cn.hutool</groupId>

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.own.erp.order.mapper.OrderSalesDailyMapper">
+
+    <!-- 窗口重算(#6 销量数据面):已支付态订单明细按 支付日×SKU 聚合 upsert;
+         语法用 MySQL 8.0.19+ 行别名(VALUES() 在 8.0.20+ 已弃用,同 ShopOrderMapper 先例);
+         created_at/updated_at 不在列清单,交给库默认值与 ON UPDATE CURRENT_TIMESTAMP 兜底;
+         未绑定 SKU 行(sku_id IS NULL)不统计(口径 docs/03 §7.1);
+         单语句原子重算,重试安全(uk_sku_date 冲突即覆盖) -->
+    <insert id="upsertWindow">
+        INSERT INTO order_sales_daily (stat_date, sku_id, qty_sold)
+        SELECT DATE(o.paid_time)       AS stat_date,
+               i.sku_id                AS sku_id,
+               SUM(i.quantity)         AS qty_sold
+        FROM shop_order o
+        JOIN shop_order_item i ON i.order_id = o.id
+        WHERE o.order_status IN ('WAIT_SHIP', 'SHIPPED', 'COMPLETED')
+          AND o.paid_time IS NOT NULL
+          AND o.paid_time &gt;= #{startDate}
+          AND o.paid_time &lt; #{endDate}
+          AND i.sku_id IS NOT NULL
+        GROUP BY DATE(o.paid_time), i.sku_id
+        AS new
+        ON DUPLICATE KEY UPDATE qty_sold = new.qty_sold
+    </insert>
+
+    <!-- 近 N 天各 SKU 销量合计(读侧只读,契约 SalesQueryApi 收口);GROUP BY 只回有记录的 skuId -->
+    <select id="sumQtySince" resultType="java.util.HashMap">
+        SELECT sku_id       AS skuId,
+               SUM(qty_sold) AS qtySold
+        FROM order_sales_daily
+        WHERE stat_date &gt;= #{startDate}
+          AND sku_id IN
+        <foreach collection="skuIds" item="skuId" open="(" separator="," close=")">
+            #{skuId}
+        </foreach>
+        GROUP BY sku_id
+    </select>
+</mapper>

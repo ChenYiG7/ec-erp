@@ -114,7 +114,12 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path
 -- 商品分类(#5 前端树形页 2026-09-06:手写页,gen:page 不适用——树形域无分页端点;编辑态禁改父级,后端成环校验 TODO#7 待补)
 (23, 6, '分类管理', 2, 'goods:category:list', '/goods/categories', 'goods/category/index', 'tree', 4),
 -- 品牌管理(#5 gen:page 生成 2026-09-06,spec=goods-brand.txt;契约无业务过滤字段,页无搜索表单)
-(24, 6, '品牌管理', 2, 'goods:brand:list', '/goods/brands', 'goods/brand/index', 'shopping', 5);
+(24, 6, '品牌管理', 2, 'goods:brand:list', '/goods/brands', 'goods/brand/index', 'shopping', 5),
+-- AI助手(#6 前端两页 2026-09-06:对话手写页(SSE 流式会话,gen:page 不适用)+ 建议确认闭环(gen:page 生成,spec=ai-suggestion.txt);
+-- 后端登录即可,页面级 perm_key 同通知中心口径,无按钮级种子)
+(25, 0, 'AI助手', 1, NULL, '/ai', NULL, 'cpu', 6),
+(26, 25, 'AI对话', 2, 'ai:chat:list', '/ai/chat', 'ai/chat/index', 'chat-dot-round', 1),
+(27, 25, 'AI建议', 2, 'ai:suggestion:list', '/ai/suggestions', 'ai/ai-suggestion/index', 'magic-stick', 2);
 INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key) VALUES
 (200, 2, '新增', 3, 'system:user:add'),
 (201, 2, '编辑', 3, 'system:user:edit'),
@@ -186,7 +191,8 @@ INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
 (1,1501),(1,1502),(1,1503),(1,1504),(1,1505),
 (1,1601),
 (1,20),(1,2001),(1,2002),(1,2003),(1,21),(1,22),
-(1,23),(1,2301),(1,2302),(1,2303),(1,24),(1,2401),(1,2402),(1,2403);
+(1,23),(1,2301),(1,2302),(1,2303),(1,24),(1,2401),(1,2402),(1,2403),
+(1,25),(1,26),(1,27);
 -- ⚠️ 已建库(旧种子已插入)需手工执行对齐 --
 -- UPDATE sys_menu SET path='/goods/product', component='goods/product/index' WHERE id=7;   -- IGNORE 不更新存量行
 -- 再执行上面对应新增段(各新增段均为全新 id,含后续追加的按钮/页面/授权行,整段重跑 INSERT IGNORE 即可,幂等);
@@ -230,7 +236,7 @@ CREATE TABLE IF NOT EXISTS sys_notification (
     user_id     BIGINT       NOT NULL COMMENT '接收用户ID(sys_user.id),写侧扇出到全部启用用户',
     title       VARCHAR(128) NOT NULL COMMENT '通知标题',
     content     VARCHAR(1024) NULL COMMENT '通知内容(写侧截断)',
-    notify_type VARCHAR(32)  NOT NULL COMMENT '通知类型:PULL_FAIL=拉单连续失败告警',
+    notify_type VARCHAR(32)  NOT NULL COMMENT '通知类型:PULL_FAIL=拉单连续失败告警;LOW_STOCK=低库存/SHIP_TIMEOUT=发货超时/REFUND_ABNORMAL=退款异常/SLOW_MOVING=滞销/OVERSTOCK=积压(#6 预警引擎)',
     biz_type    VARCHAR(32)  NULL COMMENT '关联业务类型:SHOP等',
     biz_id      BIGINT       NULL COMMENT '关联业务ID(如店铺ID)',
     read_status TINYINT      NOT NULL DEFAULT 0 COMMENT '已读状态:0未读 1已读',
@@ -409,6 +415,18 @@ CREATE TABLE IF NOT EXISTS shop_order_item (
     KEY idx_sku (sku_id)
 ) COMMENT '订单明细';
 
+-- 销量日统计(#6 销量数据面,2026-09-07 定稿 docs/03 §7.1):支付日×SKU 合计购买数量,已支付态口径;
+-- erp-api SalesSnapshotJob 每日窗口 upsert(uk_sku_date 幂等,覆盖状态回传修正),erp-ai 经 SalesQueryApi 只读
+CREATE TABLE IF NOT EXISTS order_sales_daily (
+    id        BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    stat_date DATE    NOT NULL COMMENT '统计日期(支付日口径,paid_time 所在日)',
+    sku_id    BIGINT  NOT NULL COMMENT '内部SKU ID(product_sku.id),未绑定 SKU 不统计',
+    qty_sold  INT     NOT NULL DEFAULT 0 COMMENT '当日销量(购买数量合计,已支付态 WAIT_SHIP/SHIPPED/COMPLETED)',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_sku_date (sku_id, stat_date),
+    KEY idx_date (stat_date)
+) COMMENT='订单销量日统计';
 -- ---------------- 采购/发货/售后(二期,docs/03 §5 草案定稿 2026-09-03) ----------------
 CREATE TABLE IF NOT EXISTS supplier (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
@@ -419,7 +437,8 @@ CREATE TABLE IF NOT EXISTS supplier (
     remark      VARCHAR(255) NULL COMMENT '备注',
     status      TINYINT NOT NULL DEFAULT 1 COMMENT '1启用0禁用',
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+    updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_name (name)
 ) COMMENT '供应商';
 
 CREATE TABLE IF NOT EXISTS purchase_order (
@@ -585,6 +604,47 @@ CREATE TABLE IF NOT EXISTS inventory_flow (
     KEY idx_sku_time (sku_id, created_at)
 ) COMMENT '库存流水(与库存变更同事务写入)';
 
--- TODO(三期): settlement/settlement_detail/ad_report_daily/exchange_rate、AI 辅助表(ai_suggestion/ai_chat_session/ai_chat_message)、
---              inventory_snapshot_daily(见 docs/03 §6/§7 草案,字段随功能细化后再落地)
+-- ---------------- AI 辅助(三期 2026-09-06 随 #6 AI 地基落地,docs/03 §7 定稿) ----------------
+CREATE TABLE IF NOT EXISTS ai_suggestion (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    suggestion_type VARCHAR(32)  NOT NULL COMMENT '建议类型:REPLENISH补货/PRICING定价/ANOMALY异常/COPYWRITING文案(封闭词表,随AI服务扩容)',
+    shop_id         BIGINT       NULL COMMENT '关联店铺ID(shop.id,跨店/全局建议为NULL)',
+    sku_id          BIGINT       NULL COMMENT '关联内部SKU ID(product_sku.id,非SKU维度建议为NULL)',
+    ref_type        VARCHAR(32)  NULL COMMENT '关联业务类型(如SHOP_ORDER/INVENTORY,对齐inventory_flow.biz_type风格)',
+    ref_id          BIGINT       NULL COMMENT '关联业务单据ID',
+    payload_json    JSON         NULL COMMENT '建议结构化负载(补货量/建议价等,展示与采纳回放用)',
+    summary         VARCHAR(512) NOT NULL COMMENT '建议摘要(列表直显,LLM结论一句话)',
+    risk_level      VARCHAR(8)   NOT NULL DEFAULT 'LOW' COMMENT '风险等级:LOW/MID/HIGH(HIGH须人工复核)',
+    status          TINYINT      NOT NULL DEFAULT 0 COMMENT '确认状态:0待确认/1已采纳/2已忽略(人工确认后走业务接口,AI禁直接写业务表)',
+    confirmed_by    BIGINT       NULL COMMENT '确认人(sys_user.id)',
+    confirmed_at    DATETIME     NULL COMMENT '确认时间',
+    created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    KEY idx_type_status (suggestion_type, status),
+    KEY idx_sku (sku_id)
+) COMMENT 'AI建议表(AI产出一律落此表,人工确认后走正常业务接口)';
+
+CREATE TABLE IF NOT EXISTS ai_chat_session (
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    user_id    BIGINT       NOT NULL COMMENT '所属用户ID(sys_user.id,会话归属校验依据)',
+    title      VARCHAR(128) NOT NULL COMMENT '会话标题(首条提问截断)',
+    created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    KEY idx_user_updated (user_id, updated_at)
+) COMMENT 'AI会话(多轮对话分组,个人助手口径仅本人可见)';
+
+CREATE TABLE IF NOT EXISTS ai_chat_message (
+    id                BIGINT     AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    session_id        BIGINT     NOT NULL COMMENT '会话ID(ai_chat_session.id)',
+    role              VARCHAR(16) NOT NULL COMMENT '消息角色:USER用户/AI助手/TOOL工具调用',
+    content           MEDIUMTEXT NOT NULL COMMENT '消息内容',
+    tool_name         VARCHAR(64) NULL COMMENT '工具名(role=TOOL时记录,审计用)',
+    prompt_tokens     INT        NULL COMMENT '输入token用量(模型未回传则NULL)',
+    completion_tokens INT        NULL COMMENT '输出token用量(模型未回传则NULL)',
+    created_at        DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    KEY idx_session_time (session_id, created_at)
+) COMMENT 'AI会话消息(对话落库可审计)';
+
+-- TODO(三期余量): settlement/settlement_detail/ad_report_daily/exchange_rate(docs/03 §6 草案)、
+--                  inventory_snapshot_daily(docs/03 §4/§7 草案,随库存预警切片落地)
 -- 表结构见 docs/03-数据库设计.md,随对应模块开发时建表

@@ -26,13 +26,16 @@ spring:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
   ai:
-    # OpenAI 兼容接口,按需切换 DeepSeek / 通义 / GLM
+    # OpenAI 兼容接口,按需切换 DeepSeek / 通义 / GLM:
+    # 密钥/地址/模型走环境变量或 local.properties——OPENAI_BASE_URL(如 DashScope 兼容模式
+    # https://dashscope.aliyuncs.com/compatible-mode/v1,官方 openai-java SDK 按 {base-url}/chat/completions 拼接)
+    # + OPENAI_API_KEY + AI_MODEL;缺省回落 DeepSeek。本机环境变量已配阿里 DashScope(2026-09-07 联调实测)
     openai:
-      base-url: https://api.deepseek.com
-      api-key: ${AI_API_KEY:}
+      base-url: ${OPENAI_BASE_URL:https://api.deepseek.com}
+      api-key: ${OPENAI_API_KEY:${AI_API_KEY:}}
       chat:
         options:
-          model: deepseek-chat
+          model: ${AI_MODEL:deepseek-chat}
 
 mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml
@@ -57,6 +60,43 @@ erp:
     # listing 同步(#5):变化慢,默认 1 小时;与订单共用 first-pull-days
     product-interval-ms: 3600000
     first-pull-days: 90
+  alert:
+    # 库存预警扫描(#6):规则引擎在 erp-ai AlertEngine,阈值/静默期默认值见 ErpAlertProperties(yml 可覆盖);
+    # 调度间隔默认 1 小时;enabled 置 false 可整体灰度关闭
+    interval-ms: 3600000
+    # enabled: true
+    # quiet-hours: 24
+    # low-stock-threshold: 10
+    # ship-timeout-hours: 48
+    # refund-window-hours: 24
+    # refund-count-threshold: 5
+  sales:
+    # 销量日统计(#6 销量数据面):erp-order OrderSalesDailyService 窗口重算,默认值见 ErpSalesProperties;
+    # 每日 01:00(赶在补货工作流 02:00 前出当日数据);enabled 置 false 可整体灰度关闭
+    # ⚠️ 登记块至少留一个真键:空 mapping(yml 空节点)在 Boot 4 绑定器会 String→对象 ConverterNotFound 启动即炸
+    enabled: true
+    # cron: "0 0 1 * * ?"
+    # rebuild-days: 30
+  ai:
+    # AI 工作流参数默认值收口 ErpAiProperties(yml 可覆盖):replenish 补货 / anomaly 订单异常检测(#6);
+    # 定时接线(2026-09-07 拍板):每日低峰 cron 触发(与补货错峰)+ enabled 开关,
+    # 去重语义 = 同键(异常按 refId/补货按 skuId)存在待确认(status=0)建议即跳过;
+    # 无 AI_API_KEY 自动降级模板/规则定级,不炸不阻断;手动触发端点不受开关/cron 影响
+    replenish:
+      enabled: true                  # 定时开关(erp-api ReplenishJob)
+      # cron: "0 0 2 * * ?"          # 每日 02:00 低峰
+      # low-stock-threshold: 10
+      # scan-page-size: 100
+      # scan-max-rows: 500
+    anomaly:
+      enabled: true                  # 定时开关(erp-api AnomalyJob)
+      # cron: "0 30 2 * * ?"         # 每日 02:30 低峰(与补货错峰,共用单线程调度器)
+      # big-order-amount: 10000      # 大额阈值(本位币,orderAmount×exchangeRate)
+      # unpaid-hours: 48             # 未支付超时(小时,WAIT_PAY)
+      # high-discount-ratio: 0.5     # 高折扣比率(已支付,discountAmount ≥ orderAmount×比率)
+      # scan-page-size: 100          # 单页扫描量
+      # scan-max-rows: 1000          # 单状态单轮扫描行数上限
+      # llm-max-items: 20            # 单轮送 LLM 评分上限(超限按基线风险降序截断)
   adapter:
     amazon:
       # SP-API adapter(#3)默认关闭:Bean 不注册,拉单调度按"adapter 未接入"自动跳过;

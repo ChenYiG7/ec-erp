@@ -39,15 +39,15 @@ pnpm gen:page --spec tools/specs/<domain>.txt   # 新页面生成器(存在即�
 | 依赖 | 版本 | 说明 |
 |---|---|---|
 | Spring Boot | 4.0.6 (GA) | 根 pom 的 parent,升级只动这一处 |
-| Spring AI | 2.0.0-M5 | `${spring-ai.version}` |
-| Spring AI Alibaba | 2.0.0-M1.1 | `${spring-ai-alibaba.version}`,graph-core |
-| AgentScope Java | 2.0.0-RC5 | `${agentscope.version}`,四期才用 |
+| Spring AI | 2.0.1 (GA) | `${spring-ai.version}`,2026-09-06 M5→GA 定版 |
+| Spring AI Alibaba | 2.0.0-M1.1 | `${spring-ai-alibaba.version}`,graph-core(2.0 线仅此里程碑,1.1.2.3 GA 对齐 Boot3 不可降级) |
+| AgentScope Java | 2.0.2 (GA) | `${agentscope.version}`,2026-09-06 RC5→GA 定版;四期才用 |
 | MyBatis-Plus | 3.5.17 | boot4-starter |
 | Redisson | 4.7.0 | 分布式锁唯一中间件(#13,2026-09-04 定型):核心包手工装配(RedissonConfig,不用 starter),`LockService` 收口 per-key 互斥(拉单防重入;二期 Token 刷新 single-flight 同走),`erp.lock.fail-open` 降级可配;数据正确性不走锁,库存走 DB 原子 UPDATE |
 | Hutool | 5.8.47 | hutool-core,根 pom 全模块继承;isBlank/集合判空用 `StrUtil`/`CollUtil` |
 | springdoc | 3.1.0 | Boot 4 专用 3.x 线;Swagger UI 预览 + `/v3/api-docs` 供 Apifox;Controller 必标 @Tag/@Operation(中文),生产 yml 可关 |
 
-三个 AI 依赖均未 GA;回滚方案:Boot 3.5.14 + Spring AI 1.1.5 + SAA 1.1.2.3。
+Spring AI 2.0.1 与 AgentScope 2.0.2 已 GA(2026-09-06 定版);SAA 无 GA 保持 M1.1。回滚方案:Boot 3.5.14 + Spring AI 1.1.5 + SAA 1.1.2.3。
 
 ## ⚠️ MyBatis-Plus 3.5.9+ 硬约束
 
@@ -57,7 +57,7 @@ pnpm gen:page --spec tools/specs/<domain>.txt   # 新页面生成器(存在即�
 ## 开发铁律
 
 1. **TODO(编号) 约定**:复杂逻辑/AI 代码**只写 `TODO(编号)` 注释 + 实现指引,不实现**,由人工补齐;只有简单 CRUD 直接生成。新 TODO 要登记进 TODO.md。
-2. **模块间禁止横向依赖**,跨域调用在 erp-api 编排。依赖方向:erp-shop / erp-fulfill / erp-worker → erp-platform-sdk(调平台 API);erp-order → erp-platform-sdk 仅消费 UnifiedOrder 落库模型(2026-09-04,#4,禁调平台 API);erp-goods / erp-shop / erp-purchase / erp-warehouse / erp-fulfill → erp-contract 跨域契约接口(#5/#10/#7/#11 逐步扩容,实现收口 erp-api);全部业务模块聚合进 erp-api。
+2. **模块间禁止横向依赖**,跨域调用在 erp-api 编排。依赖方向:erp-shop / erp-fulfill / erp-worker → erp-platform-sdk(调平台 API);erp-order → erp-platform-sdk 仅消费 UnifiedOrder 落库模型(2026-09-04,#4,禁调平台 API);erp-goods / erp-shop / erp-purchase / erp-warehouse / erp-fulfill / erp-ai → erp-contract 跨域契约接口(#5/#10/#7/#11/#6 逐步扩容,实现收口 erp-api);全部业务模块聚合进 erp-api。
 3. **adapter 内只做报文翻译**,出现 `if (业务)` 即防腐失败。
 4. **库存变更唯一入口** `InventoryService.change()`,同事务写 inventory_flow,禁止旁路 update。
 5. **幂等靠唯一键**:订单 `(shop_id, platform_order_id)`、店铺 `(platform, seller_id)`,upsert 落库。
@@ -81,7 +81,7 @@ pnpm gen:page --spec tools/specs/<domain>.txt   # 新页面生成器(存在即�
 | 模块 | 职责 |
 |---|---|
 | erp-common | 返回体/异常/分页(PageQuery + MP Page) |
-| erp-contract | 跨域契约接口(✅ #5/#3,2026-09-04 拍板引入):GoodsReferenceApi(删 SKU/SPU 引用计数)/GoodsSkuApi(sku_id 存在性)/ShopReferenceApi(店铺删除引用计数)/InventoryChangeApi(动库存唯一通道,#10,命令经 erp-api 委托 InventoryService.change,同事务由调用方 @Transactional 保证)/WarehouseApi(仓库存在性 #10 + 删除引用计数 #7)/ShopOrderApi(发货视图 findDeliveryView 未绑定行过滤 + casOrderStatus 订单状态条件推进,#11)/CurrentUserApi(当前登录用户,单据 createdBy 服务端回填,#10/#11 遗留 2026-09-06 收口,SaveRequest 同步剔除 createdBy 入参),零实现,实现收口 erp-api;域 Service 注入契约接口一律 @Lazy 断构造环(2026-09-05,显式构造器标注,docs/07 §2.2);lombok 仅编译期(provided,契约命令/视图模型 @Builder,#10 偏差已声明 docs/07 §2.2) |
+| erp-contract | 跨域契约接口(✅ #5/#3,2026-09-04 拍板引入):GoodsReferenceApi(删 SKU/SPU 引用计数)/GoodsSkuApi(sku_id 存在性)/ShopReferenceApi(店铺删除引用计数)/InventoryChangeApi(动库存唯一通道,#10,命令经 erp-api 委托 InventoryService.change,同事务由调用方 @Transactional 保证)/WarehouseApi(仓库存在性 #10 + 删除引用计数 #7)/ShopOrderApi(发货视图 findDeliveryView 未绑定行过滤 + casOrderStatus 订单状态条件推进,#11)/CurrentUserApi(当前登录用户,单据 createdBy 服务端回填,#10/#11 遗留 2026-09-06 收口,SaveRequest 同步剔除 createdBy 入参)/**只读查询契约五件(#6,2026-09-06~07):OrderQueryApi/InventoryQueryApi/GoodsQueryApi/AftersaleQueryApi/SalesQueryApi(销量日统计读侧,order_sales_daily 支付日×SKU 已支付态口径)——过滤 record + 行视图 record + QueryPage(list/total),全 record 不引 MP 类型,分页归一收口在 filter record(page()/size() 默认 1/20 钳 100);erp-ai 工具取数唯一正道,只读无写方法(铁律 7)**,零实现,实现收口 erp-api;域 Service 注入契约接口一律 @Lazy 断构造环(2026-09-05,显式构造器标注,docs/07 §2.2);lombok 仅编译期(provided,契约命令/视图模型 @Builder,#10 偏差已声明 docs/07 §2.2) |
 | erp-system | 用户/角色/菜单/字典(JWT 登录 + RBAC 已落地,TODO #1 完成;按 `role_key` 鉴权);站内通知(✅ #14:系统告警扇出只读+本人已读状态) |
 | erp-shop | 店铺/授权/凭证加密(✅ #2:AES-256-GCM `CryptoService`,密钥 `ERP_TOKEN_KEY` 环境变量无默认值启动强制校验;写侧加密+掩码回写防护,读侧 `getShopSession` 解密装配、`pageShops`/`getShopById` 脱敏唯一出口——凭证表例外,Controller 不直连 Mapper,docs/07 §2.1)/pull_log/**OAuth 授权中心(✅ #3 脱机部分 2026-09-04:auth-url 签发加密 state 10 分钟 TTL + /oauth/callback 换码入库复用加密链路 + getShopSession 读取时刷新,过期前 10 分钟,DB CAS 守卫防跨实例双刷新,失败走 pull_log 告警)** |
 | erp-goods | 商品库 + **SKU 映射**(TODO #5) |
@@ -95,7 +95,7 @@ pnpm gen:page --spec tools/specs/<domain>.txt   # 新页面生成器(存在即�
   入库单核销 confirm 同事务 = 状态占位 + InventoryChangeApi 逐行动账(IN_PURCHASE=核销在途,守卫=在途充足) + arrived_qty 原子累加防超收;删除校验三处;
   入库明细子表 purchase_inbound_item,已建库重跑 01_schema_init.sql 即补建)/ 仓储(删除引用校验已接 #7)/财务/营销/BI(待开发) |
 | erp-platform-sdk | 防腐层 SPI:`PlatformClient` / `AdapterRegistry`(构造统一套 PlatformGateway 限流装饰)/ `ShopSession` / unified 模型 / **gateway 横切(#3 2026-09-04):PlatformRateGuard = Redisson RRateLimiter 按 platform+shop+bucket 令牌桶,窗口状态持久化 Redis 防重启丢,`erp.rate.*` 可配,Redis 故障 fail-open、配额等待超时抛 429**;**#3 Amazon 接入中**(2026-09-04~06:LWA 授权/刷新 + OAuth 回调/Token 刷新(过期前 10 分钟)+ 限流 + AWS SigV4 签名器/STS 临时凭证 + getOrders 拉单接线(SpApiOrdersClient)已落地,**2026-09-06 联调预备骨架:pullProducts=Reports 全量快照(SpApiReportsClient 三步链+AmazonListingTranslator)/pullRefunds=Finances 记账窗(SpApiFinancesClient+AmazonRefundTranslator,组合幂等键),选型拍板进 docs/04**,翻译 fixture 官方模板推导、真凭证样本到位后校准;uploadTracking 脱机已落地(2026-09-06,MFN confirmShipment + SPI PlatformShipment 签名收口,站点↔币种映射 AmazonMarketplace 23 站同步收口;#11 ship 编排接线随联调);`adapter/amazon` 包,默认不注册 Bean `erp.adapter.amazon.enabled`;剩余真凭证联调 + 限流真值按 x-amzn-RateLimit-Limit 校准);其余 adapter 待实现 |
-| erp-ai | AI 能力层,全部 TODO 占位(TODO #6) |
+| erp-ai | AI 能力层(✅ #6 三期开工 2026-09-06:AI 地基 + graph/预警/异常三件):tools/ 只读 @Tool 首批四类(OrderTools/InventoryTools/GoodsTools/AftersaleTools,一类一文件,取数走 erp-contract 查询契约,@Lazy 断环)+ ErpChatService(chat 同步 + chatStream Flux 流式,system prompt 集中 ErpAiProperties,无 AI_API_KEY 调用友好报错启动不炸)+ ErpChatController(/api/ai/chat:会话新建/列表/历史归属校验仅本人可见 + POST sessions/{id}/chat SSE + chat-sync)+ 会话持久化(ai_chat_session 首条消息截断作 title / ai_chat_message USER·AI 双行,同步带 usage 流式置 NULL;TOOL 行经 AuditingToolCallback 装饰器 invoke 前落审计,双通道统一生效)+ ai_suggestion 确认闭环(cas 0→1/0→2 守卫 + adopt/ignore 端点 + AI 产出内部 save 唯一入口,testgen-ai.txt 产守卫四类测试)+ **graph/ 补货建议工作流**(SAA Graph Core 四节点,拍板:程序取数+程序计算、LLM 只写报告;摘要三重降级模板兜底;落 ai_suggestion 不碰业务单据;POST /api/ai/replenishment/run,定时接线待拍板)+ **alert/ 库存预警引擎**(V1 五规则:低库存/发货超时/退款异常/滞销/积压,后两者 2026-09-07 随销量数据面接入;护栏 scanPageSize/scanMaxRows;推送收口 erp-api AlertJob,静默期按 notifyType 查 sys_notification 免去重表,erp.alert.* 可配)+ **graph/ 订单异常检测工作流**(2026-09-07 两段式照 ReplenishWorkflow 母本:scan 四规则先筛——UNPAID_TIMEOUT/BIG_AMOUNT/ZERO_AMOUNT/HIGH_DISCOUNT 收口 AnomalyRule 枚举,金额类 paidTime 判空防 Amazon Pending 0 元单误报,只扫 WAIT_PAY/WAIT_SHIP 两态,单态钳制+失败隔离,无可疑单条件边直达 END 零 LLM 成本;score LLM 批量评分按 orderId 对齐,llmMaxItems=20 超限按基线风险降序截断且未送评不算降级,三重降级规则回落+模板 summary;落 ai_suggestion type=ANOMALY/refType=SHOP_ORDER;POST /api/ai/anomaly/run,定时接线/去重语义待拍板;两工作流补货公式 2026-09-07 重估换真实动销(order_sales_daily,零动销/库存充足剔除不硬补);定时接线 2026-09-07 拍板落地:erp-api ReplenishJob(cron 默认 02:00)/AnomalyJob(cron 默认 02:30 错峰,erp.ai.*.cron/enabled 可配),**去重语义=同键(异常按 refId/补货按 skuId)存在待确认建议即跳过**,收口 scan 段 LLM 评分前,eq 全量+内存交集规避 .in() 坑);余量:agent/(四期 AgentScope 多 Agent)、SSE 帧格式真模型联调、inventory_snapshot_daily 库存快照/周转报表面、更多 tools(ACOS 无数据不开) |
 | erp-api | 主应用入口 :8088(配置:GlobalExceptionHandler / MybatisPlusConfig) |
 | erp-worker | 拉单 worker :8089(预留,一期跑在 erp-api 进程内) |
 | erp-codegen | 开发工具(非运行时依赖):DDL→CRUD 八件套脚手架(#8 起含 Query/SaveRequest/Response,09-03 CQRS 分包),存在即跳过,pom 缺依赖报错守卫;状态机守卫测试生成器(09-04,spec 驱动产守卫四类用例,#10/#11/#12 四连沉淀) |

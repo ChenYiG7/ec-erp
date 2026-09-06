@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -121,5 +122,13 @@ class SysNotificationServiceTest {
         doReturn(page).when(notificationMapper).selectPage(any(), any());
 
         assertEquals(2L, service.page(1L, new SysNotificationQuery()).getRecords().get(0).id());
+    }
+
+    @Test
+    void existsRecentFollowsMapperCount() {
+        when(notificationMapper.selectCount(any())).thenReturn(1L);
+        assertTrue(service.existsRecent("LOW_STOCK", LocalDateTime.now().minusHours(24)));
+        when(notificationMapper.selectCount(any())).thenReturn(0L);
+        assertTrue(!service.existsRecent("LOW_STOCK", LocalDateTime.now().minusHours(24)));
     }
 }

@@ -121,6 +121,19 @@ public class ProductService {
     }
 
     /**
+     * 按 SKU 编码精确查全量(#6 三期 AI 地基,GoodsQueryApi.findSkuByCode 委托落点):
+     * uk_sku_code 唯一键,selectOne 无多行风险;不存在返回 null。不过滤 status——禁用 SKU 的历史引用仍需可查
+     */
+    public ProductSkuResponse getSkuByCode(String skuCode) {
+        if (StrUtil.isBlank(skuCode)) {
+            return null;
+        }
+        ProductSku sku = skuMapper.selectOne(new LambdaQueryWrapper<ProductSku>()
+                .eq(ProductSku::getSkuCode, skuCode));
+        return sku == null ? null : ProductSkuResponse.from(sku);
+    }
+
+    /**
      * 内部SKU编码 → ID 映射(#5 自动匹配编排用,erp-api 调用):
      * seller_sku == sku_code 精确匹配的 goods 侧查询;in 分批 ≤1000(docs/07 §5);
      * 同码重复取先到(uk_sku 唯一,理论不重复,防御兜底)。不过滤 status:启停由人工决策,历史映射保留

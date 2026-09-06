@@ -16,12 +16,8 @@
       "description": "发货单 CRUD、分页查询与状态机(待发货/已发货/已签收/已取消)"
     },
     {
-      "name": "字典管理",
-      "description": "数据字典 CRUD 与按类型查询(下拉数据源)"
-    },
-    {
-      "name": "商品管理",
-      "description": "SPU 与 SKU CRUD;SKU 与平台 seller_sku 的映射是系统心脏(TODO.md #5)"
+      "name": "AI订单异常检测",
+      "description": "SAA Graph 异常检测工作流:程序规则筛(WAIT_PAY/WAIT_SHIP 两态四规则)+ LLM 批量评分(可降级规则回落);产出进 ai_suggestion 待人工复核"
     },
     {
       "name": "认证",
@@ -56,16 +52,20 @@
       "description": "分仓库存查询(变更唯一入口 InventoryService.change)"
     },
     {
-      "name": "仓库",
-      "description": "仓库 CRUD 与分页查询"
-    },
-    {
       "name": "平台订单",
       "description": "平台订单查询(拉单落库,不开放人工写接口)"
     },
     {
+      "name": "AI助手",
+      "description": "多轮对话:会话管理 + 同步/SSE 流式问答;登录即可,数据仅本人可见"
+    },
+    {
       "name": "SKU映射",
       "description": "平台 seller_sku ↔ 内部SKU 绑定(系统心脏)"
+    },
+    {
+      "name": "AI补货建议",
+      "description": "SAA Graph 补货建议工作流:程序取数算建议量,LLM 写摘要(可降级);产出进 ai_suggestion 待人工确认"
     },
     {
       "name": "售后单",
@@ -84,6 +84,30 @@
       "description": "SKU CRUD;与平台 seller_sku 的绑定/自动匹配见 TODO.md #5"
     },
     {
+      "name": "品牌管理",
+      "description": "品牌 CRUD"
+    },
+    {
+      "name": "库存流水",
+      "description": "库存变更流水查询(与库存变更同事务写入)"
+    },
+    {
+      "name": "字典管理",
+      "description": "数据字典 CRUD 与按类型查询(下拉数据源)"
+    },
+    {
+      "name": "商品管理",
+      "description": "SPU 与 SKU CRUD;SKU 与平台 seller_sku 的映射是系统心脏(TODO.md #5)"
+    },
+    {
+      "name": "仓库",
+      "description": "仓库 CRUD 与分页查询"
+    },
+    {
+      "name": "AI建议",
+      "description": "AI 建议闭环:查询 + 人工确认(采纳/忽略);AI 产出经内部入口落库,无 HTTP 写接口"
+    },
+    {
       "name": "菜单管理",
       "description": "菜单树与角色-菜单绑定;限 admin 角色"
     },
@@ -94,14 +118,6 @@
     {
       "name": "店铺管理",
       "description": "店铺 CRUD 与平台授权凭证;凭证字段脱敏返回,授权流程见 TODO.md #3"
-    },
-    {
-      "name": "品牌管理",
-      "description": "品牌 CRUD"
-    },
-    {
-      "name": "库存流水",
-      "description": "库存变更流水查询(与库存变更同事务写入)"
     }
   ],
   "paths": {
@@ -2776,6 +2792,266 @@
         }
       }
     },
+    "/api/ai/suggestions/{id}/ignore": {
+      "post": {
+        "tags": [
+          "AI建议"
+        ],
+        "summary": "忽略建议",
+        "description": "0待确认→2已忽略,条件更新即守卫,与采纳终态互斥",
+        "operationId": "ignore",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/suggestions/{id}/adopt": {
+      "post": {
+        "tags": [
+          "AI建议"
+        ],
+        "summary": "采纳建议",
+        "description": "0待确认→1已采纳,条件更新即守卫(cas 脱靶=已处理/不存在,报错);仅落确认状态,业务动作由人工走对应业务接口",
+        "operationId": "adopt",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/replenishment/run": {
+      "post": {
+        "tags": [
+          "AI补货建议"
+        ],
+        "summary": "触发补货建议工作流",
+        "description": "扫描低库存 SKU 生成补货建议写入 AI 建议表,返回运行摘要;LLM 不可用时摘要自动降级为模板",
+        "operationId": "run",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultReplenishRunResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/chat/sessions": {
+      "get": {
+        "tags": [
+          "AI助手"
+        ],
+        "summary": "我的会话分页",
+        "description": "按最近更新倒序;仅本人会话(归属服务端强制)",
+        "operationId": "sessions",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/AiChatSessionQuery"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultPageAiChatSessionResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AI助手"
+        ],
+        "summary": "新建会话",
+        "description": "标题可空,默认'新会话',首条消息后自动回填为消息摘要",
+        "operationId": "createSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionCreateCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultLong"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/chat/sessions/{id}/chat": {
+      "post": {
+        "tags": [
+          "AI助手"
+        ],
+        "summary": "流式对话(SSE)",
+        "description": "text/event-stream,逐段返回 AI 回复;消息内容取 body.message",
+        "operationId": "chat",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatSendCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/chat/sessions/{id}/chat-sync": {
+      "post": {
+        "tags": [
+          "AI助手"
+        ],
+        "summary": "同步对话",
+        "description": "一次性返回完整回复(带工具查询,耗时高于流式首包)",
+        "operationId": "chatSync",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatSendCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultString"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/anomaly/run": {
+      "post": {
+        "tags": [
+          "AI订单异常检测"
+        ],
+        "summary": "触发订单异常检测工作流",
+        "description": "扫描 WAIT_PAY/WAIT_SHIP 订单按四规则筛可疑单,LLM 批量评分(不可用时规则回落)后写入 AI 建议表,返回运行摘要",
+        "operationId": "run_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultAnomalyRunResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/aftersale/orders/{id}/reject": {
       "post": {
         "tags": [
@@ -3687,6 +3963,103 @@
         }
       }
     },
+    "/api/ai/suggestions": {
+      "get": {
+        "tags": [
+          "AI建议"
+        ],
+        "summary": "分页查询AI建议",
+        "operationId": "page_18",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/AiSuggestionQuery"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultPageAiSuggestionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/suggestions/{id}": {
+      "get": {
+        "tags": [
+          "AI建议"
+        ],
+        "summary": "AI建议详情",
+        "description": "不存在返回 null data",
+        "operationId": "get_14",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultAiSuggestionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/chat/sessions/{id}/messages": {
+      "get": {
+        "tags": [
+          "AI助手"
+        ],
+        "summary": "会话历史消息",
+        "description": "时间正序;仅本人会话可查,越权/不存在统一报'会话不存在'",
+        "operationId": "messages",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultListAiChatMessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/aftersale/orders": {
       "get": {
         "tags": [
@@ -3694,7 +4067,7 @@
         ],
         "summary": "分页查询售后单",
         "description": "支持 shopId/status/type/orderId 精确过滤",
-        "operationId": "page_18",
+        "operationId": "page_19",
         "parameters": [
           {
             "name": "query",
@@ -3726,7 +4099,7 @@
         ],
         "summary": "售后单详情",
         "description": "不存在返回 null data",
-        "operationId": "get_14",
+        "operationId": "get_15",
         "parameters": [
           {
             "name": "id",
@@ -4501,6 +4874,115 @@
             "items": {
               "$ref": "#/components/schemas/SysMenuResponse"
             }
+          }
+        }
+      },
+      "ReplenishRunResult": {
+        "type": "object",
+        "properties": {
+          "scannedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "suggestedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "persistedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "degraded": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ResultReplenishRunResult": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ReplenishRunResult"
+          }
+        }
+      },
+      "SessionCreateCommand": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "ChatSendCommand": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "ResultString": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          }
+        }
+      },
+      "AnomalyRunResult": {
+        "type": "object",
+        "properties": {
+          "scannedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "suspiciousCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "persistedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "llmScoredCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "degraded": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ResultAnomalyRunResult": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AnomalyRunResult"
           }
         }
       },
@@ -5373,21 +5855,6 @@
           },
           "data": {
             "$ref": "#/components/schemas/ShopResponse"
-          }
-        }
-      },
-      "ResultString": {
-        "type": "object",
-        "properties": {
-          "code": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "data": {
-            "type": "string"
           }
         }
       },
@@ -7445,6 +7912,340 @@
           },
           "data": {
             "$ref": "#/components/schemas/DeliveryOrderResponse"
+          }
+        }
+      },
+      "AiSuggestionQuery": {
+        "type": "object",
+        "properties": {
+          "pageNo": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "shopId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "skuId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "suggestionType": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AiSuggestionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "suggestionType": {
+            "type": "string"
+          },
+          "shopId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "skuId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "refType": {
+            "type": "string"
+          },
+          "refId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "payloadJson": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "riskLevel": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "confirmedBy": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "confirmedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PageAiSuggestionResponse": {
+        "type": "object",
+        "properties": {
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiSuggestionResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "current": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "orders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItem"
+            },
+            "writeOnly": true
+          },
+          "optimizeCountSql": {
+            "$ref": "#/components/schemas/PageAiSuggestionResponse",
+            "writeOnly": true
+          },
+          "searchCount": {
+            "$ref": "#/components/schemas/PageAiSuggestionResponse",
+            "writeOnly": true
+          },
+          "optimizeJoinOfCountSql": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "maxLimit": {
+            "type": "integer",
+            "format": "int64",
+            "writeOnly": true
+          },
+          "countId": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "pages": {
+            "type": "integer",
+            "format": "int64",
+            "deprecated": true
+          }
+        }
+      },
+      "ResultPageAiSuggestionResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PageAiSuggestionResponse"
+          }
+        }
+      },
+      "ResultAiSuggestionResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AiSuggestionResponse"
+          }
+        }
+      },
+      "AiChatSessionQuery": {
+        "type": "object",
+        "properties": {
+          "pageNo": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "AiChatSessionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PageAiChatSessionResponse": {
+        "type": "object",
+        "properties": {
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiChatSessionResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "current": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "orders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItem"
+            },
+            "writeOnly": true
+          },
+          "optimizeCountSql": {
+            "$ref": "#/components/schemas/PageAiChatSessionResponse",
+            "writeOnly": true
+          },
+          "searchCount": {
+            "$ref": "#/components/schemas/PageAiChatSessionResponse",
+            "writeOnly": true
+          },
+          "optimizeJoinOfCountSql": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "maxLimit": {
+            "type": "integer",
+            "format": "int64",
+            "writeOnly": true
+          },
+          "countId": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "pages": {
+            "type": "integer",
+            "format": "int64",
+            "deprecated": true
+          }
+        }
+      },
+      "ResultPageAiChatSessionResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PageAiChatSessionResponse"
+          }
+        }
+      },
+      "AiChatMessageResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sessionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "role": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "toolName": {
+            "type": "string"
+          },
+          "promptTokens": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "completionTokens": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ResultListAiChatMessageResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiChatMessageResponse"
+            }
           }
         }
       },

@@ -1,0 +1,28 @@
+# AI建议 spec(gen:page 拍板表;#6 前端收尾:建议确认闭环消费页,只读列表 + adopt/ignore 动作)
+# 后端登录即可(无按钮 permKey),动作按钮不带 v-auth——同通知中心口径
+module=ai
+domain=ai-suggestion
+entity=AiSuggestion
+nameZh=AI建议
+permPrefix=ai:suggestion
+todoId=6
+menuParent=25
+menuId=27
+path=/ai/suggestions
+component=ai/ai-suggestion/index
+base=ai/suggestions
+readonly=true
+icon=magic-stick
+
+field=suggestionType  role=all    label=建议类型  enum=REPLENISH:补货:primary|PRICING:定价:warning|ANOMALY:异常:danger|COPYWRITING:文案:info  width=110
+field=status          role=all    label=状态      enum=0:待确认:warning|1:已采纳:success|2:已忽略:info  width=90  tag
+field=shopId          role=all    label=店铺ID    width=90
+field=skuId           role=all    label=内部SKU    width=90
+field=summary         role=column label=建议摘要
+field=riskLevel       role=column label=风险等级  enum=LOW:低:success|MID:中:warning|HIGH:高:danger  width=90  tag
+field=confirmedAt     role=column label=确认时间    width=170
+field=createdAt       role=column label=创建时间    width=170
+
+# 页面级动作槽位(api 的 adopt()/ignore() 已生成,按钮与调用人工补;payloadJson 详情抽屉人工补)
+todo=adopt:采纳(0→1 cas 守卫)确认弹窗后调用并刷新,仅 status=0 可见,不带 v-auth
+todo=ignore:忽略(0→2 cas 守卫)确认弹窗后调用并刷新,仅 status=0 可见,不带 v-auth
