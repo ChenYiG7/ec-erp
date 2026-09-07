@@ -1,6 +1,8 @@
 package com.own.erp.ai.chat;
 
+import com.own.erp.ai.constant.AiConsts;
 import com.own.erp.ai.config.ErpAiProperties;
+import com.own.erp.ai.graph.RuntimePropsStub;
 import com.own.erp.ai.service.AiChatMessageService;
 import com.own.erp.ai.service.AiChatSessionService;
 import com.own.erp.ai.tools.AftersaleTools;
@@ -62,7 +64,8 @@ class ErpChatServiceTest {
         when(currentUserApi.currentUserId()).thenReturn(USER_ID);
         sessionService = mock(AiChatSessionService.class);
         messageService = mock(AiChatMessageService.class);
-        service = new ErpChatService(builder, new ErpAiProperties(), currentUserApi, sessionService,
+        service = new ErpChatService(builder, new ErpAiProperties(),
+                RuntimePropsStub.of(new ErpAiProperties()), currentUserApi, sessionService,
                 messageService, mock(OrderTools.class), mock(InventoryTools.class),
                 mock(GoodsTools.class), mock(AftersaleTools.class));
         ReflectionTestUtils.setField(service, "apiKey", "test-key");
@@ -89,7 +92,8 @@ class ErpChatServiceTest {
 
     @Test
     void chatRejectsWhenSessionNotOwned() {
-        doThrow(new BusinessException("会话不存在")).when(sessionService).getOwned(1L, USER_ID);
+        doThrow(new BusinessException("会话不存在")).when(sessionService)
+                .getOwned(1L, USER_ID, AiConsts.SESSION_SOURCE_CHAT);
 
         BusinessException ex = assertThrows(BusinessException.class, () -> service.chat(1L, "hi"));
         assertTrue(ex.getMessage().contains("会话不存在"));
@@ -113,7 +117,7 @@ class ErpChatServiceTest {
         String reply = service.chat(1L, "查一下SKU-1的库存");
 
         assertEquals("库存充足", reply);
-        verify(sessionService).getOwned(1L, USER_ID);
+        verify(sessionService).getOwned(1L, USER_ID, AiConsts.SESSION_SOURCE_CHAT);
         verify(sessionService).renameIfDefault(eq(1L), eq("查一下SKU-1的库存"));
         verify(messageService).append(1L, "USER", "查一下SKU-1的库存", null, null, null);
         verify(messageService).append(1L, "AI", "库存充足", null, 100, 20);

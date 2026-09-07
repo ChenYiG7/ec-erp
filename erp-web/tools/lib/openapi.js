@@ -61,6 +61,27 @@ export function fail(message) {
 }
 
 /**
+ * chat 模式端点守卫:chatBase 五端点必须都在快照中,缺一报错退出(禁静默降级)
+ * chatBase 的 {role} 字面量与快照路径形态一致(如 /api/ai/agents/{role}/sessions)
+ */
+export function verifyChatEndpoints(doc, chatBase) {
+  const required = [
+    ['GET', '/sessions'],
+    ['POST', '/sessions'],
+    ['GET', '/sessions/{sessionId}/messages'],
+    ['POST', '/sessions/{sessionId}/chat'],
+    ['POST', '/sessions/{sessionId}/chat-sync']
+  ]
+  const missing = required.filter(([method, suffix]) => !doc.paths?.[chatBase + suffix]?.[method.toLowerCase()])
+  if (missing.length) {
+    fail(
+      `快照缺 chat 端点(先 pnpm api:sync 刷新,或核对 chatBase= 是否与后端 Controller 一致):` +
+        missing.map(([method, suffix]) => `${method} ${chatBase}${suffix}`).join('、')
+    )
+  }
+}
+
+/**
  * 域的基路径探测:显式 spec.base > 与 domain 同名段 > 与 module 同名段 > 报错
  * 支持多段嵌套形态(如 base=system/users → /api/system/users),按前缀匹配
  * @returns {string} 如 "shops"/"system/users"(拼 /api/<base>)

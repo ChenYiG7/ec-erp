@@ -9,6 +9,8 @@ export interface AiChatSessionResponse {
   userId: number
   /** 会话标题(首条消息截断回填,默认"新会话") */
   title: string
+  /** 会话来源:CHAT智能对话/AGENT智能体(四期 agent/,两域列表服务端按来源隔离) */
+  source?: string
   createdAt: string
   updatedAt: string
 }

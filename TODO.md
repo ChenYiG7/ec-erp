@@ -236,16 +236,63 @@
       jsonschema-module-jackson 的 JacksonSchemaModule(仅 5.0.0 有,4.38.0 已更名),agentscope 2.0.2
       直依赖 4.38.0 参与仲裁 nearest-wins 拉低版本 → 启动即 NoClassDefFound;钉 5.0.0 保 spring-ai,
       agentscope 四期启用时若不兼容 5.0.0 再评估)
-- [ ] `agent/`(四期):AgentScope ReActAgent 多 Agent(客服/运营)。**2026-09-07 开工勘察已毕**(2.0.2 GA 实测):
-      ①starter(AgentscopeAutoConfiguration)只装配**单例** ReActAgent 且要求外部提供 io.agentscope.core.model.Model
-      Bean——多 Agent 需自建(绕开 starter 默认 Bean 或 @Primary);②Model 接口仅 5 方法 4 default
-      (stream(List<Msg>,List<ToolSchema>,GenerateOptions)→Flux<ChatResponse> + getModelName),
-      Spring AI ChatModel 桥接 adapter 一个类可通(复用 spring.ai.openai.* 连接与密钥,不重复建键);
-      ③Agent 调用面:call(String)→Mono<Msg> 同步 / streamEvents(Msg)→Flux<AgentEvent> 流式,ReAct 循环框架自带;
-      ④工具:Toolkit + ReflectiveFunctionTool 反射注册——现有 tools/ 只读 @Tool 四类是 Spring AI 形态,
-      复用待探(桥接 Toolkit 注册 or 反射重标)。**V1 拍板建议**(开工时确认):两 Agent(客服=tools/ 四件只读查询;
-      运营=库存+建议只读),InMemoryMemory 不做跨轮持久化,同步 call 端点先行(POST /api/ai/agents/{role}/chat)
-      流式随 SSE 联调;审计复用 ai_chat_message 加 role=AGENT?或独立表开工拍板;密钥同 spring.ai.openai
+- [x] `agent/`(四期)✅ 2026-09-07 V1 落地(AgentScope 2.0.2 ReActAgent 双角色):
+      **SUPPORT 客服**(tools/ 四类全量只读)/ **OPS 运营**(库存商品盘面,白名单 queryInventory/searchProducts/findSkuByCode),
+      工具 = tools/ 只读 @Tool 四类经 `SpringAiAgentToolBridge` 桥接进 AgentScope Toolkit
+      (AgentTool 接口:name/description/parameters(JSON schema)+callAsync;逻辑单一来源仍在 tools/,Agent 侧零复制);
+      模型 = AgentScope 内建 OpenAIChatModel(官方 openai-java 协议),连接复用 spring.ai.openai.* 占位符
+      (与 chat 单一来源,环境变量/local.properties 通吃);**Agent 懒装配**(无 key 启动不炸,首次调用拦截——
+      构造期不建客户端);sys prompt 收口 ErpAiProperties.Agent(erp.ai.agent.* 可覆盖,maxIters=10 防死循环);
+      端点(登录即可,角色大小写无关 fromPath);starter 单例自动装配不启用
+      (agentscope.agent.enabled 不设,自建 Bean 零冲突);
+      真调 DashScope qwen-plus ✅ 双角色 ReAct 工具闭环(客服查库存给结论/运营出库存口径盘面)
+      ⚠️ **2026-09-07 勘误:上述 V1 真调"工具闭环"不成立**——验证只看了回复文本,模型在无工具可调时
+      会幻觉式引用不存在的工具名(get_sku_inventory)自圆其说;V1 实际从未真调过工具(见 V1.5 勘误)。
+      **V1.5 会话式多轮 ✅ 2026-09-07**(compile + erp-ai 94 测全绿):
+      会话复用 ai_chat_session/ai_chat_message,**ai_chat_session 加列 source[CHAT对话/AGENT智能体] 隔离两域列表**
+      (脚本/docs/03 §7/实体三方已齐;⚠️ **已建库手工 ALTER**:
+      `ALTER TABLE ai_chat_session ADD COLUMN source VARCHAR(16) NOT NULL DEFAULT 'CHAT' COMMENT '会话来源:CHAT智能对话/AGENT智能体(四期 agent/),前端列表按来源隔离' AFTER title;`);
+      端点五件:POST+GET /api/ai/agents/{role}/sessions(新建/我的分页,source=AGENT 强制)+
+      GET .../sessions/{sessionId}/messages(历史正序,归属校验同 chat)+
+      POST .../sessions/{sessionId}/chat(**SSE,streamEvents 逐 TextBlockDeltaEvent 吐 delta**,帧形态同 chatStream)+
+      POST .../sessions/{sessionId}/chat-sync(聚合降级);旧单轮 POST /{role}/chat 移除(契约 +4 路径,快照待刷新);
+      每轮 = 归属校验→标题回填→USER 行落库→**历史重放**(USER/AI 文本行转 Msg 升序含本轮;**TOOL 行不重放**
+      ——工具细节不影响连续性)→每请求新建 ReActAgent(Toolkit 桥**会话绑定版**,工具调用前落 TOOL 审计行,
+      同 AuditingToolCallback 口径、写失败只记日志不阻断)→流式聚合完成落 AI 行;
+      错误转可见帧同 chatStream 口径,失败轮不落 AI 行;模型改懒建单例(synchronized 双检,测试注入口保留);
+      **⚠️ 联调炸出根因级 bug 并修复(2026-09-07)**:AgentService 原注入 `List<ToolCallback>`,
+      **容器内无任何 ToolCallback Bean → 注入恒为空列表 → Toolkit 空 → 请求不带 tools 字段
+      → 模型幻觉工具调用**(V1 与 V1.5 初版同病);修复 = 生产构造器改注入 tools/ 四类
+      (ErpChatService 同款)本地 `ToolCallbacks.from` 转换,显式回调列表构造器留测试桩;
+      真调复验(全新会话,OPS):queryInventory 真执行(boundedElastic 线程 6 次 inventory SELECT)
+      + TOOL 审计行(queryInventory, {"skuId":1})+ 真实分仓数据(149+300=449,此前幻觉答 0)
+      + 第二轮多轮记忆正确复用 449 未重查;chat-sync 同验;
+      **联调方法论坑**:①工具闭环验证只认审计行/DB SQL 证据,回复文本不可信(模型会照历史幻觉有样学样,
+      被污染会话里即使有真工具也不调,务必用全新会话验证);②Windows Git Bash curl 中文 body 发 GBK 必炸
+      伪装"系统繁忙"500(V1 devlog 已记过,本次复犯),用 UTF-8 文件 `--data-binary @file`;
+      **四项遗留 2026-09-07 拍板收口**(compile 全绿 + erp-ai 96 测全绿):
+      ①跨源会话强约束:AiChatSessionService.getOwned 加 source 参数(chat 域强制 CHAT/agent 域强制 AGENT,
+      归属+来源不符统一"会话不存在"不泄露存在性),ErpChatService/ErpChatController/AgentService 四调用点全量收口;
+      ②role 不落会话(拍板确认现状:会话不绑 role,同会话可跨角色续聊,注释已声明);
+      ③历史重放截断:erp.ai.agent.history-max-messages(默认 40 行,只重放最近 N 行 USER/AI 文本行,
+      本轮提问恒在,≤0 按 1;TOOL 行仍不参与);
+      ⑤SSE async dispatch Access Denied 修复:SecurityConfig `dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()`
+      (过滤器默认只挂 REQUEST、JwtAuthenticationFilter 在异步派发不重跑所致,chat/agent 两域同款噪音一并修);
+      单测 9(服务 6:历史重放+落库时序/流式 delta/失败帧不落 AI 行/无 key 拦截/空消息/角色白名单
+      + 桥接 3:透传/委托/工具失败转结果)+ 新增 2(跨源拒绝/重放尾部截断);
+      **④agent 前端页 ✅ 2026-09-07**(手写页,同构母本 ai/chat,gen:page 不适用;门禁四件全绿):
+      views/ai/agent/index.vue(SUPPORT/OPS radio 切换,role 不落会话跨角色续聊,文案词表 ROLE_HINTS 收口)
+      + api/interface/ai/agent.ts(AgentRole;会话/消息类型单一来源复用 ./chat)+ api/apis/ai/agent.ts(分页差异单点收口);
+      **组件上提跨页公共**:views/ai/chat/components → src/components/chat(MessageList 补 emptyText/ChatInput 补
+      placeholder 槽位,chat 页同步改 import);**SSE fetch 手解沉淀 src/utils/sse postSse**(chat.ts 改委托,
+      鉴权/错误/帧解析单点,同铁律 8 同路径第二现沉淀);菜单 id 28('AI智能体',/ai/agent,perm ai:agent:list,
+      种子已回写 01_schema_init.sql;⚠️ 存量库需手工 INSERT IGNORE);
+      **chat 模板沉淀(2026-09-07 拍板落地,铁律 8)**:gen:page 增 pageType=chat——头段 pageType/chatBase({role} 占位,
+      五端点快照核账守卫)/typesFrom(契约类型复用源,模板不自产会话类型)/menuSort,role= 行拍板角色与文案
+      (name/empty/placeholder 必填);产三件(interface 再导出+角色词表 / apis 五函数 SSE 收口 postSse / 会话页,
+      角色切换仅角色模式;无 Form 无按钮行,菜单 SQL 复用);agent 页三件已由 spec=ai-agent.txt 接管
+      (--force 重生成,门禁四件全绿),冒烟 smoke-chat-spec.txt 双模式回归过;
+      余量:更多角色
 - [x] 库存预警规则引擎 ✅ 2026-09-06 落地(alert/ + erp-api AlertJob,V1 三规则:
       低库存(可用≤阈值聚一条,明细 topN)/ 发货超时(WAIT_SHIP 且下单超 N 小时)/
       退款异常(窗口内按店铺聚合 REFUNDED 单数达阈值);滞销/积压依赖销量统计面(现无销量表/视图)——
@@ -392,8 +439,15 @@
       InventoryService.countByWarehouseId / PurchaseOrderService.countByWarehouseId 两域计数方法;
       `WarehouseService.delete` 任一引用即禁删(引导改状态停用);erp-warehouse pom 新引 erp-contract(零接口实现,铁律 2);
       名称唯一性不做——warehouse 无业务唯一键列,同 supplier 需业务确认后改表
-- [ ] 参数校验:spring-boot-starter-validation 已引入(2026-09-03,各业务模块+erp-api);GlobalExceptionHandler 已兜 BindException→400;
-      Controller 加 `@Valid` 随业务 DTO 约束注解(@NotNull/@Size 等)落地时逐域启用(shop 域 2026-09-03 已随 #8 启用)
+- [x] 参数校验收口 ✅ 2026-09-07:spring-boot-starter-validation 已引入(2026-09-03,各业务模块+erp-api);GlobalExceptionHandler 已兜 BindException→400
+      (MethodArgumentNotValidException 为其子类,Spring 7.0.7 实测继承关系不变,@RequestBody @Valid 校验失败同口出);
+      Controller `@Valid` 全量收口:存货三个直连实体域(Brand/SysDict 纯配置域,实体加约束注解,**分组校验**
+      ——Create 嵌套接口承载 @NotBlank 仅 create 端点 @Validated({Default, Create}) 生效,update 仅 @Valid(Default 组 @Size 对 null 放行,保住部分更新语义));
+      LoginRequest/PasswordChange/PasswordReset 加 @NotBlank;角色菜单/用户角色绑定入参加 @NotNull
+      (允许空列表=全量重绑清空语义,null 视为非法载荷);AftersaleHandleRequest 维持 Service 校验收口
+      (reject 必填其余选填,统一注解会误伤 agree/refund/complete 选填语义);
+      单测 +12(BrandValidationTest 6 分组行为/SystemRequestValidationTest 6 入参约束,纯 Validator 直测不起 Spring);
+      后续新域 DTO 约束注解随 #8 规约落地时逐域启用
 - [x] ~~前端工程(Vue3 + Element Plus)未创建~~ → 已立项 **#16**(2026-09-05,Geeker Admin v2 底座);接口此前已可被 Apifox/Postman 联调
 
 ## #8 API 模型收口:entity 不再直接收发 HTTP(2026-09-03 定版,docs/07 §1)
@@ -901,3 +955,46 @@ qihang 开源版/企业版双轨宣传,只取开源版功能面,企业版能力(
 - Boot 4 必须用 `mybatis-plus-spring-boot4-starter`(不能再用 boot3 版),且需**额外**引 `mybatis-plus-extension`(分页插件所在)+ `mybatis-plus-jsqlparser`(分页 SQL 解析),starter 不再默认携带;
 - **`IService`/`ServiceImpl` 已被移除**(新替代品是 `extension.repository.IRepository`)。本项目统一写法:**Mapper 做通用 CRUD(selectPage/insert/updateById/deleteById),Service 只装业务逻辑**,不依赖 MP 的泛型 Service 基类,版本再变也不受影响;
 - 若启动报 AgentScope/SAA 自动装配错误,先在依赖里临时注释掉 erp-ai 的对应 starter(AI 代码本来就没写,不影响一二期)。
+
+## #18 系统设置:大模型等启动后可变项前端可配 ✅ 2026-09-07 落地
+- [x] sys_config 键值表(config_group 实际三组=AI/ALERT/SALES——对话与 Agent 的提示词/连接键统一归 AI 组,词表收口
+      ConfigConsts:GROUP_AI 19 键/GROUP_ALERT 9 键/GROUP_SALES 2 键;config_key 与 yml relaxed-binding 键同名;
+      uk_config_key;凭证类键禁入表——安全红线 docs/07 §7,词表白名单天然拦截,api-key 只走环境变量/local.properties;
+      CREATE IF NOT EXISTS 幂等已入 01_schema_init.sql,已建库重跑 sys_config 段+菜单 29/290 段即可)
+- [x] SystemConfigService(erp-system,域唯一写入口):按键取覆盖值(valueOf,trim 空白归 null)/分组合并视图
+      (listByGroup:词表全量键 × DB 已存行 eq+内存交集,禁 .in() 急切解析坑 docs/07 §10)/保存三重校验
+      (词表白名单→组键匹配→类型可解析 INT/LONG/DECIMAL/BOOL/TEXT,长度钳制 ≤1024)/空值=删覆盖行回落默认;
+      **保存后 Spring 事件失效缓存**:发布 SystemConfigChangedEvent(erp-common,发布方 erp-system 与
+      监听方 erp-api 互不依赖),SystemConfigApiImpl @EventListener 精准按提交键清 TTL 缓存(空键集全量清)——
+      模型/提示词/阈值保存秒级生效;Controller 读侧登录即可/写侧 admin 双闸(@PreAuthorize hasRole('admin'));
+      单测 SystemConfigServiceTest 12 个(空值语义/合并视图/三重校验/upsert+删行/事件发布)
+- [x] SystemConfigApi 契约(erp-contract 六件)+ 实现收口 erp-api(SystemConfigApiImpl:委托 erp-system Service,
+      @Lazy 断构造环;30s TTL 缓存 null 值也缓存防穿透;事件监听失效)
+- [x] AI 配置运行时生效收口 AiRuntimeProperties(erp-ai,优先级 = sys_config DB 覆盖值 > yml/代码默认;
+      每次取值经 SystemConfigApi,DB 无行/解析失败回落默认不抛错——配置错误不阻断业务;数值下限钳制收口取值口;
+      禁 @PostConstruct 快照——快照即失去热更语义;单测 AiRuntimePropertiesTest 6 个):
+      ①AI 工作流参数(补货 4 键/异常 4 键)——ReplenishCollectNode/ReplenishCalculateNode/
+      AnomalyScanNode/AnomalyScoreNode 每轮取值已接线(扫描护栏 scanPageSize/scanMaxRows 属系统级稳定参数仍走 yml)
+      ②AI 对话/Agent 提示词(chat system-prompt、agent support/ops、replenish summary、anomaly score)
+      ——ErpChatService 每请求/AgentService 每轮/两 LLM 节点每轮取值已接线
+      ③AI 智能体护栏(max-iters/history-max-messages/tool-audit-max-length)——AgentService 已接线
+      ④chat 模型名热切 ✅ 实际落地偏离拍板注记:spring-ai 2.0.1 `options()` 签名收 ChatOptions.Builder 泛型
+      (非 DefaultToolCallingChatOptions),ErpChatService 每请求 `ChatOptions.builder().model(覆盖值)`,
+      无覆盖返回 null 保持原链路;DB 覆盖值即缓存(TTL 30s),无需 Service 内另建 TTL
+      ⑤agent 连接热切(base-url/model 两键;**api-key 禁入 sys_config**,拍板⑤"只写不读"与 docs/07 §7 红线冲突,
+      按红线执行=DB 无此键):AgentService model() 懒建单例加连接指纹(base-url|model)比对,变更即重建
+      OpenAIChatModel,api-key 不入指纹(凭证轮换重启生效)
+      ⑥库存预警阈值(9 键含 enabled)——AlertEngine 每轮/AlertJob 每轮取值切 runtime 已接线
+      (默认值源 ErpAlertProperties 同模块;scanPageSize/scanMaxRows 护栏不入表)
+      ⑦销量统计(enabled/rebuild-days)——SalesSnapshotJob 已接线;ErpSalesProperties 在 erp-api,
+      erp-ai 禁反向依赖(铁律 2),AiRuntimeProperties 出 Optional 覆盖口,Job 侧回落 yml 默认
+      ⑧系统设置前端页 ✅ system/config/index(分组 tab 面板手写页,gen:page 不适用——非 CRUD 列表页):
+      AI/ALERT/SALES 三 tab,词表全量键渲染(占位行=代码默认值),布尔键开关/prompt 键 textarea/
+      已覆盖·默认 tag 标注,保存按钮 v-auth="'system:config:save'";api/apis/system/config.ts 两端点;
+      SysConfig 类型入 interface/index.ts;菜单 29/290 种子已入 01_schema_init.sql(已建库手工补齐段见脚本注释)
+- [x] 单测补充:SystemConfigApiImplTest 6 个(TTL 命中/陈旧重读/精准失效/全量失效/null 穿透缓存/事件不触 DB);
+      测试桩 RuntimePropsStub(graph 测试包内,函数式 SystemConfigApi 桩:AiRuntimeProperties 全量回落 yml 默认);
+      存量节点/Service/Job 测试构造器全量适配,语义不变
+- 验证:mvn 全 reactor 18 模块 test 全绿(erp-system 73 / erp-ai 102+ / erp-api 70+);前端 vue-tsc 0 错、
+  oxlint 0 错、新文件 oxfmt 通过(存量 95 文件 fmt 基线陈旧系 oxfmt 版本差异,非本次引入);
+  api:sync 契约快照 86→87 路径(+GET/PUT /api/system/configs/group/{group})

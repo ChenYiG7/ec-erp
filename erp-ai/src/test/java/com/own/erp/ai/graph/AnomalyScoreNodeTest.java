@@ -1,5 +1,6 @@
 package com.own.erp.ai.graph;
 
+import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.ai.config.ErpAiProperties;
 import com.alibaba.cloud.ai.graph.KeyStrategy;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -33,6 +34,7 @@ import static org.mockito.Mockito.when;
 class AnomalyScoreNodeTest {
 
     private ErpAiProperties props;
+    private AiRuntimeProperties runtime;
     private ChatClient chatClient;
     private ChatClient.ChatClientRequestSpec spec;
     private AnomalyScoreNode node;
@@ -40,12 +42,13 @@ class AnomalyScoreNodeTest {
     @BeforeEach
     void setUp() {
         props = new ErpAiProperties();
+        runtime = RuntimePropsStub.of(props);
         ChatClient.Builder builder = mock(ChatClient.Builder.class);
         chatClient = mock(ChatClient.class);
         spec = mock(ChatClient.ChatClientRequestSpec.class, RETURNS_SELF);
         when(builder.build()).thenReturn(chatClient);
         when(chatClient.prompt()).thenReturn(spec);
-        node = new AnomalyScoreNode(builder, props);
+        node = new AnomalyScoreNode(builder, runtime);
         ReflectionTestUtils.setField(node, "apiKey", "test-key");
     }
 

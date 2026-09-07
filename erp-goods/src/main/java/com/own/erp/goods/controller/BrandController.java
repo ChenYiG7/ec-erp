@@ -8,7 +8,9 @@ import com.own.erp.goods.entity.Brand;
 import com.own.erp.goods.mapper.BrandMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.validation.groups.Default;
 
 /**
  * @author : chenyi
@@ -42,14 +46,14 @@ public class BrandController {
 
     @Operation(summary = "新增品牌")
     @PostMapping
-    public Result<Long> create(@RequestBody Brand brand) {
+    public Result<Long> create(@Validated({Default.class, Brand.Create.class}) @RequestBody Brand brand) {
         brandMapper.insert(brand);
         return Result.ok(brand.getId());
     }
 
-    @Operation(summary = "更新品牌", description = "MP updateById 忽略 null 字段,可部分更新")
+    @Operation(summary = "更新品牌", description = "MP updateById 忽略 null 字段,可部分更新(Default 组 @Size 对 null 放行,超长仍拦)")
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @RequestBody Brand brand) {
+    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody Brand brand) {
         brand.setId(id);
         brandMapper.updateById(brand);
         return Result.ok();

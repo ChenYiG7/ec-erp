@@ -1,6 +1,6 @@
 package com.own.erp.ai.graph;
 
-import com.own.erp.ai.config.ErpAiProperties;
+import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.contract.SalesQueryApi;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -29,13 +29,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ReplenishCalculateNode implements NodeAction {
 
-    private final ErpAiProperties props;
+    private final AiRuntimeProperties runtime;
     private final @Lazy SalesQueryApi salesQueryApi;
 
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, Object> apply(OverAllState state) {
-        ErpAiProperties.Replenish cfg = props.getReplenish();
+        // 参数每轮取值(#18 系统设置):窗口/覆盖天数/下限即时生效
+        int salesWindowDays = runtime.replenishSalesWindowDays();
+        int coverageDays = runtime.replenishCoverageDays();
+        int minSuggestQty = runtime.replenishMinSuggestQty();
         List<ReplenishItem> items = (List<ReplenishItem>) state.value(ReplenishStateKeys.KEY_ITEMS)
                 .orElse(List.of());
         if (items.isEmpty()) {
@@ -43,13 +46,13 @@ public class ReplenishCalculateNode implements NodeAction {
         }
         Map<Long, Integer> soldBySku = salesQueryApi.sumQtyBySku(
                 items.stream().map(ReplenishItem::skuId).collect(Collectors.toSet()),
-                cfg.getSalesWindowDays());
+                salesWindowDays);
         List<ReplenishItem> calculated = new ArrayList<>(items.size());
         int skipped = 0;
         for (ReplenishItem item : items) {
             int sold = soldBySku.getOrDefault(item.skuId(), 0);
             // 覆盖需求 = 覆盖天数×日均销量(窗口合计折算,日均值不在中间步骤截断)
-            long demand = (long) Math.ceil((double) cfg.getCoverageDays() * sold / cfg.getSalesWindowDays());
+            long demand = (long) Math.ceil((double) coverageDays * sold / salesWindowDays);
             long need = demand - item.qtyAvailable() - item.qtyTransit();
             if (need <= 0) {
                 // 有货且动销跟得上,或窗口内零动销(死 SKU 不硬补):不产建议
@@ -58,7 +61,7 @@ public class ReplenishCalculateNode implements NodeAction {
             }
             calculated.add(item.toBuilder()
                     .suggestQty((int) Math.min(Integer.MAX_VALUE,
-                            Math.max(cfg.getMinSuggestQty(), need)))
+                            Math.max(minSuggestQty, need)))
                     .build());
         }
         log.info("补货计算完成:候选 {} 个,建议 {} 个,不需要补货剔除 {} 个",

@@ -3,6 +3,8 @@ package com.own.erp.system.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -23,16 +25,26 @@ import java.time.LocalDateTime;
 @TableName("sys_dict")
 public class SysDict {
 
+    /** 新增组:仅 create 端点生效(update 保持 null-skip 部分更新语义,必填校验不进 Default 组) */
+    public interface Create {
+    }
+
     @TableId(type = IdType.AUTO)
     private Long id;
 
     /** 字典类型,如 logistics_company / refund_reason */
+    @NotBlank(groups = Create.class, message = "字典类型不能为空")
+    @Size(max = 64, message = "字典类型不能超过 64 字")
     private String dictType;
 
     /** 显示名 */
+    @NotBlank(groups = Create.class, message = "显示名不能为空")
+    @Size(max = 128, message = "显示名不能超过 128 字")
     private String dictLabel;
 
     /** 存储值 */
+    @NotBlank(groups = Create.class, message = "存储值不能为空")
+    @Size(max = 128, message = "存储值不能超过 128 字")
     private String dictValue;
 
     /** 同级排序,小在前 */
@@ -42,6 +54,7 @@ public class SysDict {
     private Integer status;
 
     /** 备注 */
+    @Size(max = 255, message = "备注不能超过 255 字")
     private String remark;
 
     /** 创建时间 */

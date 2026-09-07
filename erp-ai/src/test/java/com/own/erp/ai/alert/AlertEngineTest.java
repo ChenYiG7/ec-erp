@@ -1,6 +1,9 @@
 package com.own.erp.ai.alert;
 
+import com.own.erp.ai.config.AiRuntimeProperties;
+import com.own.erp.ai.config.ErpAiProperties;
 import com.own.erp.ai.config.ErpAlertProperties;
+import com.own.erp.ai.graph.RuntimePropsStub;
 import com.own.erp.contract.AftersaleQueryApi;
 import com.own.erp.contract.InventoryQueryApi;
 import com.own.erp.contract.OrderQueryApi;
@@ -44,6 +47,7 @@ class AlertEngineTest {
     private AftersaleQueryApi aftersaleQueryApi;
     private SalesQueryApi salesQueryApi;
     private ErpAlertProperties props;
+    private AiRuntimeProperties runtime;
     private AlertEngine engine;
 
     @BeforeEach
@@ -57,7 +61,9 @@ class AlertEngineTest {
                 .thenReturn(Map.of(1L, 999, 2L, 999, 3L, 999, 4L, 999));
         props = new ErpAlertProperties();
         props.setScanPageSize(2);
-        engine = new AlertEngine(inventoryQueryApi, orderQueryApi, aftersaleQueryApi, salesQueryApi, props, CLOCK);
+        runtime = RuntimePropsStub.of(new ErpAiProperties(), props);
+        engine = new AlertEngine(inventoryQueryApi, orderQueryApi, aftersaleQueryApi, salesQueryApi,
+                runtime, props, CLOCK);
     }
 
     private InventoryQueryApi.InventoryView inventory(Long skuId, Integer qtyAvailable) {

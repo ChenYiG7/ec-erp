@@ -1,6 +1,7 @@
 package com.own.erp.ai.graph;
 
 import cn.hutool.core.collection.CollUtil;
+import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.ai.config.ErpAiProperties;
 import com.own.erp.ai.constant.AiConsts;
 import com.own.erp.ai.service.AiSuggestionService;
@@ -35,25 +36,29 @@ public class ReplenishCollectNode implements NodeAction {
 
     private final @Lazy InventoryQueryApi inventoryQueryApi;
     private final ErpAiProperties props;
+    private final AiRuntimeProperties runtime;
     private final AiSuggestionService aiSuggestionService;
 
     @Override
     public Map<String, Object> apply(OverAllState state) {
-        ErpAiProperties.Replenish cfg = props.getReplenish();
+        // 参数每轮取值(#18 系统设置):DB 覆盖值优先,yml/代码默认兜底,热更即时生效
+        int lowStockThreshold = runtime.replenishLowStockThreshold();
+        int scanPageSize = props.getReplenish().getScanPageSize();
+        int scanMaxRows = props.getReplenish().getScanMaxRows();
         Map<Long, ReplenishItem> mergedBySku = new LinkedHashMap<>();
         int scanned = 0;
         int pageNo = 1;
-        while (scanned < cfg.getScanMaxRows()) {
+        while (scanned < scanMaxRows) {
             QueryPage<InventoryQueryApi.InventoryView> page = inventoryQueryApi.pageInventory(
                     InventoryQueryApi.InventoryFilter.builder()
-                            .pageNo(pageNo).pageSize(cfg.getScanPageSize()).build());
+                            .pageNo(pageNo).pageSize(scanPageSize).build());
             List<InventoryQueryApi.InventoryView> rows = page == null ? null : page.list();
             if (CollUtil.isEmpty(rows)) {
                 break;
             }
             for (InventoryQueryApi.InventoryView row : rows) {
                 if (row.skuId() == null || row.qtyAvailable() == null
-                        || row.qtyAvailable() > cfg.getLowStockThreshold()) {
+                        || row.qtyAvailable() > lowStockThreshold) {
                     continue;
                 }
                 // 跨仓合并:同 skuId 可用/在途求和,LinkedHashMap 稳定顺序
@@ -75,14 +80,14 @@ public class ReplenishCollectNode implements NodeAction {
             }
             scanned += rows.size();
             pageNo++;
-            if (rows.size() < cfg.getScanPageSize()) {
+            if (rows.size() < scanPageSize) {
                 break;
             }
         }
         List<ReplenishItem> items = new ArrayList<>(mergedBySku.values());
         int deduped = dedupPending(items);
         log.info("补货取数完成:扫描 {} 行,低库存 SKU {} 个(阈值≤{}),去重跳过 {} 个",
-                scanned, items.size(), cfg.getLowStockThreshold(), deduped);
+                scanned, items.size(), lowStockThreshold, deduped);
         return Map.of(ReplenishStateKeys.KEY_ITEMS, items, ReplenishStateKeys.KEY_SCANNED, scanned);
     }
 

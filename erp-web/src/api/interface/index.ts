@@ -114,3 +114,17 @@ export interface SysNotificationResponse {
   createdAt: string
   updatedAt: string
 }
+
+export interface SysConfig {
+  id: number | null
+  /** 参数组:AI=大模型与AI工作流 ALERT=库存预警 SALES=销量统计 */
+  configGroup: string
+  /** 参数键(与 yml relaxed-binding 键同名,如 erp.ai.replenish.low-stock-threshold) */
+  configKey: string
+  /** 参数值(文本存储;空 = 走代码默认值) */
+  configValue: string | null
+  /** 参数说明 */
+  remark: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}

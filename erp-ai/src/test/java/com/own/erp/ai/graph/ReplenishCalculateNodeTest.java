@@ -1,5 +1,6 @@
 package com.own.erp.ai.graph;
 
+import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.ai.config.ErpAiProperties;
 import com.own.erp.contract.SalesQueryApi;
 import com.alibaba.cloud.ai.graph.KeyStrategy;
@@ -28,15 +29,17 @@ import static org.mockito.Mockito.when;
 class ReplenishCalculateNodeTest {
 
     private ErpAiProperties props;
+    private AiRuntimeProperties runtime;
     private SalesQueryApi salesQueryApi;
     private ReplenishCalculateNode node;
 
     @BeforeEach
     void setUp() {
         props = new ErpAiProperties();
+        runtime = RuntimePropsStub.of(props);
         // 默认配置:coverage=14, window=30, min=10
         salesQueryApi = mock(SalesQueryApi.class);
-        node = new ReplenishCalculateNode(props, salesQueryApi);
+        node = new ReplenishCalculateNode(runtime, salesQueryApi);
     }
 
     private ReplenishItem item(Long skuId, int available, int transit) {

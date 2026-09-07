@@ -56,6 +56,12 @@ public final class AiConsts {
     /** 会话默认标题(首条消息后由 renameIfDefault 回填为摘要) */
     public static final String DEFAULT_SESSION_TITLE = "新会话";
 
+    /** 会话来源:智能对话(chat 域) */
+    public static final String SESSION_SOURCE_CHAT = "CHAT";
+
+    /** 会话来源:智能体(四期 agent/) */
+    public static final String SESSION_SOURCE_AGENT = "AGENT";
+
     /** 会话标题截断长度(首条消息截断作 title,DB 列 VARCHAR(128) 内) */
     public static final int TITLE_MAX_LEN = 24;
 

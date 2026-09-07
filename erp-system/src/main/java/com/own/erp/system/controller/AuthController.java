@@ -7,6 +7,7 @@ import com.own.erp.system.service.AuthService;
 import com.own.erp.system.response.LoginResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,7 +32,7 @@ public class AuthController {
     /** 登录:校验通过签发 JWT */
     @Operation(summary = "登录", description = "SecurityConfig 唯一放行的写接口;签发 JWT,有效期 24h(erp.jwt.expire-hours)")
     @PostMapping("/login")
-    public Result<LoginResponse> login(@RequestBody LoginRequest request) {
+    public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return Result.ok(authService.login(request));
     }
 

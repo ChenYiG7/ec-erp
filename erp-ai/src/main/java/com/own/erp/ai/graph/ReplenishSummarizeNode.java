@@ -3,7 +3,7 @@ package com.own.erp.ai.graph;
 import cn.hutool.core.util.StrUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.own.erp.ai.config.ErpAiProperties;
+import com.own.erp.ai.config.AiRuntimeProperties;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import lombok.extern.slf4j.Slf4j;
@@ -32,15 +32,15 @@ public class ReplenishSummarizeNode implements NodeAction {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final ChatClient chatClient;
-    private final ErpAiProperties props;
+    private final AiRuntimeProperties runtime;
 
     /** 模型 api-key 原值(仅判空作降级判定,不落日志/返回体——docs/07 §7 凭证纪律) */
     @Value("${spring.ai.openai.api-key:}")
     private String apiKey;
 
-    public ReplenishSummarizeNode(ChatClient.Builder chatClientBuilder, ErpAiProperties props) {
+    public ReplenishSummarizeNode(ChatClient.Builder chatClientBuilder, AiRuntimeProperties runtime) {
         this.chatClient = chatClientBuilder.build();
-        this.props = props;
+        this.runtime = runtime;
     }
 
     @Override
@@ -78,7 +78,7 @@ public class ReplenishSummarizeNode implements NodeAction {
         }
         try {
             var response = chatClient.prompt()
-                    .system(props.getReplenish().getSummaryPrompt())
+                    .system(runtime.replenishSummaryPrompt())
                     .user(userPrompt.toString())
                     .call()
                     .chatResponse();

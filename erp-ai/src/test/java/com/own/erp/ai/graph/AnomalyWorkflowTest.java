@@ -1,5 +1,6 @@
 package com.own.erp.ai.graph;
 
+import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.ai.config.ErpAiProperties;
 import com.own.erp.ai.constant.AiConsts;
 import com.own.erp.ai.entity.AiSuggestion;
@@ -40,6 +41,7 @@ class AnomalyWorkflowTest {
     private OrderQueryApi orderQueryApi;
     private AiSuggestionService aiSuggestionService;
     private ErpAiProperties props;
+    private AiRuntimeProperties runtime;
     private AnomalyWorkflow workflow;
     private LocalDateTime now;
 
@@ -49,6 +51,7 @@ class AnomalyWorkflowTest {
         aiSuggestionService = mock(AiSuggestionService.class);
         when(aiSuggestionService.save(any())).thenReturn(1L);
         props = new ErpAiProperties();
+        runtime = RuntimePropsStub.of(props);
 
         Clock clock = Clock.fixed(Instant.parse("2026-09-07T00:00:00Z"), ZoneId.of("UTC"));
         now = LocalDateTime.now(clock);
@@ -57,11 +60,11 @@ class AnomalyWorkflowTest {
         ChatClient chatClient = mock(ChatClient.class, RETURNS_SELF);
         when(builder.build()).thenReturn(chatClient);
         // 无 key:score 走规则回落链路(真实节点,非 mock)
-        AnomalyScoreNode scoreNode = new AnomalyScoreNode(builder, props);
+        AnomalyScoreNode scoreNode = new AnomalyScoreNode(builder, runtime);
         ReflectionTestUtils.setField(scoreNode, "apiKey", "");
 
         workflow = new AnomalyWorkflow(
-                new AnomalyScanNode(orderQueryApi, props, clock, aiSuggestionService),
+                new AnomalyScanNode(orderQueryApi, props, runtime, clock, aiSuggestionService),
                 scoreNode,
                 new AnomalyPersistNode(aiSuggestionService));
     }

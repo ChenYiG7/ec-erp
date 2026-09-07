@@ -28,11 +28,13 @@ public class AiChatSessionService {
         this.aiChatSessionMapper = aiChatSessionMapper;
     }
 
-    /** 我的会话分页(归属服务端强制覆盖入参,防越权查他人会话;按最近更新倒序,对齐 idx_user_updated) */
-    public Page<AiChatSessionResponse> pageMine(Long userId, AiChatSessionQuery query) {
+    /** 我的会话分页(归属服务端强制覆盖入参,防越权查他人会话;按最近更新倒序,对齐 idx_user_updated;
+     *  source 过滤隔离 chat/agent 两域会话列表,传 null 不过滤) */
+    public Page<AiChatSessionResponse> pageMine(Long userId, AiChatSessionQuery query, String source) {
         query.setUserId(userId);
         LambdaQueryWrapper<AiChatSession> wrapper = new LambdaQueryWrapper<AiChatSession>()
                 .eq(AiChatSession::getUserId, query.getUserId())
+                .eq(StrUtil.isNotBlank(source), AiChatSession::getSource, source)
                 .orderByDesc(AiChatSession::getUpdatedAt)
                 .orderByDesc(AiChatSession::getId);
         Page<AiChatSession> result = aiChatSessionMapper.selectPage(new Page<>(query.getPageNo(), query.pageSize()), wrapper);
@@ -43,10 +45,16 @@ public class AiChatSessionService {
 
     /** 新建会话(title 空白落默认标题;updated_at 列 ON UPDATE CURRENT_TIMESTAMP 兜底随消息刷新) */
     public Long create(Long userId, String title) {
+        return create(userId, title, AiConsts.SESSION_SOURCE_CHAT);
+    }
+
+    /** 新建会话(带来源:CHAT 智能对话 / AGENT 智能体,词表收口 AiConsts) */
+    public Long create(Long userId, String title, String source) {
         AiChatSession session = AiChatSession.builder()
                 .userId(userId)
                 .title(StrUtil.isBlank(title) ? AiConsts.DEFAULT_SESSION_TITLE
                         : truncate(StrUtil.trim(title)))
+                .source(source)
                 .build();
         aiChatSessionMapper.insert(session);
         return session.getId();
@@ -54,11 +62,13 @@ public class AiChatSessionService {
 
     /**
      * 归属校验取行(聊天/查历史前必经):不存在或非本人一律抛"会话不存在"——
-     * 统一口径避免探测他人会话ID的存在性
+     * 统一口径避免探测他人会话ID的存在性;source 跨源强约束(chat/agent 两域会话互不可见,
+     * 不符合同报"会话不存在",不泄露跨域会话存在性,2026-09-07 拍板收口)
      */
-    public AiChatSession getOwned(Long sessionId, Long userId) {
+    public AiChatSession getOwned(Long sessionId, Long userId, String source) {
         AiChatSession session = aiChatSessionMapper.selectById(sessionId);
-        if (session == null || !session.getUserId().equals(userId)) {
+        if (session == null || !session.getUserId().equals(userId)
+                || !source.equals(session.getSource())) {
             throw new BusinessException("会话不存在");
         }
         return session;

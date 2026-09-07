@@ -1,6 +1,7 @@
 <!--
-  AI 会话消息列表(#6 手写页私有组件)
-  USER 右/AI 左气泡;TOOL 行词表预留(后端暂不落)防御渲染;流式光标 + 内容变化自动滚底
+  AI 会话消息列表(#6 跨页公共组件:chat 对话页 / agent 智能体页共用)
+  用法:<MessageList :messages="messages" empty-text="空态提示"/>;USER 右/AI 左气泡,
+  TOOL 行词表预留(后端暂不落)防御渲染;流式光标 + 内容变化自动滚底
 -->
 <template>
   <div ref="listRef" class="message-list">
@@ -18,16 +19,24 @@
         </div>
       </div>
     </template>
-    <el-empty v-else description="向 AI 提问,支持查询订单 / 库存 / 商品 / 售后数据" :image-size="90" />
+    <el-empty v-else :description="emptyText" :image-size="90" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { nextTick, onMounted, ref, watch } from 'vue'
+import { ElEmpty, ElIcon } from 'element-plus'
 import { Tools } from '@element-plus/icons-vue'
 import type { ChatUIMessage } from '@/api/interface/ai/chat'
 
-const props = defineProps<{ messages: ChatUIMessage[] }>()
+const props = withDefaults(
+  defineProps<{
+    messages: ChatUIMessage[]
+    /** 空态提示文案(默认 chat 对话页口径,agent 页按角色传) */
+    emptyText?: string
+  }>(),
+  { emptyText: '向 AI 提问,支持查询订单 / 库存 / 商品 / 售后数据' }
+)
 
 const listRef = ref<HTMLDivElement>()
 

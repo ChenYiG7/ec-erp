@@ -1,6 +1,7 @@
 package com.own.erp.ai.graph;
 
 import cn.hutool.core.collection.CollUtil;
+import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.ai.config.ErpAiProperties;
 import com.own.erp.ai.constant.AiConsts;
 import com.own.erp.ai.service.AiSuggestionService;
@@ -44,6 +45,7 @@ public class AnomalyScanNode implements NodeAction {
 
     private final @Lazy OrderQueryApi orderQueryApi;
     private final ErpAiProperties props;
+    private final AiRuntimeProperties runtime;
     private final Clock pullClock;
     private final AiSuggestionService aiSuggestionService;
 
@@ -72,14 +74,16 @@ public class AnomalyScanNode implements NodeAction {
 
     /** 单状态分页扫全量并评规则,命中追加进 items;失败只记日志返回已扫行数(单态隔离) */
     private int scanState(String orderStatus, LocalDateTime now, List<AnomalyItem> items) {
-        ErpAiProperties.Anomaly cfg = props.getAnomaly();
+        // 护栏仍走 yml/代码默认(#18 拍板:可变项 = 阈值/prompt/模型,扫描护栏属系统级稳定参数)
+        int scanPageSize = props.getAnomaly().getScanPageSize();
+        int scanMaxRows = props.getAnomaly().getScanMaxRows();
         int scanned = 0;
         try {
             int pageNo = 1;
-            while (scanned < cfg.getScanMaxRows()) {
+            while (scanned < scanMaxRows) {
                 QueryPage<OrderQueryApi.OrderView> page = orderQueryApi.pageOrders(
                         OrderQueryApi.OrderFilter.builder()
-                                .orderStatus(orderStatus).pageNo(pageNo).pageSize(cfg.getScanPageSize()).build());
+                                .orderStatus(orderStatus).pageNo(pageNo).pageSize(scanPageSize).build());
                 List<OrderQueryApi.OrderView> rows = page == null ? null : page.list();
                 if (CollUtil.isEmpty(rows)) {
                     break;
@@ -89,7 +93,7 @@ public class AnomalyScanNode implements NodeAction {
                 }
                 scanned += rows.size();
                 pageNo++;
-                if (rows.size() < cfg.getScanPageSize()) {
+                if (rows.size() < scanPageSize) {
                     break;
                 }
             }
@@ -108,7 +112,7 @@ public class AnomalyScanNode implements NodeAction {
         }
         List<AnomalyRule> hits = new ArrayList<>();
         if (STATUS_WAIT_PAY.equals(orderStatus) && row.orderTime() != null
-                && row.orderTime().isBefore(now.minusHours(props.getAnomaly().getUnpaidHours()))) {
+                && row.orderTime().isBefore(now.minusHours(runtime.anomalyUnpaidHours()))) {
             hits.add(AnomalyRule.UNPAID_TIMEOUT);
         }
         // 金额类规则守卫:paidTime 非空才评(Amazon Pending 0 元单防误报);orderAmount 缺失无从评起
@@ -119,12 +123,12 @@ public class AnomalyScanNode implements NodeAction {
             }
             BigDecimal amountBase = row.orderAmount()
                     .multiply(row.exchangeRate() == null ? BigDecimal.ONE : row.exchangeRate());
-            if (amountBase.compareTo(props.getAnomaly().getBigOrderAmount()) >= 0) {
+            if (amountBase.compareTo(runtime.anomalyBigOrderAmount()) >= 0) {
                 hits.add(AnomalyRule.BIG_AMOUNT);
             }
             if (row.discountAmount() != null
                     && row.discountAmount().compareTo(
-                            row.orderAmount().multiply(props.getAnomaly().getHighDiscountRatio())) >= 0) {
+                            row.orderAmount().multiply(runtime.anomalyHighDiscountRatio())) >= 0) {
                 hits.add(AnomalyRule.HIGH_DISCOUNT);
             }
         }

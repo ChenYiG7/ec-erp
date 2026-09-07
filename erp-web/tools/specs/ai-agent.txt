@@ -1,0 +1,19 @@
+# AI 智能体页(#6 四期 agent/,chat 模板生成;原手写页已由本 spec 接管,--force 重生成前先 diff)
+module=ai
+domain=agent
+entity=Agent
+nameZh=AI智能体
+permPrefix=ai:agent
+todoId=6
+menuParent=25
+menuId=28
+menuSort=3
+path=/ai/agent
+component=ai/agent/index
+icon=chat-line-round
+pageType=chat
+chatBase=/api/ai/agents/{role}
+typesFrom=ai/chat
+
+role=SUPPORT name=客服助手 empty=向客服助手提问,支持查询订单 / 库存 / 商品 / 售后数据 placeholder=问问订单、库存、商品、售后…(Enter 发送 / Shift+Enter 换行)
+role=OPS name=运营助手 empty=向运营助手提问,专注库存与商品盘面 placeholder=查库存口径(在库/占用/在途/可用)、商品盘面…(Enter 发送 / Shift+Enter 换行)

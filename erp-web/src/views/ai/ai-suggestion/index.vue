@@ -38,7 +38,7 @@
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'ai-ai-suggestion-index' })
 import { ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElButton, ElDescriptions, ElDescriptionsItem, ElDrawer, ElMessage, ElMessageBox } from 'element-plus'
 import { View } from '@element-plus/icons-vue'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'

@@ -1,6 +1,6 @@
 import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
-import { useUserStore } from '@/stores/modules/user'
+import { postSse } from '@/utils/sse'
 import type { AiChatSessionQuery, AiChatSessionResponse, AiChatMessageResponse } from '@/api/interface/ai/chat'
 
 /**
@@ -20,54 +20,9 @@ export const aiChatApi = {
 
   /**
    * 流式对话(SSE):POST + Authorization 用 fetch 手解(EventSource 仅支持 GET,axios 管不到流)。
-   * 帧格式按 openapi 描述"text/event-stream,逐段返回"实现:裸文本 data: 块逐段回调,
-   * 兼容 OpenAI 风格 [DONE] 结束标记;错误/帧形态差异随 #3 联调校准 TODO(#6)。
-   * 鉴权与错误在此单点收口(不经 axios 拦截器):非 2xx 解析 Result.msg 直抛
+   * 帧解析/鉴权/错误收口 utils/sse(postSse,#6 agent 域接入时沉淀复用);
+   * 错误/帧形态差异随 #3 联调校准 TODO(#6)
    */
-  chatStream: async (sessionId: number, message: string, onChunk: (text: string) => void): Promise<void> => {
-    const token = useUserStore().getUserToken()
-    const res = await fetch(`/api/ai/chat/sessions/${sessionId}/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify({ message })
-    })
-    if (!res.ok || !res.body) {
-      // 错误体仍是 Result JSON(HTTP 200+code≠200 形态在这里表现为非 2xx 流失败);401 由登录态自然过期兜底
-      const body = await res.json().catch(() => null)
-      throw new Error((body as { msg?: string } | null)?.msg ?? `流式请求失败(${res.status})`)
-    }
-
-    const handleEvent = (block: string) => {
-      // SSE 事件块:取 data: 行(剥一个前导空格),多行以 \n 连接;[DONE]/空块跳过
-      const payload = block
-        .split(/\r?\n/)
-        .filter(line => line.startsWith('data:'))
-        .map(line => line.slice(5).replace(/^ /, ''))
-        .join('\n')
-      if (payload && payload !== '[DONE]') {
-        onChunk(payload)
-      }
-    }
-
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder('utf-8')
-    let buffer = ''
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) {
-        break
-      }
-      buffer += decoder.decode(value, { stream: true })
-      const blocks = buffer.split(/\r?\n\r?\n/)
-      buffer = blocks.pop() ?? ''
-      blocks.forEach(handleEvent)
-    }
-    // 流异常截断时的残尾兜底(无结束分隔符的最后一块)
-    if (buffer.trim()) {
-      handleEvent(buffer)
-    }
-  }
+  chatStream: async (sessionId: number, message: string, onChunk: (text: string) => void): Promise<void> =>
+    postSse(`/api/ai/chat/sessions/${sessionId}/chat`, { message }, onChunk)
 }

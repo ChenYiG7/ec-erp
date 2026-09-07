@@ -84,6 +84,10 @@
       "description": "SKU CRUD;与平台 seller_sku 的绑定/自动匹配见 TODO.md #5"
     },
     {
+      "name": "系统参数",
+      "description": "启动后可变项运行时配置:大模型/预警阈值/AI 工作流参数;保存即时生效(短缓存)"
+    },
+    {
       "name": "品牌管理",
       "description": "品牌 CRUD"
     },
@@ -98,6 +102,10 @@
     {
       "name": "商品管理",
       "description": "SPU 与 SKU CRUD;SKU 与平台 seller_sku 的映射是系统心脏(TODO.md #5)"
+    },
+    {
+      "name": "AI Agent",
+      "description": "AgentScope ReActAgent:客服(全量只读工具)/运营(库存商品盘面);会话与审计复用 ai_chat_* 表;写操作提示人工页面处理"
     },
     {
       "name": "仓库",
@@ -762,7 +770,7 @@
           "字典管理"
         ],
         "summary": "更新字典项",
-        "description": "MP updateById 忽略 null 字段,可部分更新",
+        "description": "MP updateById 忽略 null 字段,可部分更新(Default 组 @Size 对 null 放行,超长仍拦)",
         "operationId": "update_4",
         "parameters": [
           {
@@ -822,6 +830,81 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ResultVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/configs/group/{group}": {
+      "get": {
+        "tags": [
+          "系统参数"
+        ],
+        "summary": "按组取参数",
+        "description": "返回该组合法键全量(合并代码默认占位 + DB 覆盖值),前端按行渲染表单",
+        "operationId": "listByGroup",
+        "parameters": [
+          {
+            "name": "group",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultListSysConfig"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "系统参数"
+        ],
+        "summary": "保存一组参数",
+        "description": "upsert 覆盖值;空值=删覆盖行回落默认值;键必须在该组词表白名单内,类型校验失败拒存;限 admin",
+        "operationId": "saveGroup",
+        "parameters": [
+          {
+            "name": "group",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultInteger"
                 }
               }
             }
@@ -1551,7 +1634,7 @@
           "品牌管理"
         ],
         "summary": "更新品牌",
-        "description": "MP updateById 忽略 null 字段,可部分更新",
+        "description": "MP updateById 忽略 null 字段,可部分更新(Default 组 @Size 对 null 放行,超长仍拦)",
         "operationId": "update_12",
         "parameters": [
           {
@@ -3052,6 +3135,190 @@
         }
       }
     },
+    "/api/ai/agents/{role}/sessions": {
+      "get": {
+        "tags": [
+          "AI Agent"
+        ],
+        "summary": "我的 Agent 会话分页",
+        "description": "仅 source=AGENT 会话(与智能对话列表隔离);按最近更新倒序",
+        "operationId": "sessions_1",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/AiChatSessionQuery"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultPageAiChatSessionResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AI Agent"
+        ],
+        "summary": "新建 Agent 会话",
+        "description": "source=AGENT 隔离;标题可空,首条消息后自动回填摘要",
+        "operationId": "createSession_1",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionCreateCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultLong"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/agents/{role}/sessions/{sessionId}/chat": {
+      "post": {
+        "tags": [
+          "AI Agent"
+        ],
+        "summary": "Agent 对话(SSE 流式)",
+        "description": "历史重放多轮上下文;ReAct 循环自动调只读工具,逐 TextBlock delta 推送,帧形态同智能对话",
+        "operationId": "chat_1",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentChatCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/agents/{role}/sessions/{sessionId}/chat-sync": {
+      "post": {
+        "tags": [
+          "AI Agent"
+        ],
+        "summary": "Agent 对话(同步)",
+        "description": "聚合全部 delta 一次性返回;SSE 不可用时的降级通道",
+        "operationId": "chatSync_1",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentChatCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultString"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/aftersale/orders/{id}/reject": {
       "post": {
         "tags": [
@@ -4060,6 +4327,47 @@
         }
       }
     },
+    "/api/ai/agents/{role}/sessions/{sessionId}/messages": {
+      "get": {
+        "tags": [
+          "AI Agent"
+        ],
+        "summary": "会话历史消息",
+        "description": "时间正序;仅本人会话可查,越权/不存在统一报'会话不存在'",
+        "operationId": "messages_1",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultListAiChatMessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/aftersale/orders": {
       "get": {
         "tags": [
@@ -4200,26 +4508,39 @@
               "format": "int64"
             }
           }
-        }
+        },
+        "required": [
+          "roleIds"
+        ]
       },
       "PasswordResetRequest": {
         "type": "object",
         "properties": {
           "newPassword": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           }
-        }
+        },
+        "required": [
+          "newPassword"
+        ]
       },
       "PasswordChangeRequest": {
         "type": "object",
         "properties": {
           "oldPassword": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "newPassword": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           }
-        }
+        },
+        "required": [
+          "newPassword",
+          "oldPassword"
+        ]
       },
       "SysRoleSaveRequest": {
         "type": "object",
@@ -4317,7 +4638,10 @@
               "format": "int64"
             }
           }
-        }
+        },
+        "required": [
+          "menuIds"
+        ]
       },
       "SysDict": {
         "type": "object",
@@ -4327,13 +4651,19 @@
             "format": "int64"
           },
           "dictType": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 0
           },
           "dictLabel": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 0
           },
           "dictValue": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 0
           },
           "sort": {
             "type": "integer",
@@ -4344,7 +4674,9 @@
             "format": "int32"
           },
           "remark": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 0
           },
           "createdAt": {
             "type": "string",
@@ -4642,13 +4974,19 @@
             "format": "int64"
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 0
           },
           "logoUrl": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 0
           },
           "remark": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 0
           },
           "status": {
             "type": "integer",
@@ -4769,12 +5107,18 @@
         "type": "object",
         "properties": {
           "username": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "password": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           }
-        }
+        },
+        "required": [
+          "password",
+          "username"
+        ]
       },
       "LoginResponse": {
         "type": "object",
@@ -4985,6 +5329,18 @@
             "$ref": "#/components/schemas/AnomalyRunResult"
           }
         }
+      },
+      "AgentChatCommand": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "message"
+        ]
       },
       "AftersaleHandleRequest": {
         "type": "object",
@@ -5705,6 +6061,53 @@
             "items": {
               "$ref": "#/components/schemas/SysDict"
             }
+          }
+        }
+      },
+      "ResultListSysConfig": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SysConfig"
+            }
+          }
+        }
+      },
+      "SysConfig": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "configGroup": {
+            "type": "string"
+          },
+          "configKey": {
+            "type": "string"
+          },
+          "configValue": {
+            "type": "string"
+          },
+          "remark": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -8099,6 +8502,9 @@
           "userId": {
             "type": "integer",
             "format": "int64"
+          },
+          "source": {
+            "type": "string"
           }
         }
       },
@@ -8114,6 +8520,9 @@
             "format": "int64"
           },
           "title": {
+            "type": "string"
+          },
+          "source": {
             "type": "string"
           },
           "createdAt": {

@@ -9,7 +9,9 @@ import { fileURLToPath } from 'node:url'
 const WEB_ROOT = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url)))) // erp-web/
 const REPO_ROOT = path.dirname(WEB_ROOT)
 
-const HEAD_KEYS = ['module', 'domain', 'entity', 'nameZh', 'permPrefix', 'todoId', 'menuParent', 'menuId', 'path', 'component', 'base', 'icon', 'readonly']
+const HEAD_KEYS = ['module', 'domain', 'entity', 'nameZh', 'permPrefix', 'todoId', 'menuParent', 'menuId', 'menuSort', 'path', 'component', 'base', 'icon', 'readonly', 'pageType', 'chatBase', 'typesFrom', 'emptyText', 'placeholder']
+const PAGE_TYPES = ['crud', 'chat']
+const ROLE_KEYS = ['name', 'empty', 'placeholder']
 const FIELD_ROLES = ['search', 'column', 'form', 'all']
 const FIELD_KEYS = ['label', 'role', 'dict', 'enum', 'width', 'money', 'required', 'hide', 'tag']
 
@@ -23,9 +25,11 @@ export function parseSpec(specPath) {
   }
   const lines = fs.readFileSync(specPath, 'utf8').split(/\r?\n/)
 
-  const spec = { readonly: false, fields: [], todos: [] }
+  const spec = { readonly: false, pageType: 'crud', fields: [], todos: [], roles: [] }
   /** @type {Map<string, object>} */
   const fieldByName = new Map()
+  /** @type {Set<string>} */
+  const roleNames = new Set()
   const warnings = []
   const headerSeen = new Set()
 
@@ -38,6 +42,10 @@ export function parseSpec(specPath) {
 
     if (line.startsWith('field=')) {
       parseFieldLine(line, lineNo, fieldByName)
+      return
+    }
+    if (line.startsWith('role=')) {
+      parseRoleLine(line, lineNo, spec.roles, roleNames)
       return
     }
     if (line.startsWith('todo=')) {
@@ -74,6 +82,36 @@ export function parseSpec(specPath) {
   }
   if (!/^\d+$/.test(String(spec.todoId))) {
     fail(`todoId 必须是纯数字编号: ${spec.todoId}`)
+  }
+  if (spec.pageType && !PAGE_TYPES.includes(spec.pageType)) {
+    fail(`pageType 非法: ${spec.pageType}(允许: ${PAGE_TYPES.join('/')})`)
+  }
+  // chat 模式守卫(会话页模板):端点前缀/类型复用源/角色行自洽
+  if (spec.pageType === 'chat') {
+    if (!spec.chatBase) {
+      fail('chat 模式缺 chatBase=(端点前缀,如 /api/ai/agents/{role})')
+    }
+    if (!spec.chatBase.startsWith('/api/')) {
+      fail(`chatBase 必须 /api/ 全路径: ${spec.chatBase}`)
+    }
+    if (!spec.typesFrom) {
+      fail('chat 模式缺 typesFrom=(契约类型复用源 <module>/<domain>,如 ai/chat;模板不自产会话类型)')
+    }
+    if (spec.fields.length) {
+      fail('chat 模式不支持 field= 字段行(会话页无列/表单拍板)')
+    }
+    if (spec.roles.length) {
+      if (!spec.chatBase.includes('{role}')) {
+        fail('声明了 role= 行则 chatBase 必须含 {role} 占位')
+      }
+      if (spec.emptyText || spec.placeholder) {
+        warnings.push('chat 角色模式忽略 emptyText=/placeholder=(文案走 role= 行的 empty=/placeholder=)')
+      }
+    } else if (!spec.emptyText || !spec.placeholder) {
+      warnings.push('chat 无角色模式未声明 emptyText=/placeholder=,生成页回落公共组件默认文案')
+    }
+  } else if (spec.roles.length) {
+    fail('role= 行仅 chat 模式可用(补 pageType=chat)')
   }
   // TODO 编号登记守卫(禁裸 TODO 同款)
   const todoMd = fs.readFileSync(path.join(REPO_ROOT, 'TODO.md'), 'utf8')
@@ -165,6 +203,38 @@ function parseFieldLine(line, lineNo, fieldByName) {
     failAt(specPath, lineNo, `字段 ${name} 同时声明 dict= 与 enum=,二选一`)
   }
   fieldByName.set(name, field)
+}
+
+/**
+ * role= 行(chat 模式):`role=<ENUM> name=<中文名> empty=<空态文案> placeholder=<输入提示>`
+ * 文案可含空格,按 " 键=" 边界切段(值内空格不切)
+ */
+function parseRoleLine(line, lineNo, roles, roleNames) {
+  const body = line.slice(5).trim()
+  const parts = body.split(/\s+(?=[a-zA-Z]+=)/)
+  const enumName = parts.shift()
+  if (!/^[A-Z][A-Z0-9_]*$/.test(enumName)) {
+    failAt('spec', lineNo, `角色枚举非法(须大写常量形态): ${enumName}`)
+  }
+  if (roleNames.has(enumName)) {
+    failAt('spec', lineNo, `角色重复定义: ${enumName}`)
+  }
+  const role = { enum: enumName, name: null, empty: null, placeholder: null, lineNo }
+  for (const part of parts) {
+    const eq = part.indexOf('=')
+    const k = part.slice(0, eq)
+    if (!ROLE_KEYS.includes(k)) {
+      failAt('spec', lineNo, `角色 ${enumName} 存在未知的键: ${k}(允许: ${ROLE_KEYS.join('/')})`)
+    }
+    role[k] = part.slice(eq + 1).trim()
+  }
+  for (const required of ROLE_KEYS) {
+    if (!role[required]) {
+      failAt('spec', lineNo, `角色 ${enumName} 缺 ${required}=(拍板文案不落代码)`)
+    }
+  }
+  roleNames.add(enumName)
+  roles.push(role)
 }
 
 function failAt(_specPath, lineNo, message) {

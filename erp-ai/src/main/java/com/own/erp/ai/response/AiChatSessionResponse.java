@@ -24,6 +24,9 @@ public record AiChatSessionResponse(
         /** 会话标题(首条提问截断) */
         String title,
 
+        /** 会话来源:CHAT智能对话/AGENT智能体 */
+        String source,
+
         /** 创建时间 */
         LocalDateTime createdAt,
 
@@ -38,6 +41,7 @@ public record AiChatSessionResponse(
                 .id(entity.getId())
                 .userId(entity.getUserId())
                 .title(entity.getTitle())
+                .source(entity.getSource())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

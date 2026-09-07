@@ -51,7 +51,7 @@ class AiChatSessionServiceTest {
 
         AiChatSessionQuery query = new AiChatSessionQuery();
         query.setUserId(1L);
-        aiChatSessionService.pageMine(USER_ID, query);
+        aiChatSessionService.pageMine(USER_ID, query, AiConsts.SESSION_SOURCE_CHAT);
 
         assertEquals(USER_ID, query.getUserId());
     }
@@ -62,7 +62,7 @@ class AiChatSessionServiceTest {
         page.setRecords(List.of(AiChatSession.builder().id(2L).userId(USER_ID).title("T").build()));
         doReturn(page).when(aiChatSessionMapper).selectPage(any(), any());
 
-        Page<AiChatSessionResponse> result = aiChatSessionService.pageMine(USER_ID, new AiChatSessionQuery());
+        Page<AiChatSessionResponse> result = aiChatSessionService.pageMine(USER_ID, new AiChatSessionQuery(), AiConsts.SESSION_SOURCE_CHAT);
 
         assertEquals(1, result.getRecords().size());
         assertEquals(2L, result.getRecords().get(0).id());
@@ -88,15 +88,29 @@ class AiChatSessionServiceTest {
     @Test
     void getOwnedRejectsMissingOrForeignSession() {
         when(aiChatSessionMapper.selectById(1L)).thenReturn(null);
-        assertThrows(BusinessException.class, () -> aiChatSessionService.getOwned(1L, USER_ID));
+        assertThrows(BusinessException.class,
+                () -> aiChatSessionService.getOwned(1L, USER_ID, AiConsts.SESSION_SOURCE_CHAT));
 
-        when(aiChatSessionMapper.selectById(2L))
-                .thenReturn(AiChatSession.builder().id(2L).userId(1L).title("t").build());
+        when(aiChatSessionMapper.selectById(2L)).thenReturn(AiChatSession.builder()
+                .id(2L).userId(1L).title("t").source(AiConsts.SESSION_SOURCE_CHAT).build());
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> aiChatSessionService.getOwned(2L, USER_ID));
+                () -> aiChatSessionService.getOwned(2L, USER_ID, AiConsts.SESSION_SOURCE_CHAT));
         assertEquals("会话不存在", ex.getMessage());
 
-        assertEquals(2L, aiChatSessionService.getOwned(2L, 1L).getId());
+        assertEquals(2L, aiChatSessionService.getOwned(2L, 1L, AiConsts.SESSION_SOURCE_CHAT).getId());
+    }
+
+    @Test
+    void getOwnedRejectsCrossSourceSession() {
+        // 跨源强约束:AGENT 会话在 chat 域同报"会话不存在"(不泄露跨域存在性),agent 域正常通过
+        when(aiChatSessionMapper.selectById(3L)).thenReturn(AiChatSession.builder()
+                .id(3L).userId(USER_ID).title("t").source(AiConsts.SESSION_SOURCE_AGENT).build());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> aiChatSessionService.getOwned(3L, USER_ID, AiConsts.SESSION_SOURCE_CHAT));
+        assertEquals("会话不存在", ex.getMessage());
+
+        assertEquals(3L, aiChatSessionService.getOwned(3L, USER_ID, AiConsts.SESSION_SOURCE_AGENT).getId());
     }
 
     @Test

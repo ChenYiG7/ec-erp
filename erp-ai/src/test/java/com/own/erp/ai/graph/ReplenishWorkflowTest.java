@@ -1,5 +1,6 @@
 package com.own.erp.ai.graph;
 
+import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.ai.config.ErpAiProperties;
 import com.own.erp.ai.constant.AiConsts;
 import com.own.erp.ai.entity.AiSuggestion;
@@ -39,6 +40,7 @@ class ReplenishWorkflowTest {
     private SalesQueryApi salesQueryApi;
     private AiSuggestionService aiSuggestionService;
     private ErpAiProperties props;
+    private AiRuntimeProperties runtime;
     private ReplenishWorkflow workflow;
 
     @BeforeEach
@@ -50,17 +52,18 @@ class ReplenishWorkflowTest {
         when(aiSuggestionService.save(any())).thenReturn(1L);
         props = new ErpAiProperties();
         props.getReplenish().setScanPageSize(2);
+        runtime = RuntimePropsStub.of(props);
 
         ChatClient.Builder builder = mock(ChatClient.Builder.class);
         ChatClient chatClient = mock(ChatClient.class, RETURNS_SELF);
         when(builder.build()).thenReturn(chatClient);
         // 无 key:summarize 走模板降级链路(真实节点,非 mock)
-        ReplenishSummarizeNode summarizeNode = new ReplenishSummarizeNode(builder, props);
+        ReplenishSummarizeNode summarizeNode = new ReplenishSummarizeNode(builder, runtime);
         ReflectionTestUtils.setField(summarizeNode, "apiKey", "");
 
         workflow = new ReplenishWorkflow(
-                new ReplenishCollectNode(inventoryQueryApi, props, aiSuggestionService),
-                new ReplenishCalculateNode(props, salesQueryApi),
+                new ReplenishCollectNode(inventoryQueryApi, props, runtime, aiSuggestionService),
+                new ReplenishCalculateNode(runtime, salesQueryApi),
                 summarizeNode,
                 new ReplenishPersistNode(aiSuggestionService));
     }

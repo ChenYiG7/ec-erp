@@ -71,7 +71,7 @@ public class SysMenuController {
     @Operation(summary = "角色-菜单全量重绑", description = "先删后插,同事务")
     @PutMapping("/roles/{roleId}")
     public Result<Void> assignRoleMenus(@PathVariable Long roleId,
-                                        @RequestBody RoleMenuAssignRequest request) {
+                                        @Valid @RequestBody RoleMenuAssignRequest request) {
         menuService.assignMenusToRole(roleId, request.menuIds());
         return Result.ok();
     }

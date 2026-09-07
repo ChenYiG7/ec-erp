@@ -34,10 +34,10 @@
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'ai-chat-index' })
 import { onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElEmpty, ElMessage, ElScrollbar } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import MessageList from './components/MessageList.vue'
-import ChatInput from './components/ChatInput.vue'
+import MessageList from '@/components/chat/MessageList.vue'
+import ChatInput from '@/components/chat/ChatInput.vue'
 import { aiChatApi } from '@/api/apis/ai/chat'
 import type { AiChatSessionResponse, ChatUIMessage } from '@/api/interface/ai/chat'
 
@@ -141,6 +141,7 @@ onMounted(async () => {
     }
     .session-scroll {
       flex: 1;
+
       // 列向 flex 收缩前提:允许压缩,el-scrollbar 内滚才生效
       min-height: 0;
       .session-item {

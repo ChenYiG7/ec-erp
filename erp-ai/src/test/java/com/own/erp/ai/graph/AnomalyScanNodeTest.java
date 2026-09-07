@@ -1,5 +1,6 @@
 package com.own.erp.ai.graph;
 
+import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.ai.config.ErpAiProperties;
 import com.own.erp.ai.service.AiSuggestionService;
 import com.own.erp.contract.OrderQueryApi;
@@ -37,6 +38,7 @@ class AnomalyScanNodeTest {
 
     private OrderQueryApi orderQueryApi;
     private ErpAiProperties props;
+    private AiRuntimeProperties runtime;
     private Clock clock;
     private LocalDateTime now;
     private AiSuggestionService aiSuggestionService;
@@ -46,12 +48,13 @@ class AnomalyScanNodeTest {
     void setUp() {
         orderQueryApi = mock(OrderQueryApi.class);
         props = new ErpAiProperties();
+        runtime = RuntimePropsStub.of(props);
         clock = Clock.fixed(Instant.parse("2026-09-07T00:00:00Z"), ZoneId.of("UTC"));
         now = LocalDateTime.now(clock);
         aiSuggestionService = mock(AiSuggestionService.class);
         when(aiSuggestionService.findPendingRefIds(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString())).thenReturn(Set.of());
-        node = new AnomalyScanNode(orderQueryApi, props, clock, aiSuggestionService);
+        node = new AnomalyScanNode(orderQueryApi, props, runtime, clock, aiSuggestionService);
     }
 
     private void stubPage(String status, int pageNo, OrderQueryApi.OrderView... rows) {

@@ -11,9 +11,9 @@
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { loadOpenapi, detectBaseSeg, classifyEndpoints, fail } from './lib/openapi.js'
+import { loadOpenapi, detectBaseSeg, classifyEndpoints, verifyChatEndpoints, fail } from './lib/openapi.js'
 import { parseSpec } from './lib/spec.js'
-import { buildContext, renderApi, renderTypes, renderIndex, renderForm, renderMenuSql } from './lib/render.js'
+import { buildContext, renderApi, renderTypes, renderIndex, renderForm, renderMenuSql, buildChatContext, renderChatTypes, renderChatApi, renderChatIndex } from './lib/render.js'
 import { writeIfAbsent } from './lib/fsutil.js'
 
 const WEB_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
@@ -30,38 +30,53 @@ const specPath = path.isAbsolute(specArg) ? specArg : path.join(WEB_ROOT, specAr
 // 1) spec 拍板表(缺头/未知键/todoId 未登记在此报错,带行号)
 const { spec, warnings } = parseSpec(specPath)
 
-// 2) openapi 快照 + 域基路径 + 端点分类
+// 2) openapi 快照 + 按模式装配(pageType=chat 走会话页模板,缺省 crud)
 const doc = loadOpenapi()
-const baseSeg = detectBaseSeg(doc, spec.module, spec.domain, spec.base)
-const endpoints = classifyEndpoints(doc, baseSeg)
-if (!endpoints.page && !endpoints.detail) {
-  fail(`域 ${baseSeg} 下既无分页也无详情端点,确认 spec.base= 与后端 Controller 是否对得上`)
-}
+let ctx
+let outputs
+if (spec.pageType === 'chat') {
+  // chat 模式:五端点在快照核账({role} 字面量与快照路径形态一致),无 ProTable/表单
+  verifyChatEndpoints(doc, spec.chatBase)
+  ctx = buildChatContext({ spec, warnings })
+  outputs = [
+    [`src/api/interface/${ctx.module}/${ctx.domain}.ts`, renderChatTypes(ctx)],
+    [`src/api/apis/${ctx.module}/${ctx.domain}.ts`, renderChatApi(ctx)],
+    [`src/views/${ctx.component}.vue`, renderChatIndex(ctx)]
+  ]
+} else {
+  const baseSeg = detectBaseSeg(doc, spec.module, spec.domain, spec.base)
+  const endpoints = classifyEndpoints(doc, baseSeg)
+  if (!endpoints.page && !endpoints.detail) {
+    fail(`域 ${baseSeg} 下既无分页也无详情端点,确认 spec.base= 与后端 Controller 是否对得上`)
+  }
 
-// 3) 渲染上下文(spec 字段装配 openapi 类型)
-const ctx = buildContext({ spec, endpoints, doc, baseSeg, warnings })
+  // 3) 渲染上下文(spec 字段装配 openapi 类型)
+  ctx = buildContext({ spec, endpoints, doc, baseSeg, warnings })
 
-// spec 字段与 openapi 契约核账(类型层已兜底 unknown,这里提示展示层风险)
-for (const f of ctx.fields) {
-  if (!f.known && ctx.responseSchema?.properties) {
-    ctx.warnings.push(`spec 字段 ${f.name} 不在后端响应 schema 中,列展示恒空;确认字段名或后端 Response 是否漏字段`)
+  // spec 字段与 openapi 契约核账(类型层已兜底 unknown,这里提示展示层风险)
+  for (const f of ctx.fields) {
+    if (!f.known && ctx.responseSchema?.properties) {
+      ctx.warnings.push(`spec 字段 ${f.name} 不在后端响应 schema 中,列展示恒空;确认字段名或后端 Response 是否漏字段`)
+    }
+  }
+
+  // 4) 四件写出(视图目录以 component 派生,Form 与 index 同目录的 components/ 下)
+  const viewDir = path.join('src/views', path.posix.dirname(ctx.component))
+  outputs = [
+    [`src/api/interface/${ctx.module}/${ctx.domain}.ts`, renderTypes(ctx)],
+    [`src/api/apis/${ctx.module}/${ctx.domain}.ts`, renderApi(ctx)],
+    [`src/views/${ctx.component}.vue`, renderIndex(ctx)]
+  ]
+  const formContent = renderForm(ctx)
+  if (formContent) {
+    outputs.push([path.posix.join(viewDir, `components/${ctx.entity}Form.vue`).replaceAll('\\', '/'), formContent])
   }
 }
 
-// 4) 四件写出(视图目录以 component 派生,Form 与 index 同目录的 components/ 下)
-const viewDir = path.join('src/views', path.posix.dirname(ctx.component))
-const outputs = [
-  [`src/api/interface/${ctx.module}/${ctx.domain}.ts`, renderTypes(ctx)],
-  [`src/api/apis/${ctx.module}/${ctx.domain}.ts`, renderApi(ctx)],
-  [`src/views/${ctx.component}.vue`, renderIndex(ctx)]
-]
-const formContent = renderForm(ctx)
-if (formContent) {
-  outputs.push([path.posix.join(viewDir, `components/${ctx.entity}Form.vue`).replaceAll('\\', '/'), formContent])
-}
-
 console.log(
-  `[gen:page] ${ctx.nameZh}: module=${ctx.module} domain=${ctx.domain} base=${ctx.basePath} component=${ctx.component} readonly=${ctx.readonly}`
+  `[gen:page] ${ctx.nameZh}: module=${ctx.module} domain=${ctx.domain} pageType=${ctx.pageType || 'crud'}` +
+    (ctx.pageType === 'chat' ? ` chatBase=${ctx.chatBase}` : ` base=${ctx.basePath} readonly=${ctx.readonly}`) +
+    ` component=${ctx.component}`
 )
 for (const [rel, content] of outputs) {
   const status = writeIfAbsent(path.join(WEB_ROOT, rel), content, { force })

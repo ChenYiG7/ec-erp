@@ -77,19 +77,20 @@ INSERT IGNORE INTO sys_role (id, role_name, role_key, status, remark) VALUES
 INSERT IGNORE INTO sys_user (id, username, password, nickname, status) VALUES
 (1, 'admin', '$2a$10$RUQnRQ.nZl96aGYpIqYSfOcBL4arfmpxEvtUuF8qQ05EMJ7hRKY5e', '管理员', 1);
 INSERT IGNORE INTO sys_user_role (user_id, role_id) VALUES (1, 1);
--- 菜单种子(#16 前端工程收敛:页面 component 权威源 = erp-web/tools/specs/*;按钮 id 段 200+ 与 menuId*100+n(1100+,gen:page 生成段),按父菜单分组)
+-- 菜单种子(#16 前端工程收敛:页面 component 权威源 = erp-web/tools/specs/*;按钮 id 段 200+ 与 menuId*100+n(1100+,gen:page 生成段),按父菜单分组;
+-- icon 仅限 @element-plus/icons-vue 导出图标名(如 User/Menu/Tools,kebab 亦可解析),自造名如 peoples/tree/tool 前端不渲染)
 INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path, component, icon, sort) VALUES
-(1, 0, '系统管理', 1, NULL, '/system', NULL, 'setting', 1),
+(1, 0, '系统管理', 1, NULL, '/system', NULL, 'setting', 7),
 (2, 1, '用户管理', 2, 'system:user:list', '/system/users', 'system/user/index', 'user', 1),
-(3, 1, '角色管理', 2, 'system:role:list', '/system/roles', 'system/role/index', 'peoples', 2),
-(4, 1, '菜单管理', 2, 'system:menu:list', '/system/menus', 'system/menu/index', 'tree', 3),
-(5, 1, '店铺管理', 2, 'shop:list', '/shop', 'shop/index', 'shopping', 4),
+(3, 1, '角色管理', 2, 'system:role:list', '/system/roles', 'system/role/index', 'Avatar', 2),
+(4, 1, '菜单管理', 2, 'system:menu:list', '/system/menus', 'system/menu/index', 'Menu', 3),
+(5, 6, '店铺管理', 2, 'shop:list', '/shop', 'shop/index', 'Shop', 1),
 (6, 0, '商品中心', 1, NULL, '/goods', NULL, 'list', 2),
-(7, 6, '商品管理', 2, 'goods:list', '/goods/product', 'goods/product/index', 'component', 1),
-(8, 0, '订单中心', 1, NULL, '/order', NULL, 'order', 3),
-(9, 8, '订单管理', 2, 'order:list', '/order/list', 'order/index', 'documentation', 1),
-(100, 1, '字典管理', 2, 'system:dict:list', '/system/dicts', 'system/dict/index', 'notebook', 5),
-(101, 6, '平台商品', 2, 'shop:product:list', '/goods/shop-products', 'shop/shop-product/index', 'list', 2),
+(7, 6, '商品管理', 2, 'goods:list', '/goods/product', 'goods/product/index', 'Goods', 2),
+(8, 0, '订单中心', 1, NULL, '/order', NULL, 'Tickets', 3),
+(9, 8, '订单管理', 2, 'order:list', '/order/list', 'order/index', 'Memo', 1),
+(100, 1, '字典管理', 2, 'system:dict:list', '/system/dicts', 'system/dict/index', 'notebook', 4),
+(101, 6, '平台商品', 2, 'shop:product:list', '/goods/shop-products', 'shop/shop-product/index', 'list', 3),
 -- 采购域(#10 前端三页 2026-09-05:supplier 全 CRUD / 采购单 audit·close / 入库单 confirm·cancel;specs=purchase-*.txt)
 (10, 0, '采购管理', 1, NULL, '/purchase', NULL, 'suitcase', 4),
 (11, 10, '供应商管理', 2, 'purchase:supplier:list', '/purchase/suppliers', 'purchase/supplier/index', 'office-building', 1),
@@ -100,26 +101,32 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path
 -- 售后单(#12 前端页 2026-09-06:列表 + 五动作人工处理 + 收退件复合表单,订单中心下;spec=aftersale-order.txt)
 (15, 8, '售后单', 2, 'aftersale:order:list', '/aftersale/orders', 'aftersale/order/index', 'service', 3),
 -- SKU匹配(#5 前端页 2026-09-06:待匹配列表 + 人工绑定,商品中心下;spec=shop-product-sku.txt)
-(16, 6, 'SKU匹配', 2, 'shop:product-sku:list', '/goods/shop-product-skus', 'shop/shop-product-sku/index', 'connection', 3),
+(16, 6, 'SKU匹配', 2, 'shop:product-sku:list', '/goods/shop-product-skus', 'shop/shop-product-sku/index', 'connection', 4),
 -- 库存管理(#7 前端两页 2026-09-06:查询 + 流水,均为只读;specs=inventory.txt/inventory-flow.txt)
 (17, 0, '库存管理', 1, NULL, '/inventory', NULL, 'house', 5),
 (18, 17, '库存查询', 2, 'inventory:list', '/inventory/inventories', 'inventory/inventory/index', 'grid', 1),
 (19, 17, '库存流水', 2, 'inventory:flow:list', '/inventory/flows', 'inventory/flow/index', 'document', 2),
 -- 仓库管理(#16 前端页 2026-09-06:全 CRUD,库存管理目录下;spec=warehouse.txt)
 (20, 17, '仓库管理', 2, 'warehouse:list', '/inventory/warehouses', 'warehouse/warehouse/index', 'box', 3),
--- 拉单日志(#4 前端观测页 2026-09-06:pull_log 只读列表,系统管理目录下;spec=pull-log.txt)
-(21, 1, '拉单日志', 2, 'shop:pulllog:list', '/system/pull-logs', 'shop/pull-log/index', 'document', 6),
--- 通知中心(#14 完整列表面 2026-09-06:铃铛下拉之外的全量分页 + 已读过滤;页面动作仅本人已读状态无 permKey)
-(22, 1, '通知中心', 2, 'system:notification:list', '/system/notifications', 'system/notification/index', 'bell', 7),
+-- 拉单日志(#4 前端观测页 2026-09-06:pull_log 只读列表,2026-09-07 菜单整理:系统管理 -> 订单中心;spec=pull-log.txt)
+(21, 8, '拉单日志', 2, 'shop:pulllog:list', '/system/pull-logs', 'shop/pull-log/index', 'document', 4),
+-- 通知中心(#14 完整列表面 2026-09-06:铃铛下拉之外的全量分页 + 已读过滤;页面动作仅本人已读状态无 permKey;
+--   2026-09-07 菜单整理:系统管理 -> 顶级 sort=6,path 保持 /system/notifications 不变——页面 page-id 与之绑定,改 path 会使列配置失联)
+(22, 0, '通知中心', 2, 'system:notification:list', '/system/notifications', 'system/notification/index', 'bell', 6),
 -- 商品分类(#5 前端树形页 2026-09-06:手写页,gen:page 不适用——树形域无分页端点;编辑态禁改父级,后端成环校验 TODO#7 待补)
-(23, 6, '分类管理', 2, 'goods:category:list', '/goods/categories', 'goods/category/index', 'tree', 4),
+(23, 6, '分类管理', 2, 'goods:category:list', '/goods/categories', 'goods/category/index', 'Collection', 5),
 -- 品牌管理(#5 gen:page 生成 2026-09-06,spec=goods-brand.txt;契约无业务过滤字段,页无搜索表单)
-(24, 6, '品牌管理', 2, 'goods:brand:list', '/goods/brands', 'goods/brand/index', 'shopping', 5),
--- AI助手(#6 前端两页 2026-09-06:对话手写页(SSE 流式会话,gen:page 不适用)+ 建议确认闭环(gen:page 生成,spec=ai-suggestion.txt);
--- 后端登录即可,页面级 perm_key 同通知中心口径,无按钮级种子)
-(25, 0, 'AI助手', 1, NULL, '/ai', NULL, 'cpu', 6),
+(24, 6, '品牌管理', 2, 'goods:brand:list', '/goods/brands', 'goods/brand/index', 'CollectionTag', 6),
+-- AI助手(#6 前端三页:对话/建议 2026-09-06,智能体 2026-09-07;对话与智能体均手写页(SSE 流式会话,gen:page 不适用),
+-- 建议为 gen:page 生成,spec=ai-suggestion.txt;后端登录即可,页面级 perm_key 同通知中心口径,无按钮级种子;
+-- 2026-09-07 菜单整理:AI助手顶级 sort 6 -> 1(排最前),与系统管理互换)
+(25, 0, 'AI助手', 1, NULL, '/ai', NULL, 'cpu', 1),
 (26, 25, 'AI对话', 2, 'ai:chat:list', '/ai/chat', 'ai/chat/index', 'chat-dot-round', 1),
-(27, 25, 'AI建议', 2, 'ai:suggestion:list', '/ai/suggestions', 'ai/ai-suggestion/index', 'magic-stick', 2);
+(27, 25, 'AI建议', 2, 'ai:suggestion:list', '/ai/suggestions', 'ai/ai-suggestion/index', 'magic-stick', 2),
+(28, 25, 'AI智能体', 2, 'ai:agent:list', '/ai/agent', 'ai/agent/index', 'chat-line-round', 3),
+-- 系统设置(TODO#18 前端页 2026-09-07:sys_config 分组面板,手写页(gen:page 不适用——非 CRUD 列表页,
+--   只读拉全量+保存动作,后端 admin 双闸);按钮组仅“保存参数”一个动作,幂等 upsert)
+(29, 1, '系统设置', 2, 'system:config:list', '/system/configs', 'system/config/index', 'Tools', 5);
 INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key) VALUES
 (200, 2, '新增', 3, 'system:user:add'),
 (201, 2, '编辑', 3, 'system:user:edit'),
@@ -136,6 +143,7 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key) VALU
 (230, 5, '新增', 3, 'shop:add'),
 (231, 5, '编辑', 3, 'shop:edit'),
 (232, 5, '删除', 3, 'shop:remove'),
+(290, 29, '保存参数', 3, 'system:config:save');
 (233, 5, '平台授权', 3, 'shop:auth-url'),
 (240, 100, '新增', 3, 'system:dict:add'),
 (241, 100, '编辑', 3, 'system:dict:edit'),
@@ -192,11 +200,28 @@ INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
 (1,1601),
 (1,20),(1,2001),(1,2002),(1,2003),(1,21),(1,22),
 (1,23),(1,2301),(1,2302),(1,2303),(1,24),(1,2401),(1,2402),(1,2403),
-(1,25),(1,26),(1,27);
+(1,25),(1,26),(1,27),(1,28),(1,29),(1,290);
 -- ⚠️ 已建库(旧种子已插入)需手工执行对齐 --
 -- UPDATE sys_menu SET path='/goods/product', component='goods/product/index' WHERE id=7;   -- IGNORE 不更新存量行
 -- 再执行上面对应新增段(各新增段均为全新 id,含后续追加的按钮/页面/授权行,整段重跑 INSERT IGNORE 即可,幂等);
 -- 菜单变更后重新登录生效
+-- TODO#18(2026-09-07):已建库手工补齐 = 重跑上面 sys_menu 29/290 段 + sys_role_menu (1,29),(1,290) 段
+--   + CREATE TABLE sys_config 段(全部 INSERT IGNORE / CREATE IF NOT EXISTS 幂等,整段重跑即可)
+-- 菜单整理(2026-09-07,两次合并最终态):AI助手顶级置顶 + 系统管理瘦身(店铺管理->商品中心,拉单日志->订单中心,通知中心->顶级);
+--   最终顶级排序:AI助手/商品中心/订单中心/采购管理/库存管理/通知中心/系统管理;系统管理仅剩用户/角色/菜单/字典/系统设置;
+--   已建库手工对齐 = 执行下面 12 条(全绝对值幂等,与执行顺序无关),或跑 python scripts/menu_tool.py reorg(自动读 local.properties 连接),改完重新登录生效:
+--   UPDATE sys_menu SET sort = 1 WHERE id = 25;                          -- AI助手   -> 顶级第1
+--   UPDATE sys_menu SET parent_id = 6, sort = 1 WHERE id = 5;            -- 店铺管理 -> 商品中心第1
+--   UPDATE sys_menu SET sort = 2 WHERE id = 7;                           -- 商品管理
+--   UPDATE sys_menu SET sort = 3 WHERE id = 101;                         -- 平台商品
+--   UPDATE sys_menu SET sort = 4 WHERE id = 16;                          -- SKU匹配
+--   UPDATE sys_menu SET sort = 5 WHERE id = 23;                          -- 分类管理
+--   UPDATE sys_menu SET sort = 6 WHERE id = 24;                          -- 品牌管理
+--   UPDATE sys_menu SET parent_id = 8, sort = 4 WHERE id = 21;           -- 拉单日志 -> 订单中心第4
+--   UPDATE sys_menu SET parent_id = 0, sort = 6 WHERE id = 22;           -- 通知中心 -> 顶级第6
+--   UPDATE sys_menu SET sort = 4 WHERE id = 100;                         -- 字典管理
+--   UPDATE sys_menu SET sort = 5 WHERE id = 29;                          -- 系统设置(系统管理第5)
+--   UPDATE sys_menu SET sort = 7 WHERE id = 1;                           -- 系统管理 -> 顶级第7(最后)
 
 CREATE TABLE IF NOT EXISTS sys_dict (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
@@ -246,6 +271,62 @@ CREATE TABLE IF NOT EXISTS sys_notification (
     KEY idx_user_read (user_id, read_status),
     KEY idx_created (created_at)
 ) COMMENT '站内通知(系统告警扇出+用户已读状态)';
+
+-- 系统参数(TODO#18,2026-09-07 拍板:大模型/预警/AI 工作流等启动后可变项前端可配):
+--   键值对单表 + GROUP 分组(前端按组渲染面板);值一律 VARCHAR(1024) 文本存储,数字/布尔由消费侧解析,
+--   解析失败回落代码默认值(禁浮点/金额键,金额走 DECIMAL 表列);config_key 唯一;
+--   全键种子默认值落库(下方 INSERT 段,DB 即生效值,面板/直查均可见);
+--   凭证类(AI api-key/平台密钥)禁入本表——安全红线 docs/07 §7,凭证只走环境变量/local.properties
+CREATE TABLE IF NOT EXISTS sys_config (
+    id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    config_group VARCHAR(32)   NOT NULL COMMENT '参数组:AI=大模型与AI工作流(含对话/Agent提示词与连接) ALERT=库存预警 SALES=销量统计',
+    config_key   VARCHAR(64)   NOT NULL COMMENT '参数键(与 yml relaxed-binding 键同名,如 erp.ai.replenish.low-stock-threshold),唯一',
+    config_value VARCHAR(1024) NULL COMMENT '参数值(文本存储,数字/布尔由消费侧解析;凭证类禁入本表)',
+    remark       VARCHAR(255)  NULL COMMENT '参数说明(前端表单旁展示)',
+    created_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_config_key (config_key)
+) COMMENT '系统参数(启动后可变项键值对:大模型/预警阈值/AI工作流参数等)';
+
+-- 参数种子(#18 2026-09-07 拍板:白名单全键落默认值,DB 即生效值,后续调参在面板改即可;
+--   值与代码默认值逐字对齐 ErpAiProperties/ErpAlertProperties/ErpSalesProperties,多行 prompt 以 \n 转义;
+--   模型连接三键(model/agent.model/agent.base-url)值落 NULL:实际值随部署环境变量(OPENAI_BASE_URL/AI_MODEL)浮动,
+--   写死种子值会压掉部署侧配置,DashScope 等环境会被打回 deepseek 缺省;
+--   新增白名单键必须同步补种子行;prompt 超长上限 VARCHAR(1024),改提示词超限先扩列)
+INSERT IGNORE INTO sys_config (config_group, config_key, config_value, remark) VALUES
+('AI', 'erp.ai.model', NULL, 'AI 模型名覆盖(对话/AI 工作流共用);未配置回落环境变量 AI_MODEL(缺省 deepseek-chat)'),
+('AI', 'erp.ai.system-prompt', '你是电商 ERP 智能助手。规则:\n1. 只能通过提供的只读工具查询数据回答问题,禁止编造或估算数据;查不到就如实说明。\n2. 你没有任何写操作能力:库存调整、改价、发货、售后处理等必须提示用户在系统页面人工操作。\n3. 金额均为原币金额,注意说明币种;不要自行换算汇率。\n4. 回答用中文,先给结论再给依据;列表类回答不超过 20 条,数据多时提示用户细化过滤条件。', 'chat 对话 system 提示词(只读工具查数/禁编造/禁写操作/中文先结论)'),
+('AI', 'erp.ai.tool-audit-max-length', '500', '工具调用审计行入参 JSON 截断长度(防超长入参撑爆审计表)'),
+('AI', 'erp.ai.agent.base-url', NULL, 'Agent 模型服务地址(OpenAI 兼容);未配置回落环境变量 OPENAI_BASE_URL(缺省 https://api.deepseek.com)'),
+('AI', 'erp.ai.agent.model', NULL, 'Agent 模型名覆盖;未配置回落环境变量 AI_MODEL(缺省 deepseek-chat)'),
+('AI', 'erp.ai.agent.max-iters', '10', 'Agent ReAct 单轮最大思考-行动循环次数(防死循环护栏)'),
+('AI', 'erp.ai.agent.history-max-messages', '40', '多轮会话历史重放行数上限(仅重放最近 N 行 USER/AI,防长会话 token 膨胀)'),
+('AI', 'erp.ai.agent.support-prompt', '你是电商 ERP 智能客服助手。规则:\n1. 只能通过提供的只读工具查询数据回答问题,禁止编造或估算数据;查不到就如实说明。\n2. 你没有任何写操作能力:库存调整、改价、发货、售后处理等必须提示用户在系统页面人工操作。\n3. 金额均为原币金额,注意说明币种;不要自行换算汇率。\n4. 回答用中文,先给结论再给依据。', 'Agent 客服角色 system 提示词(全量只读工具:订单/库存/商品/售后)'),
+('AI', 'erp.ai.agent.ops-prompt', '你是电商 ERP 运营助手,专注库存与商品盘面。规则:\n1. 只能通过提供的只读工具查询数据,禁止编造或估算;查不到就如实说明。\n2. 你没有任何写操作能力:补货下单、库存调整等提示用户走采购/库存页面人工操作。\n3. 回答用中文,先给结论再给依据;涉及库存时说明口径(在库/占用/在途/可用)。', 'Agent 运营角色 system 提示词(库存/商品盘面工具)'),
+('AI', 'erp.ai.replenish.low-stock-threshold', '10', '补货:低库存阈值(库存可用 ≤ 此值参与补货建议)'),
+('AI', 'erp.ai.replenish.coverage-days', '14', '补货:目标覆盖天数(建议量使库存可支撑 N 天)'),
+('AI', 'erp.ai.replenish.sales-window-days', '30', '补货:动销统计窗口(天,日均销量=窗口销量/窗口天数;窗口内零动销 SKU 不硬补)'),
+('AI', 'erp.ai.replenish.min-suggest-qty', '10', '补货:最小建议量下限(仅对有动销 SKU 起下限作用)'),
+('AI', 'erp.ai.replenish.summary-prompt', '你是电商 ERP 的补货分析助手。根据给定的库存与建议补货量,为每个 SKU 写一句简短中文摘要,说明补货理由(如缺货风险/覆盖天数)。只输出 JSON 数组,不输出任何其他文字。', '补货摘要节点 system 提示词'),
+('AI', 'erp.ai.anomaly.big-order-amount', '10000', '异常检测:大额订单阈值(本位币,下单金额×汇率 ≥ 此值命中)'),
+('AI', 'erp.ai.anomaly.unpaid-hours', '48', '异常检测:未支付超时(小时,待支付超 N 小时命中)'),
+('AI', 'erp.ai.anomaly.high-discount-ratio', '0.5', '异常检测:高折扣比率(0~1,折扣金额≥下单金额×此比率命中)'),
+('AI', 'erp.ai.anomaly.llm-max-items', '20', '异常检测:单轮送 LLM 评分上限(超限按基线风险降序截断,成本护栏)'),
+('AI', 'erp.ai.anomaly.score-prompt', '你是电商 ERP 的订单风控助手。根据给定的订单信息与其命中的规则,为每张可疑订单评估风险等级(只能取 LOW/MID/HIGH 之一)并给一句不超过 40 字的中文理由。只输出 JSON 数组,元素形如 {"orderId":1,"riskLevel":"MID","reason":"..."},不输出任何其他文字。', '异常评分节点 system 提示词'),
+('ALERT', 'erp.alert.enabled', 'true', '库存预警总开关(false 时预警任务直接返回不扫描)'),
+('ALERT', 'erp.alert.quiet-hours', '24', '预警静默期(小时,同类型告警窗口内只发一条防刷屏)'),
+('ALERT', 'erp.alert.low-stock-threshold', '10', '预警:低库存阈值(可用库存 ≤ 此值命中)'),
+('ALERT', 'erp.alert.ship-timeout-hours', '48', '预警:发货超时(小时,待发货超 N 小时命中)'),
+('ALERT', 'erp.alert.refund-window-hours', '24', '预警:退款统计窗口(小时,仅统计窗口内创建的退款单)'),
+('ALERT', 'erp.alert.refund-count-threshold', '5', '预警:退款次数阈值(单店铺窗口内退款单数 ≥ 此值命中)'),
+('ALERT', 'erp.alert.top-n', '5', '预警:通知内容明细最大条数(超出以"等"收尾)'),
+('ALERT', 'erp.alert.slow-moving-days', '30', '预警:滞销判定窗口(天,窗口内零销量且有库存判滞销)'),
+('ALERT', 'erp.alert.overstock-days', '90', '预警:积压阈值(天,可用库存/日均销量 ≥ 此值判积压)'),
+('SALES', 'erp.sales.enabled', 'true', '销量日统计总开关(false 时任务直接返回不重算)'),
+('SALES', 'erp.sales.rebuild-days', '30', '销量:回溯重算天数(每日 upsert 近 N 天,含今日,覆盖状态回传/取消修正)');
+-- ⚠️ 已建库(sys_config 已建表)手工补齐 = 直接执行上面 INSERT IGNORE 段(uk_config_key 冲突即跳过,幂等;
+--   已人工改过值的键不会被种子覆盖);模型连接三键种子为 NULL 属预期,值回落部署环境变量
+
 
 -- ---------------- 店铺/平台 ----------------
 CREATE TABLE IF NOT EXISTS shop (
@@ -628,6 +709,7 @@ CREATE TABLE IF NOT EXISTS ai_chat_session (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
     user_id    BIGINT       NOT NULL COMMENT '所属用户ID(sys_user.id,会话归属校验依据)',
     title      VARCHAR(128) NOT NULL COMMENT '会话标题(首条提问截断)',
+    source     VARCHAR(16)  NOT NULL DEFAULT 'CHAT' COMMENT '会话来源:CHAT智能对话/AGENT智能体(四期 agent/),前端列表按来源隔离',
     created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     KEY idx_user_updated (user_id, updated_at)

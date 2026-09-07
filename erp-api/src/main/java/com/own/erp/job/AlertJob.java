@@ -3,7 +3,7 @@ package com.own.erp.job;
 import com.own.erp.ai.alert.AlertEngine;
 
 import com.own.erp.ai.alert.AlertEvent;
-import com.own.erp.ai.config.ErpAlertProperties;
+import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.system.service.SysNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +23,8 @@ import java.util.UUID;
  *         - 每小时一扫(fixedDelay,上一轮结束再计时);规则执行在 AlertEngine(erp-ai),本类只编排:
  *           开关 → 抢锁防重入 → 评估 → 静默期去重 → #14 站内通知扇出
  *         - 静默期去重按 notifyType 全局判(erp.alert.quiet-hours,默认 24h),sys_notification
- *           即"上次告警时间"存储,免建去重表;每条通知独立 try/catch,写失败只记日志不阻断其余事件
+ *           即"上次告警时间"存储,免建去重表;每条通知独立 try/catch,写失败只记日志不阻断其余事件;
+ *           #18 后 enabled/quiet-hours 每轮经 AiRuntimeProperties 取值(DB 覆盖值优先,保存即时生效)
  *         - 跨进程防重入 = 全局单锁 alert:scan(LockService,效率锁语义;扫描本身只读,漏扫一轮无损失)
  *         - @Scheduled 线程不经 TraceIdFilter(#9),入口自行 MDC.put traceId、finally 强制清
  */
@@ -40,12 +41,13 @@ public class AlertJob {
     private final AlertEngine alertEngine;
     private final SysNotificationService notificationService;
     private final LockService lockService;
-    private final ErpAlertProperties props;
+    private final AiRuntimeProperties runtime;
     private final Clock pullClock;
 
     @Scheduled(fixedDelayString = "${erp.alert.interval-ms:3600000}")
     public void scan() {
-        if (!props.isEnabled()) {
+        // 开关每轮取值(#18 系统设置):DB 覆盖值优先,yml 默认兜底,保存即时生效
+        if (!runtime.alertEnabled()) {
             return;
         }
         MDC.put(MDC_TRACE_ID, newTraceId());
@@ -61,7 +63,7 @@ public class AlertJob {
                 log.info("库存预警扫描完成,无命中");
                 return;
             }
-            LocalDateTime since = LocalDateTime.now(pullClock).minusHours(props.getQuietHours());
+            LocalDateTime since = LocalDateTime.now(pullClock).minusHours(runtime.alertQuietHours());
             log.info("库存预警扫描命中 {} 条,静默期判定基准={}", events.size(), since);
             for (AlertEvent event : events) {
                 pushQuietly(event, since);

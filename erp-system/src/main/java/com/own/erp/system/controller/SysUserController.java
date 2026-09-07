@@ -80,7 +80,7 @@ public class SysUserController {
     @Operation(summary = "重置密码", description = "管理员对指定用户直接覆盖为新密码哈希")
     @PutMapping("/{id}/password")
     public Result<Void> resetPassword(@PathVariable Long id,
-                                      @RequestBody PasswordResetRequest request) {
+                                      @Valid @RequestBody PasswordResetRequest request) {
         userService.resetPassword(id, request.newPassword());
         return Result.ok();
     }
@@ -88,7 +88,7 @@ public class SysUserController {
     @Operation(summary = "本人改密", description = "校验原密码后覆盖;无需 admin 角色(方法级覆盖类级注解)")
     @PutMapping("/password")
     @PreAuthorize("isAuthenticated()")
-    public Result<Void> changePassword(@RequestBody PasswordChangeRequest request) {
+    public Result<Void> changePassword(@Valid @RequestBody PasswordChangeRequest request) {
         userService.changePassword(AuthContext.current().userId(),
                 request.oldPassword(), request.newPassword());
         return Result.ok();
@@ -103,7 +103,7 @@ public class SysUserController {
     @Operation(summary = "用户-角色全量重绑", description = "先删后插,同事务")
     @PutMapping("/{id}/roles")
     public Result<Void> assignRoles(@PathVariable Long id,
-                                    @RequestBody UserRoleAssignRequest request) {
+                                    @Valid @RequestBody UserRoleAssignRequest request) {
         menuService.assignRolesToUser(id, request.roleIds());
         return Result.ok();
     }

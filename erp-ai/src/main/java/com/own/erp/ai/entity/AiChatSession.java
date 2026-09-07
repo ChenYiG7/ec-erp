@@ -36,6 +36,9 @@ public class AiChatSession {
     /** 会话标题(首条提问截断) */
     private String title;
 
+    /** 会话来源:CHAT智能对话/AGENT智能体(四期 agent/,前端列表按来源隔离) */
+    private String source;
+
     /** 创建时间 */
     private LocalDateTime createdAt;
 

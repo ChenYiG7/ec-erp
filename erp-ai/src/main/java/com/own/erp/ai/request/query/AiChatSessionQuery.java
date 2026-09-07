@@ -16,4 +16,7 @@ public class AiChatSessionQuery extends PageQuery {
 
     /** 用户ID(sys_user.id,服务端按当前登录人强制覆盖,防越权查他人会话) */
     private Long userId;
+
+    /** 会话来源过滤(CHAT智能对话/AGENT智能体,服务端按调用域写入) */
+    private String source;
 }

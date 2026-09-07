@@ -2,7 +2,7 @@ package com.own.erp.job;
 
 import com.own.erp.ai.alert.AlertEngine;
 import com.own.erp.ai.alert.AlertEvent;
-import com.own.erp.ai.config.ErpAlertProperties;
+import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.system.service.SysNotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +38,7 @@ class AlertJobTest {
     private SysNotificationService notificationService;
     private LockService lockService;
     private LockService.Lease lease;
+    private AiRuntimeProperties runtime;
     private AlertJob job;
 
     @BeforeEach
@@ -47,7 +48,10 @@ class AlertJobTest {
         lockService = mock(LockService.class);
         lease = mock(LockService.Lease.class);
         when(lockService.tryAcquire("alert:scan")).thenReturn(lease);
-        job = new AlertJob(alertEngine, notificationService, lockService, new ErpAlertProperties(), CLOCK);
+        runtime = mock(AiRuntimeProperties.class);
+        when(runtime.alertEnabled()).thenReturn(true);
+        when(runtime.alertQuietHours()).thenReturn(24L);
+        job = new AlertJob(alertEngine, notificationService, lockService, runtime, CLOCK);
     }
 
     private AlertEvent event(String notifyType) {
@@ -56,9 +60,8 @@ class AlertJobTest {
 
     @Test
     void disabledSkipsEverything() {
-        ErpAlertProperties props = new ErpAlertProperties();
-        props.setEnabled(false);
-        job = new AlertJob(alertEngine, notificationService, lockService, props, CLOCK);
+        // DB 覆盖 enabled=false(#18 系统设置运行时开关,替代原 yml 属性注入口)
+        when(runtime.alertEnabled()).thenReturn(false);
 
         job.scan();
 

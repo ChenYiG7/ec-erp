@@ -89,6 +89,19 @@
           "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } } }
         }
       }
+    },
+    "/api/smoke/chats/{role}/sessions": {
+      "get": { "tags": ["冒烟会话"], "summary": "会话分页(chat 模式冒烟)" },
+      "post": { "tags": ["冒烟会话"], "summary": "新建会话(chat 模式冒烟)" }
+    },
+    "/api/smoke/chats/{role}/sessions/{sessionId}/messages": {
+      "get": { "tags": ["冒烟会话"], "summary": "历史消息(chat 模式冒烟)" }
+    },
+    "/api/smoke/chats/{role}/sessions/{sessionId}/chat": {
+      "post": { "tags": ["冒烟会话"], "summary": "SSE 对话(chat 模式冒烟)" }
+    },
+    "/api/smoke/chats/{role}/sessions/{sessionId}/chat-sync": {
+      "post": { "tags": ["冒烟会话"], "summary": "同步对话(chat 模式冒烟)" }
     }
   },
   "components": {

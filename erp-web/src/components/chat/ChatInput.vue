@@ -1,4 +1,4 @@
-<!-- AI 输入框(#6 手写页私有组件):Enter 发送 / Shift+Enter 换行,IME 组合态不误发 -->
+<!-- AI 输入框(#6 跨页公共组件:chat 对话页 / agent 智能体页共用):Enter 发送 / Shift+Enter 换行,IME 组合态不误发 -->
 <template>
   <div class="chat-input">
     <el-input
@@ -8,7 +8,7 @@
       :maxlength="2000"
       show-word-limit
       :disabled="disabled"
-      placeholder="问问订单、库存、商品、售后…(Enter 发送 / Shift+Enter 换行)"
+      :placeholder="placeholder"
       @keydown.enter="onEnter"
     />
     <el-button type="primary" :disabled="disabled || !canSend" :loading="disabled" @click="doSend">发送</el-button>
@@ -17,8 +17,16 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { ElButton, ElInput } from 'element-plus'
 
-const props = defineProps<{ disabled?: boolean }>()
+const props = withDefaults(
+  defineProps<{
+    disabled?: boolean
+    /** 占位提示文案(默认 chat 对话页口径,agent 页按角色传) */
+    placeholder?: string
+  }>(),
+  { placeholder: '问问订单、库存、商品、售后…(Enter 发送 / Shift+Enter 换行)' }
+)
 const emit = defineEmits<{ (e: 'send', text: string): void }>()
 
 const text = ref('')

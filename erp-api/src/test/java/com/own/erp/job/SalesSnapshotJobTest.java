@@ -31,6 +31,7 @@ class SalesSnapshotJobTest {
     private LockService lockService;
     private LockService.Lease lease;
     private ErpSalesProperties props;
+    private com.own.erp.ai.config.AiRuntimeProperties runtime;
     private SalesSnapshotJob job;
 
     @BeforeEach
@@ -40,12 +41,16 @@ class SalesSnapshotJobTest {
         lease = mock(LockService.Lease.class);
         when(lockService.tryAcquire("sales:snapshot")).thenReturn(lease);
         props = new ErpSalesProperties();
-        job = new SalesSnapshotJob(orderSalesDailyService, props, lockService, CLOCK);
+        runtime = mock(com.own.erp.ai.config.AiRuntimeProperties.class);
+        when(runtime.salesEnabledOverride()).thenReturn(java.util.Optional.empty());
+        when(runtime.salesRebuildDaysOverride()).thenReturn(java.util.Optional.empty());
+        job = new SalesSnapshotJob(orderSalesDailyService, props, runtime, lockService, CLOCK);
     }
 
     @Test
     void disabledSkipsEverything() {
-        props.setEnabled(false);
+        // DB 覆盖 enabled=false(#18 系统设置运行时开关;Optional 覆盖口优先于 yml 属性)
+        when(runtime.salesEnabledOverride()).thenReturn(java.util.Optional.of(false));
 
         job.snapshot();
 

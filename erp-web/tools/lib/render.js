@@ -740,7 +740,7 @@ export function renderMenuSql(ctx) {
     path: ctx.path,
     comp: ctx.component,
     icon: ctx.icon,
-    sort: 1
+    sort: ctx.menuSort ? Number(ctx.menuSort) : 1
   })
   const btnRow = (menuId, b) => ({
     id: menuId * 100 + b.sort,
@@ -772,4 +772,358 @@ export function renderMenuSql(ctx) {
     )
   }
   return tpl.join('\n')
+}
+
+/**
+ * chat 模式渲染(#6 会话页模板,2026-09-07 拍板沉淀;母本 = views/ai/agent 手写页):
+ * 接口类型(api/interface,typesFrom 复用既有契约类型)+ api 五函数(page/create/messages/chatSync/chatStream,SSE 收口 postSse)
+ * + 页面(角色切换 radio 仅角色模式;会话/消息逻辑全通用,无 TODO 槽位)。菜单 SQL 复用 renderMenuSql(readonly=true 无按钮行)
+ */
+
+/** chat 模式上下文:不做 openapi 类型装配(类型复用 typesFrom),只装 spec 拍板 */
+export function buildChatContext({ spec, warnings = [] }) {
+  return {
+    doc: null,
+    module: spec.module,
+    domain: spec.domain,
+    entity: spec.entity,
+    entityCamel: camel(spec.entity),
+    nameZh: spec.nameZh,
+    permPrefix: spec.permPrefix,
+    todoId: spec.todoId,
+    pageType: 'chat',
+    readonly: true, // 菜单 SQL 复用:会话页无写按钮,不产 menuType=3 行
+    chatBase: spec.chatBase,
+    typesFrom: spec.typesFrom,
+    roles: spec.roles || [],
+    path: spec.path || `/${spec.domain}`,
+    component: spec.component || `${spec.module}/${spec.domain}/index`,
+    menuParent: spec.menuParent || '0',
+    menuId: spec.menuId || null,
+    menuSort: spec.menuSort || null,
+    icon: spec.icon || null,
+    warnings
+  }
+}
+
+/** 接口类型:角色词表(仅角色模式)+ 契约类型复用再导出(单一来源,禁重复手抄) */
+export function renderChatTypes(ctx) {
+  const lines = [FILE_HEADER()]
+  lines.push('/**', ` * ${ctx.nameZh}类型(chat 模板,#${ctx.todoId}):契约类型单一来源复用 @/api/interface/${ctx.typesFrom}`, ' */', '')
+  if (ctx.roles.length) {
+    lines.push(
+      '/** 会话页角色词表(role 不落会话——会话不绑角色,同一会话可跨角色续聊) */',
+      `export type ${ctx.entity}Role = ${ctx.roles.map(r => `'${r.enum}'`).join(' | ')}`,
+      ''
+    )
+  }
+  lines.push(
+    `export type { AiChatSessionQuery, AiChatSessionResponse, AiChatMessageResponse, ChatSendCommand, ChatUIMessage } from '@/api/interface/${ctx.typesFrom}'`,
+    ''
+  )
+  return lines.join('\n')
+}
+
+/** api 五函数:{role} 路径按当前角色替换(无角色模式为纯前缀);SSE 经 postSse 单点收口 */
+export function renderChatApi(ctx) {
+  const hasRoles = ctx.roles.length > 0
+  const roleType = `${ctx.entity}Role`
+  const arg = hasRoles ? 'role, ' : ''
+  const base = hasRoles ? 'base(role)' : 'base'
+  const typeImports = hasRoles
+    ? `import type { ${roleType}, AiChatSessionQuery, AiChatSessionResponse, AiChatMessageResponse } from '@/api/interface/${ctx.module}/${ctx.domain}'`
+    : `import type { AiChatSessionQuery, AiChatSessionResponse, AiChatMessageResponse } from '@/api/interface/${ctx.module}/${ctx.domain}'`
+  const baseDecl = hasRoles
+    ? [
+        '/** 端点前缀(spec chatBase,{role} 按当前角色替换) */',
+        `const base = (role: ${roleType}) => \`${ctx.chatBase.replace('{role}', () => '${role}')}\``
+      ]
+    : ['/** 端点前缀(spec chatBase) */', `const base = '${ctx.chatBase}'`]
+  return [
+    FILE_HEADER(),
+    '/**',
+    ` * ${ctx.nameZh}(${ctx.chatBase},#${ctx.todoId} chat 模板):会话/消息持久化与审计收口在后端`,
+    ' * 分页差异(后端 pageNo/records vs 前端 pageNum/list)只在 pageSessions 单点收口,禁散落页面',
+    ' */',
+    "import http from '@/utils/request'",
+    "import type { PageQuery, PageResult } from '@/api/interface'",
+    "import { postSse } from '@/utils/sse'",
+    typeImports,
+    '',
+    ...baseDecl,
+    '',
+    `export const ${ctx.entityCamel}Api = {`,
+    '  /** 我的会话分页(最近更新倒序,返回 {list,total}) */',
+    `  pageSessions: (${arg}params: AiChatSessionQuery & PageQuery) =>`,
+    `    http.get<PageResult<AiChatSessionResponse>>(\`\${${base}}/sessions\`, params).then(page => ({ list: page.records, total: page.total })),`,
+    '  /** 新建会话(标题可空,后端默认"新会话",首条消息后自动回填摘要) */',
+    `  createSession: (${arg}title?: string) => http.post<number>(\`\${${base}}/sessions\`, { title }),`,
+    '  /** 会话历史消息(时间正序;越权/跨源/不存在统一报"会话不存在") */',
+    `  listMessages: (${arg}sessionId: number) =>`,
+    `    http.get<AiChatMessageResponse[]>(\`\${${base}}/sessions/\${sessionId}/messages\`),`,
+    '  /** 同步对话(SSE 不可用时的降级通道) */',
+    `  chatSync: (${arg}sessionId: number, message: string) =>`,
+    `    http.post<string>(\`\${${base}}/sessions/\${sessionId}/chat-sync\`, { message }),`,
+    '  /** 流式对话(SSE):逐 TextBlock delta 回调;帧解析/鉴权/错误收口 utils/sse(postSse) */',
+    `  chatStream: (${arg}sessionId: number, message: string, onChunk: (text: string) => void): Promise<void> =>`,
+    `    postSse(\`\${${base}}/sessions/\${sessionId}/chat\`, { message }, onChunk)`,
+    '}',
+    ''
+  ].join('\n')
+}
+
+/** 会话页:左会话栏(角色切换仅角色模式)/右消息流 + 输入;逻辑全通用,每轮以服务端历史回读兜底 */
+export function renderChatIndex(ctx) {
+  const hasRoles = ctx.roles.length > 0
+  const roleType = `${ctx.entity}Role`
+  const apiName = `${ctx.entityCamel}Api`
+  const routeName = ctx.component.replace(/\//g, '-')
+  const arg = hasRoles ? 'role.value, ' : ''
+  const esc = s =>
+    String(s)
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+
+  // ---- 文案/角色块(角色模式词表收口;无角色模式文案常量) ----
+  let hintBlock
+  if (hasRoles) {
+    hintBlock = [
+      '/** 角色文案词表(spec 拍板收口,禁散落模板字面量) */',
+      `const ROLES: { value: ${roleType}; label: string }[] = [`,
+      ctx.roles.map(r => `  { value: '${r.enum}', label: '${esc(r.name)}' }`).join(',\n'),
+      ']',
+      `const ROLE_HINTS: Record<${roleType}, { empty: string; placeholder: string }> = {`,
+      ctx.roles.map(r => `  ${r.enum}: { empty: '${esc(r.empty)}', placeholder: '${esc(r.placeholder)}' }`).join(',\n'),
+      '}',
+      '',
+      `const role = ref<${roleType}>('${ctx.roles[0].enum}')`,
+      'const emptyHint = computed(() => ROLE_HINTS[role.value].empty)',
+      'const placeholder = computed(() => ROLE_HINTS[role.value].placeholder)'
+    ]
+  } else {
+    hintBlock = [
+      '/** 空态/输入提示文案(spec emptyText=/placeholder=,未声明回落公共组件默认) */',
+      `const emptyHint = '${esc(ctx.emptyText || '向 AI 提问,支持查询订单 / 库存 / 商品 / 售后数据')}'`,
+      `const placeholder = '${esc(ctx.placeholder || '问问订单、库存、商品、售后…(Enter 发送 / Shift+Enter 换行)')}'`
+    ]
+  }
+  const roleSwitch = hasRoles
+    ? [
+        '      <el-radio-group v-model="role" class="role-switch" size="small" :disabled="sending">',
+        '        <el-radio-button v-for="r in ROLES" :key="r.value" :value="r.value">{{ r.label }}</el-radio-button>',
+        '      </el-radio-group>',
+        ''
+      ]
+    : []
+  const roleSwitchStyle = hasRoles
+    ? [
+        '    .role-switch {',
+        '      margin-bottom: 12px;',
+        '      :deep(.el-radio-button) {',
+        '        width: 50%;',
+        '        .el-radio-button__inner {',
+        '          width: 100%;',
+        '        }',
+        '      }',
+        '    }',
+        ''
+      ]
+    : []
+  const vueImports = hasRoles ? "import { computed, onMounted, ref } from 'vue'" : "import { onMounted, ref } from 'vue'"
+  const scriptClose = '</' + 'script>'
+
+  return [
+    VUE_FILE_HEADER(),
+    '<!--',
+    `  ${ctx.nameZh}页(chat 模板,#${ctx.todoId};SSE 流式会话非 CRUD 范式)`,
+    '  每轮结束以服务端历史为准回读(USER/AI/TOOL 落库、title 回填都在后端);role 不落会话,同会话可跨角色续聊',
+    '-->',
+    '<template>',
+    '  <div class="main-box chat-box">',
+    '    <!-- 会话栏 -->',
+    '    <aside class="chat-aside">',
+    '      <el-button type="primary" :icon="Plus" class="new-session-btn" @click="onNewSession">新建会话</el-button>',
+    ...roleSwitch,
+    '      <el-scrollbar class="session-scroll">',
+    '        <div',
+    '          v-for="session in sessions"',
+    '          :key="session.id"',
+    '          class="session-item"',
+    '          :class="{ active: session.id === activeSessionId }"',
+    '          @click="onSelectSession(session)"',
+    '        >',
+    '          <span class="session-title">{{ session.title }}</span>',
+    '          <span class="session-time">{{ session.updatedAt }}</span>',
+    '        </div>',
+    '        <el-empty v-if="!sessions.length" description="暂无会话" :image-size="60" />',
+    '      </el-scrollbar>',
+    '    </aside>',
+    '    <!-- 对话区 -->',
+    '    <main class="chat-main">',
+    '      <MessageList :messages="messages" :empty-text="emptyHint" />',
+    '      <ChatInput :disabled="sending" :placeholder="placeholder" @send="onSend" />',
+    '    </main>',
+    '  </div>',
+    '</template>',
+    '',
+    '<script setup lang="ts">',
+    '// 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致',
+    `defineOptions({ name: '${routeName}' })`,
+    vueImports,
+    "import { ElMessage } from 'element-plus'",
+    "import { Plus } from '@element-plus/icons-vue'",
+    "import MessageList from '@/components/chat/MessageList.vue'",
+    "import ChatInput from '@/components/chat/ChatInput.vue'",
+    `import { ${apiName} } from '@/api/apis/${ctx.module}/${ctx.domain}'`,
+    ...(hasRoles ? [`import type { ${roleType} } from '@/api/interface/${ctx.module}/${ctx.domain}'`] : []),
+    `import type { AiChatSessionResponse, ChatUIMessage } from '@/api/interface/${ctx.module}/${ctx.domain}'`,
+    '',
+    ...hintBlock,
+    '',
+    'const sessions = ref<AiChatSessionResponse[]>([])',
+    'const activeSessionId = ref<number>()',
+    'const messages = ref<ChatUIMessage[]>([])',
+    'const sending = ref(false)',
+    '// 占位行负数 id 自减,不与库内正数 id 混淆',
+    'let localSeq = 0',
+    '',
+    'const loadSessions = async () => {',
+    `  const { list } = await ${apiName}.pageSessions(${arg}{ pageNo: 1, pageSize: 100 })`,
+    '  sessions.value = list',
+    '}',
+    '',
+    'const loadMessages = async (sessionId: number) => {',
+    `  messages.value = await ${apiName}.listMessages(${arg}sessionId)`,
+    '}',
+    '',
+    'const onSelectSession = async (session: AiChatSessionResponse) => {',
+    '  if (sending.value || session.id === activeSessionId.value) {',
+    '    return',
+    '  }',
+    '  activeSessionId.value = session.id',
+    '  messages.value = []',
+    '  await loadMessages(session.id)',
+    '}',
+    '',
+    'const onNewSession = async () => {',
+    '  if (sending.value) {',
+    '    return',
+    '  }',
+    '  try {',
+    `    const id = await ${apiName}.createSession(${arg})`,
+    '    await loadSessions()',
+    '    activeSessionId.value = id',
+    '    messages.value = []',
+    '  } catch {',
+    '    // 错误提示已由拦截器统一弹出',
+    '  }',
+    '}',
+    '',
+    '// 首条消息自动建会话;流式 chunk 追加到占位 AI 行;结束/失败都以服务端历史回读兜底',
+    'const onSend = async (text: string) => {',
+    '  if (sending.value) {',
+    '    return',
+    '  }',
+    '  sending.value = true',
+    '  try {',
+    '    if (!activeSessionId.value) {',
+    `      const id = await ${apiName}.createSession(${arg})`,
+    '      activeSessionId.value = id',
+    '      sessions.value = []',
+    '    }',
+    '    const sessionId = activeSessionId.value!',
+    "    messages.value.push({ id: --localSeq, sessionId, role: 'USER', content: text, createdAt: '' })",
+    "    const placeholder: ChatUIMessage = { id: --localSeq, sessionId, role: 'AI', content: '', createdAt: '', streaming: true }",
+    '    messages.value.push(placeholder)',
+    `    await ${apiName}.chatStream(${arg}sessionId, text, chunk => {`,
+    '      placeholder.content += chunk',
+    '    })',
+    '  } catch (error) {',
+    '    // SSE 通道错误在 postSse 单点收口抛出,这里补提示(拦截器管不到 fetch)',
+    "    ElMessage.error(error instanceof Error ? error.message : '回复失败,请稍后重试')",
+    '  } finally {',
+    '    sending.value = false',
+    '    messages.value.forEach(msg => (msg.streaming = false))',
+    '    if (activeSessionId.value) {',
+    '      await loadMessages(activeSessionId.value).catch(() => {})',
+    '    }',
+    '    await loadSessions().catch(() => {})',
+    '  }',
+    '}',
+    '',
+    'onMounted(async () => {',
+    '  try {',
+    '    await loadSessions()',
+    '    // 默认激活最近会话',
+    '    if (sessions.value.length) {',
+    '      await onSelectSession(sessions.value[0])',
+    '    }',
+    '  } catch {',
+    '    // 错误提示已由拦截器统一弹出',
+    '  }',
+    '})',
+    scriptClose,
+    '',
+    '<style scoped lang="scss">',
+    '.chat-box {',
+    '  // 白底卡片观感对齐 table-box;暗色走 el 变量自适应',
+    '  background-color: var(--el-bg-color);',
+    '  border-radius: 6px;',
+    '  .chat-aside {',
+    '    display: flex;',
+    '    flex-direction: column;',
+    '    width: 240px;',
+    '    padding: 12px;',
+    '    border-right: 1px solid var(--el-border-color-lighter);',
+    '    .new-session-btn {',
+    '      margin-bottom: 12px;',
+    '    }',
+    ...roleSwitchStyle,
+    '    .session-scroll {',
+    '      flex: 1;',
+    '',
+    '      // 列向 flex 收缩前提:允许压缩,el-scrollbar 内滚才生效',
+    '      min-height: 0;',
+    '      .session-item {',
+    '        display: flex;',
+    '        flex-direction: column;',
+    '        gap: 2px;',
+    '        padding: 8px 10px;',
+    '        margin-bottom: 4px;',
+    '        cursor: pointer;',
+    '        border-radius: 6px;',
+    '        .session-title {',
+    '          overflow: hidden;',
+    '          text-overflow: ellipsis;',
+    '          font-size: 13px;',
+    '          white-space: nowrap;',
+    '        }',
+    '        .session-time {',
+    '          font-size: 12px;',
+    '          color: var(--el-text-color-secondary);',
+    '        }',
+    '        &:hover {',
+    '          background-color: var(--el-fill-color-light);',
+    '        }',
+    '        &.active {',
+    '          background-color: var(--el-color-primary-light-9);',
+    '          .session-title {',
+    '            font-weight: 600;',
+    '            color: var(--el-color-primary);',
+    '          }',
+    '        }',
+    '      }',
+    '    }',
+    '  }',
+    '  .chat-main {',
+    '    display: flex;',
+    '    flex: 1;',
+    '    flex-direction: column;',
+    '    min-width: 0;',
+    '    padding: 12px 16px 16px;',
+    '  }',
+    '}',
+    '</style>',
+    ''
+  ].join('\n')
 }

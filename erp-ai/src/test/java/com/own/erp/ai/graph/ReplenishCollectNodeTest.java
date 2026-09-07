@@ -1,5 +1,6 @@
 package com.own.erp.ai.graph;
 
+import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.ai.config.ErpAiProperties;
 import com.own.erp.ai.service.AiSuggestionService;
 import com.own.erp.contract.InventoryQueryApi;
@@ -28,6 +29,7 @@ class ReplenishCollectNodeTest {
 
     private InventoryQueryApi inventoryQueryApi;
     private ErpAiProperties props;
+    private AiRuntimeProperties runtime;
     private AiSuggestionService aiSuggestionService;
     private ReplenishCollectNode node;
 
@@ -35,11 +37,12 @@ class ReplenishCollectNodeTest {
     void setUp() {
         inventoryQueryApi = mock(InventoryQueryApi.class);
         props = new ErpAiProperties();
+        runtime = RuntimePropsStub.of(props);
         props.getReplenish().setScanPageSize(2);
         aiSuggestionService = mock(AiSuggestionService.class);
         when(aiSuggestionService.findPendingSkuIds(org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(Set.of());
-        node = new ReplenishCollectNode(inventoryQueryApi, props, aiSuggestionService);
+        node = new ReplenishCollectNode(inventoryQueryApi, props, runtime, aiSuggestionService);
     }
 
     private InventoryQueryApi.InventoryView row(Long skuId, Long warehouseId, Integer available, Integer transit) {

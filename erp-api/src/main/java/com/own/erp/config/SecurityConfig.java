@@ -1,5 +1,6 @@
 package com.own.erp.config;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +48,11 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // 预检请求与登录接口放行;/error 放行避免错误转发被 401 吞掉真实状态码;
-                        // OAuth 回调放行(#3):平台授权页重定向卖家浏览器直跳,无 JWT,防伪造靠加密 state(TTL 10 分钟)
+                        // OAuth 回调放行(#3):平台授权页重定向卖家浏览器直跳,无 JWT,防伪造靠加密 state(TTL 10 分钟);
+                        // ASYNC dispatch 放行(#6 2026-09-07):SSE 流结束后 Servlet 异步派发再过一次过滤链,
+                        // 过滤器默认只挂 REQUEST、JwtAuthenticationFilter 不重跑,authorization 判 Access Denied
+                        // 刷 ERROR 日志(响应已提交不受影响)——chat/agent 两域 SSE 同款噪音一并修复
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS).permitAll()
                         .requestMatchers("/api/auth/login", "/api/shops/oauth/callback", "/error").permitAll()
                         // 接口文档(swagger-ui/knife4j 联调入口,不在 /api 红线内);生产可 yml 关 springdoc.api-docs.enabled

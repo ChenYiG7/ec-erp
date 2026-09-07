@@ -3,7 +3,7 @@ package com.own.erp.ai.graph;
 import cn.hutool.core.util.StrUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.own.erp.ai.config.ErpAiProperties;
+import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.ai.constant.AiConsts;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -42,15 +42,15 @@ public class AnomalyScoreNode implements NodeAction {
             AiConsts.RISK_LOW, AiConsts.RISK_MID, AiConsts.RISK_HIGH);
 
     private final ChatClient chatClient;
-    private final ErpAiProperties props;
+    private final AiRuntimeProperties runtime;
 
     /** 模型 api-key 原值(仅判空作降级判定,不落日志/返回体——docs/07 §7 凭证纪律) */
     @Value("${spring.ai.openai.api-key:}")
     private String apiKey;
 
-    public AnomalyScoreNode(ChatClient.Builder chatClientBuilder, ErpAiProperties props) {
+    public AnomalyScoreNode(ChatClient.Builder chatClientBuilder, AiRuntimeProperties runtime) {
         this.chatClient = chatClientBuilder.build();
-        this.props = props;
+        this.runtime = runtime;
     }
 
     @Override
@@ -63,7 +63,7 @@ public class AnomalyScoreNode implements NodeAction {
             return Map.of(AnomalyStateKeys.KEY_ITEMS, items,
                     AnomalyStateKeys.KEY_DEGRADED, false, AnomalyStateKeys.KEY_LLM_SCORED, 0);
         }
-        int llmMaxItems = props.getAnomaly().getLlmMaxItems();
+        int llmMaxItems = runtime.anomalyLlmMaxItems();
         // 超限截断:基线风险降序(稳定排序,同档保持原序)选入评分,余量直接规则定级
         List<AnomalyItem> ordered = items.stream()
                 .sorted(Comparator.comparingInt(
@@ -121,7 +121,7 @@ public class AnomalyScoreNode implements NodeAction {
         }
         try {
             var response = chatClient.prompt()
-                    .system(props.getAnomaly().getScorePrompt())
+                    .system(runtime.anomalyScorePrompt())
                     .user(userPrompt.toString())
                     .call()
                     .chatResponse();

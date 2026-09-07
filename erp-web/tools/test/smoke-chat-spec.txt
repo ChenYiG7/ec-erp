@@ -1,0 +1,19 @@
+# gen:page chat 模式冒烟 spec:验证会话页模板三件(角色模式 + {role} 端点),不进业务页面
+# 跑法: GEN_OPENAPI_PATH=tools/test/smoke-openapi.json node tools/gen-page.mjs --spec tools/test/smoke-chat-spec.txt
+module=smoke
+domain=chatdemo
+entity=ChatDemo
+nameZh=冒烟会话
+permPrefix=smoke:chatdemo
+todoId=16
+menuParent=1
+menuId=2801
+menuSort=2
+path=/smoke/chats
+component=smoke/chatdemo/index
+pageType=chat
+chatBase=/api/smoke/chats/{role}
+typesFrom=ai/chat
+
+role=ALPHA name=角色甲 empty=甲空态文案 placeholder=甲输入提示
+role=BETA name=角色乙 empty=乙空态文案 placeholder=乙输入提示

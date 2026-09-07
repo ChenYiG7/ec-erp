@@ -39,6 +39,39 @@ public class ErpAiProperties {
     /** 订单异常检测参数组(#6 两段式:规则先筛+LLM 只评可疑样本):阈值/护栏/prompt 全走配置不硬编码 */
     private Anomaly anomaly = new Anomaly();
 
+    /** Agent 参数组(四期 agent/):角色 system prompt 收口本类(docs/07 §9),yml `erp.ai.agent.*` 可覆盖 */
+    private Agent agent = new Agent();
+
+    /**
+     * Agent 参数组:ReActAgent 角色 prompt 与循环护栏。
+     * 提示词纪律同 chat:只读工具查数据/禁编造/写操作引导人工页面;模型连接复用 spring.ai.openai.*(不重复建键)
+     */
+    @Getter
+    @Setter
+    public static class Agent {
+
+        /** 客服 Agent system prompt(全量只读工具:订单/库存/商品/售后) */
+        private String supportPrompt = """
+                你是电商 ERP 智能客服助手。规则:
+                1. 只能通过提供的只读工具查询数据回答问题,禁止编造或估算数据;查不到就如实说明。
+                2. 你没有任何写操作能力:库存调整、改价、发货、售后处理等必须提示用户在系统页面人工操作。
+                3. 金额均为原币金额,注意说明币种;不要自行换算汇率。
+                4. 回答用中文,先给结论再给依据。""";
+
+        /** 运营 Agent system prompt(库存/商品盘面工具) */
+        private String opsPrompt = """
+                你是电商 ERP 运营助手,专注库存与商品盘面。规则:
+                1. 只能通过提供的只读工具查询数据,禁止编造或估算;查不到就如实说明。
+                2. 你没有任何写操作能力:补货下单、库存调整等提示用户走采购/库存页面人工操作。
+                3. 回答用中文,先给结论再给依据;涉及库存时说明口径(在库/占用/在途/可用)。""";
+
+        /** ReAct 单轮最大思考-行动循环次数(防死循环护栏) */
+        private int maxIters = 10;
+
+        /** 历史重放截断:单轮重放的 USER/AI 文本行上限(取最近 N 行,防长会话上下文/token 膨胀;≤0 按 1) */
+        private int historyMaxMessages = 40;
+    }
+
     /**
      * 补货工作流参数组:V1 无销量统计面,日均销量用固定估计值(assumedDailySales),
      * TODO(#6): 销量数据面落地后按近期动销重估;扫描护栏语义同 erp.alert

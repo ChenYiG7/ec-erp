@@ -9,7 +9,9 @@ import com.own.erp.system.entity.SysDict;
 import com.own.erp.system.mapper.SysDictMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.validation.groups.Default;
 
 import java.util.List;
 
@@ -60,14 +64,14 @@ public class SysDictController {
 
     @Operation(summary = "新增字典项")
     @PostMapping
-    public Result<Long> create(@RequestBody SysDict dict) {
+    public Result<Long> create(@Validated({Default.class, SysDict.Create.class}) @RequestBody SysDict dict) {
         dictMapper.insert(dict);
         return Result.ok(dict.getId());
     }
 
-    @Operation(summary = "更新字典项", description = "MP updateById 忽略 null 字段,可部分更新")
+    @Operation(summary = "更新字典项", description = "MP updateById 忽略 null 字段,可部分更新(Default 组 @Size 对 null 放行,超长仍拦)")
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @RequestBody SysDict dict) {
+    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody SysDict dict) {
         dict.setId(id);
         dictMapper.updateById(dict);
         return Result.ok();

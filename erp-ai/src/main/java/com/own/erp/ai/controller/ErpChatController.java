@@ -2,6 +2,7 @@ package com.own.erp.ai.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.ai.chat.ErpChatService;
+import com.own.erp.ai.constant.AiConsts;
 import com.own.erp.ai.command.ChatSendCommand;
 import com.own.erp.ai.command.SessionCreateCommand;
 import com.own.erp.ai.request.query.AiChatSessionQuery;
@@ -58,19 +59,21 @@ public class ErpChatController {
     @PostMapping("/sessions")
     public Result<Long> createSession(@RequestBody(required = false) @Valid SessionCreateCommand command) {
         return Result.ok(aiChatSessionService.create(
-                currentUserApi.currentUserId(), command == null ? null : command.title()));
+                currentUserApi.currentUserId(), command == null ? null : command.title(),
+                AiConsts.SESSION_SOURCE_CHAT));
     }
 
     @Operation(summary = "我的会话分页", description = "按最近更新倒序;仅本人会话(归属服务端强制)")
     @GetMapping("/sessions")
     public Result<Page<AiChatSessionResponse>> sessions(AiChatSessionQuery query) {
-        return Result.ok(aiChatSessionService.pageMine(currentUserApi.currentUserId(), query));
+        return Result.ok(aiChatSessionService.pageMine(currentUserApi.currentUserId(), query,
+                AiConsts.SESSION_SOURCE_CHAT));
     }
 
     @Operation(summary = "会话历史消息", description = "时间正序;仅本人会话可查,越权/不存在统一报'会话不存在'")
     @GetMapping("/sessions/{id}/messages")
     public Result<List<AiChatMessageResponse>> messages(@PathVariable("id") Long sessionId) {
-        aiChatSessionService.getOwned(sessionId, currentUserApi.currentUserId());
+        aiChatSessionService.getOwned(sessionId, currentUserApi.currentUserId(), AiConsts.SESSION_SOURCE_CHAT);
         return Result.ok(aiChatMessageService.listBySessionId(sessionId));
     }
 

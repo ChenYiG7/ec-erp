@@ -3,7 +3,10 @@
   <Tabs v-show="tabs" />
   <el-main>
     <router-view v-slot="{ Component, route }">
-      <transition appear name="fade-transform" mode="out-in">
+      <!-- 2026-09-07:vue-router 5 下 transition mode="out-in" 与 keep-alive 组合存在竞态——
+           快速连切数页后内容区渲染为空注释节点且级联后续所有切换(无报错,F5 恢复),
+           playwright 复现实锚(scripts/repro_blank*.mjs);去 mode 恢复并发过渡,动画重叠可接受 -->
+      <transition name="fade-transform">
         <keep-alive :include="keepAliveName">
           <component :is="createComponentWrapper(Component, route)" v-if="isRouterShow" :key="route.fullPath" />
         </keep-alive>
