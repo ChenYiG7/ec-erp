@@ -42,6 +42,15 @@ public class ProductCategoryService {
         return buildTree(all, 0L);
     }
 
+    /** 类目名称精确查(单条;不存在返回 null——#17 文案生成 prompt 材料,2026-09-08 加) */
+    public String findNameById(Long id) {
+        if (id == null) {
+            return null;
+        }
+        ProductCategory category = categoryMapper.selectById(id);
+        return category == null ? null : category.getName();
+    }
+
     /** 内存引用组树:子节点在父的 children 里递归装配;数据量级小,牺牲递归换可读 */
     private List<CategoryNode> buildTree(List<ProductCategory> all, Long parentId) {
         List<CategoryNode> nodes = new ArrayList<>();

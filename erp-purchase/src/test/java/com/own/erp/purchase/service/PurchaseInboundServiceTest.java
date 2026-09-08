@@ -238,6 +238,10 @@ class PurchaseInboundServiceTest {
             PurchaseInboundItem line = PurchaseInboundItem.builder()
                     .poItemId(501L).skuId(1001L).inboundQty(50).build();
             when(purchaseInboundItemMapper.selectList(any())).thenReturn(List.of(line));
+            // 采购行单价随命令传递进移动加权成本账(#19③)
+            PurchaseOrderItem poItem = poItem();
+            poItem.setPurchasePrice(new java.math.BigDecimal("10.50"));
+            when(purchaseOrderService.listItemEntities(PO_ID)).thenReturn(List.of(poItem));
 
             purchaseInboundService.confirm(1L);
 
@@ -252,6 +256,7 @@ class PurchaseInboundServiceTest {
             assertEquals(1L, command.bizId());
             assertEquals(7L, command.createdBy());
             assertTrue(command.remark().contains("RK001"));
+            assertEquals(new java.math.BigDecimal("10.50"), command.unitCost());
 
             verify(purchaseOrderService).receiveQuantities(eq(PO_ID), argThat(lines -> lines.size() == 1
                     && lines.get(0).poItemId().equals(501L) && lines.get(0).quantity().equals(50)));
@@ -286,6 +291,11 @@ class PurchaseInboundServiceTest {
             when(purchaseInboundItemMapper.selectList(any())).thenReturn(List.of(
                     PurchaseInboundItem.builder().poItemId(501L).skuId(1001L).inboundQty(50).build(),
                     PurchaseInboundItem.builder().poItemId(502L).skuId(1002L).inboundQty(30).build()));
+            PurchaseOrderItem poItem = poItem();
+            PurchaseOrderItem otherItem = poItem();
+            otherItem.setId(502L);
+            otherItem.setSkuId(1002L);
+            when(purchaseOrderService.listItemEntities(PO_ID)).thenReturn(List.of(poItem, otherItem));
 
             purchaseInboundService.confirm(1L);
 

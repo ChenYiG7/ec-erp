@@ -21,14 +21,28 @@
           <el-table-column prop="quantity" label="订单数量" width="100" />
           <el-table-column label="实收数量" width="150">
             <template #default="{ row: line }">
-              <el-input-number v-model="line.returnQty" :min="0" :max="line.quantity" :controls="false" class="aftersale-rr__qty" />
+              <el-input-number
+                v-model="line.returnQty"
+                :min="0"
+                :max="line.quantity"
+                :controls="false"
+                class="aftersale-rr__qty"
+              />
             </template>
           </el-table-column>
         </el-table>
-        <span class="aftersale-rr__tip">仅列出 sku_id 已绑定的订单行(未绑定行不可退);实收数量 0 的行不提交;历史累计超退由后端拦截</span>
+        <span class="aftersale-rr__tip"
+          >仅列出 sku_id 已绑定的订单行(未绑定行不可退);实收数量 0 的行不提交;历史累计超退由后端拦截</span
+        >
       </el-form-item>
       <el-form-item label="处理结果">
-        <el-input v-model="result" type="textarea" :rows="2" maxlength="512" placeholder="选填,收退件留痕(COALESCE 追加)" />
+        <el-input
+          v-model="result"
+          type="textarea"
+          :rows="2"
+          maxlength="512"
+          placeholder="选填,收退件留痕(COALESCE 追加)"
+        />
       </el-form-item>
     </el-form>
     <template #footer>
@@ -41,7 +55,19 @@
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'aftersale-receive-return-form' })
 import { ref } from 'vue'
-import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElOption, ElSelect, ElTable, ElTableColumn } from 'element-plus'
+import {
+  ElButton,
+  ElDialog,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElOption,
+  ElSelect,
+  ElTable,
+  ElTableColumn,
+} from 'element-plus'
 import { aftersaleOrderApi } from '@/api/apis/aftersale/order'
 import { shopOrderApi } from '@/api/apis/order/order'
 import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
@@ -105,7 +131,7 @@ const submit = async () => {
     await aftersaleOrderApi.receiveReturn(row.value!.id, {
       warehouseId: warehouseId.value,
       items,
-      result: result.value.trim() || undefined
+      result: result.value.trim() || undefined,
     })
     ElMessage.success('收退件成功')
     visible.value = false

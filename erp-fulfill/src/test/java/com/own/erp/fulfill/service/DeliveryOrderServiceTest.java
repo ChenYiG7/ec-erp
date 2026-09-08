@@ -1,5 +1,6 @@
 package com.own.erp.fulfill.service;
 
+import com.own.erp.common.api.DeliveryShippedEvent;
 import com.own.erp.common.exception.BusinessException;
 import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.InventoryChangeApi;
@@ -16,6 +17,7 @@ import com.own.erp.fulfill.request.command.DeliveryOrderSaveRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
 
 import java.util.List;
@@ -50,6 +52,7 @@ class DeliveryOrderServiceTest {
     private WarehouseApi warehouseApi;
     private InventoryChangeApi inventoryChangeApi;
     private CurrentUserApi currentUserApi;
+    private ApplicationEventPublisher eventPublisher;
     private DeliveryOrderService deliveryOrderService;
 
     @BeforeEach
@@ -60,8 +63,9 @@ class DeliveryOrderServiceTest {
         warehouseApi = mock(WarehouseApi.class);
         inventoryChangeApi = mock(InventoryChangeApi.class);
         currentUserApi = mock(CurrentUserApi.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
         deliveryOrderService = new DeliveryOrderService(deliveryOrderMapper, deliveryOrderItemMapper,
-                shopOrderApi, warehouseApi, inventoryChangeApi, currentUserApi);
+                shopOrderApi, warehouseApi, inventoryChangeApi, currentUserApi, eventPublisher);
         // createdBy 服务端按 SecurityContext 回填(CurrentUserApi,#11 遗留收口)
         when(currentUserApi.currentUserId()).thenReturn(9L);
     }
@@ -342,6 +346,32 @@ class DeliveryOrderServiceTest {
 
         verify(inventoryChangeApi, times(2)).change(any());
         verify(shopOrderApi, never()).casOrderStatus(any(), any(), any());
+    }
+
+    @Test
+    void shipPublishesShippedEventForPlatformSync() {
+        stubShippableDelivery();
+
+        deliveryOrderService.ship(1L);
+
+        // 回传平台编排在 erp-api(AFTER_COMMIT 消费),本域只负责发事件
+        ArgumentCaptor<DeliveryShippedEvent> captor = ArgumentCaptor.forClass(DeliveryShippedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        DeliveryShippedEvent event = captor.getValue();
+        assertEquals(1L, event.deliveryId());
+        assertEquals(ORDER_ID, event.orderId());
+        assertEquals(2L, event.shopId());
+    }
+
+    @Test
+    void shipDoesNotPublishEventWhenRejected() {
+        DeliveryOrder delivery = DeliveryOrder.builder().id(1L).status("SHIPPED").build();
+        when(deliveryOrderMapper.selectById(1L)).thenReturn(delivery);
+        when(deliveryOrderMapper.casStatus(1L, "PENDING", "SHIPPED")).thenReturn(0);
+
+        assertThrows(BusinessException.class, () -> deliveryOrderService.ship(1L));
+
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test

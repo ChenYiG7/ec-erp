@@ -143,6 +143,49 @@ public class AiRuntimeProperties {
                 props.getAnomaly().getScorePrompt());
     }
 
+    /** ── 采购建议工作流参数(#17,输入复用补货四参数同源键)── */
+
+    /** 单轮送 LLM 摘要的供应商组上限(int,≥0) */
+    public int purchaseLlmMaxItems() {
+        return intOf(com.own.erp.common.constant.ConfigConsts.KEY_PURCHASE_LLM_MAX_ITEMS,
+                props.getPurchase().getLlmMaxItems(), 0);
+    }
+
+    /** 摘要节点 system prompt */
+    public String purchaseSummaryPrompt() {
+        return textOf(com.own.erp.common.constant.ConfigConsts.KEY_PURCHASE_SUMMARY_PROMPT,
+                props.getPurchase().getSummaryPrompt());
+    }
+
+    /** ── 文案生成工作流参数(#17,2026-09-08)── */
+
+    /** 单轮送 LLM 生成的商品上限(int,≥0;超限按 productId 升序截断,下轮再生成) */
+    public int copyLlmMaxItems() {
+        return intOf(com.own.erp.common.constant.ConfigConsts.KEY_COPY_LLM_MAX_ITEMS,
+                props.getCopy().getLlmMaxItems(), 0);
+    }
+
+    /** 生成节点 system prompt */
+    public String copyPrompt() {
+        return textOf(com.own.erp.common.constant.ConfigConsts.KEY_COPY_PROMPT,
+                props.getCopy().getPrompt());
+    }
+
+    /** ── 知识库 RAG(#6 AI 客服 V1)── */
+
+    /** 检索命中条数上限(int,≥0;0 = 关闭注入,检索不进行) */
+    public int kbRetrievalTopK() {
+        return intOf(com.own.erp.common.constant.ConfigConsts.KEY_KB_RETRIEVAL_TOP_K,
+                props.getKb().getRetrievalTopK(), 0);
+    }
+
+    /** 检索相似度下限(0~1 double;越界回落默认值) */
+    public double kbRetrievalMinScore() {
+        return override(com.own.erp.common.constant.ConfigConsts.KEY_KB_RETRIEVAL_MIN_SCORE, Double::parseDouble)
+                .map(score -> (score >= 0 && score <= 1) ? score : props.getKb().getRetrievalMinScore())
+                .orElse(props.getKb().getRetrievalMinScore());
+    }
+
     /** ── 对话/Agent 提示词与护栏 ── */
 
     /** 对话 system prompt */

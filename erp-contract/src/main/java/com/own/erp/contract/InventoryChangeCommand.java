@@ -31,6 +31,10 @@ public record InventoryChangeCommand(
         /** 关联业务单据ID(如入库单ID) */
         Long bizId,
 
+        /** 动账单价(CNY,移动加权 #19③,可空):IN_PURCHASE=采购单价传入,缺价走当时加权价暂估;
+         *  OUT_SHIP/IN_RETURN/ADJUST 由成本账自行取加权价,传入值忽略;不进成本账类型忽略 */
+        java.math.BigDecimal unitCost,
+
         /** 备注 */
         String remark,
 

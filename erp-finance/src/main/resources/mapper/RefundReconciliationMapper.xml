@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.own.erp.finance.mapper.RefundReconciliationMapper">
+
+    <!-- 售后侧退款聚合(#19④ 勾稽口径,docs/03 §6.2):已退款终态(status IN REFUNDED/COMPLETED,
+         词表收口 AftersaleConsts——REFUNDED 经退款动作到达,COMPLETED 为其终态收尾,均代表钱已退;
+         未决态 PENDING/APPROVED/RETURNING/RETURN_RECEIVED 钱未退不参与,平台先行退款等状态同步后自然纳入)
+         且 refund_amount 非空;经 shop_order 翻译平台订单号(aftersale_order.order_id=内部订单ID,
+         settlement_detail.order_id=平台订单原文,平台订单号是两侧唯一公共归集键——结算 REFUND 行
+         无退款单ID,逐单勾稽不可行,同订单多售后单/部分退款自然 SUM) -->
+    <select id="sumAftersaleRefundByPlatformOrder" resultType="com.own.erp.finance.reconcile.RefundSideRow">
+        SELECT so.shop_id            AS shopId,
+               so.platform_order_id  AS platformOrderId,
+               ao.currency           AS currency,
+               SUM(ao.refund_amount) AS amount
+        FROM aftersale_order ao
+                 JOIN shop_order so ON ao.order_id = so.id
+        WHERE ao.status IN ('REFUNDED', 'COMPLETED')
+          AND ao.refund_amount IS NOT NULL
+        GROUP BY so.shop_id, so.platform_order_id, ao.currency
+    </select>
+
+    <!-- 结算侧 REFUND 聚合:仅 PARSED 报告(FAILED 报告明细是待校准暂存态,参与会污染比对,
+         重拉覆盖转 PARSED 后自然纳入);金额报告原值带符号(退款为负,禁取绝对值),
+         SUM(−amount) 转正与售后侧同向;同订单跨报告/多行同键事件自然 SUM(行级无唯一键,#19② 拍板);
+         order_id IS NOT NULL 排除非订单事件行(DEFENSIVE:REFUND 类型恒有订单号) -->
+    <select id="sumSettlementRefundByPlatformOrder" resultType="com.own.erp.finance.reconcile.RefundSideRow">
+        SELECT sd.shop_id      AS shopId,
+               sd.order_id     AS platformOrderId,
+               sr.currency     AS currency,
+               SUM(-sd.amount) AS amount
+        FROM settlement_detail sd
+                 JOIN settlement_report sr ON sd.report_id = sr.id
+        WHERE sd.fee_type = 'REFUND'
+          AND sr.status = 'PARSED'
+          AND sd.order_id IS NOT NULL
+        GROUP BY sd.shop_id, sd.order_id, sr.currency
+    </select>
+</mapper>

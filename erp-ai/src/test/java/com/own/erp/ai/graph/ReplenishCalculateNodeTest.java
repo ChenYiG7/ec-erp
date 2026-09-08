@@ -2,9 +2,8 @@ package com.own.erp.ai.graph;
 
 import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.ai.config.ErpAiProperties;
-import com.own.erp.contract.SalesQueryApi;
-import com.alibaba.cloud.ai.graph.KeyStrategy;
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.KeyStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -16,34 +15,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
  * @author : chenyi
- * @Date : 2026/9/7
- * @Description : ReplenishCalculateNode 单测(#6 销量数据面重估后,AIR:mock SalesQueryApi):
- *     建议量 = max(最小建议量, ceil(覆盖天数×窗口销量/窗口天数)−可用−在途);
- *     零动销/库存充足剔除不产建议、分数速率向上取整、下限兜底;OverAllState 真实装配
+ * @Date : 2026/9/6
+ * @Description : ReplenishCalculateNode 单测(#6,AIR:mock 计算组件):
+ *     节点职责 = 状态提取 + runtime 参数透传(#18 每轮取值);
+ *     公式语义收口 ReplenishCalculatorTest
  */
 class ReplenishCalculateNodeTest {
 
-    private ErpAiProperties props;
+    private ReplenishCalculator calculator;
     private AiRuntimeProperties runtime;
-    private SalesQueryApi salesQueryApi;
     private ReplenishCalculateNode node;
 
     @BeforeEach
     void setUp() {
-        props = new ErpAiProperties();
-        runtime = RuntimePropsStub.of(props);
-        // 默认配置:coverage=14, window=30, min=10
-        salesQueryApi = mock(SalesQueryApi.class);
-        node = new ReplenishCalculateNode(runtime, salesQueryApi);
+        calculator = mock(ReplenishCalculator.class);
+        runtime = RuntimePropsStub.of(new ErpAiProperties());
+        node = new ReplenishCalculateNode(calculator, runtime);
     }
 
     private ReplenishItem item(Long skuId, int available, int transit) {
-        return ReplenishItem.builder().skuId(skuId).qtyAvailable(available).qtyTransit(transit).build();
+        return ReplenishItem.builder().skuId(skuId).qtyAvailable(available).qtyTransit(transit)
+                .suggestQty(0).summary("").build();
     }
 
     private OverAllState stateOf(ReplenishItem... items) {
@@ -56,80 +53,26 @@ class ReplenishCalculateNodeTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void computesSuggestQtyWithRealSalesRate() throws Exception {
-        when(salesQueryApi.sumQtyBySku(any(), anyInt())).thenReturn(Map.of(1L, 60, 2L, 60));
+    void delegatesToCalculatorWithRuntimeParams() throws Exception {
+        when(calculator.calculate(any(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(List.of(item(1L, 0, 0)));
 
-        Map<String, Object> result = node.apply(stateOf(item(1L, 5, 5), item(2L, 0, 0)));
+        Map<String, Object> result = node.apply(stateOf(item(1L, 5, 5)));
 
+        // 默认配置:window=30/coverage=14/min=10
+        verify(calculator).calculate(List.of(item(1L, 5, 5)), 30, 14, 10);
         List<ReplenishItem> items = (List<ReplenishItem>) result.get(ReplenishStateKeys.KEY_ITEMS);
-        // 需求基数 ceil(14×60/30)=28:可用5 在途5 → 28-10=18;可用0 在途0 → 28
-        assertEquals(18, items.get(0).suggestQty());
-        assertEquals(28, items.get(1).suggestQty());
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void fractionalSalesRateCeilsUp() throws Exception {
-        // 45/30=1.5/天 → 需求 ceil(14×1.5)=21;可用3 → 建议建 18(未触下限)
-        when(salesQueryApi.sumQtyBySku(any(), anyInt())).thenReturn(Map.of(1L, 45));
-
-        List<ReplenishItem> items = (List<ReplenishItem>)
-                node.apply(stateOf(item(1L, 3, 0))).get(ReplenishStateKeys.KEY_ITEMS);
-
         assertEquals(1, items.size());
-        assertEquals(18, items.get(0).suggestQty());
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void minSuggestQtyFloorsSmallNeeds() throws Exception {
-        // 15/30=0.5/天 → 需求 ceil(7)=7;可用3 → 差 4 → 下限兜底 10
-        when(salesQueryApi.sumQtyBySku(any(), anyInt())).thenReturn(Map.of(1L, 15));
-
-        List<ReplenishItem> items = (List<ReplenishItem>)
-                node.apply(stateOf(item(1L, 3, 0))).get(ReplenishStateKeys.KEY_ITEMS);
-
-        assertEquals(10, items.get(0).suggestQty());
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void zeroSalesDeadSkuDropped() throws Exception {
-        // 零动销(死 SKU)不再硬补:整条剔除,不产建议(2026-09-07 重估拍板)
-        when(salesQueryApi.sumQtyBySku(any(), anyInt())).thenReturn(Map.of());
-
-        List<ReplenishItem> items = (List<ReplenishItem>)
-                node.apply(stateOf(item(1L, 3, 0))).get(ReplenishStateKeys.KEY_ITEMS);
-
-        assertTrue(items.isEmpty());
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void sufficientStockDropped() throws Exception {
-        // 有货且动销跟得上:需求 ≤ 现有,不产建议
-        when(salesQueryApi.sumQtyBySku(any(), anyInt())).thenReturn(Map.of(1L, 60));
-
-        List<ReplenishItem> items = (List<ReplenishItem>)
-                node.apply(stateOf(item(1L, 100, 0))).get(ReplenishStateKeys.KEY_ITEMS);
-
-        assertTrue(items.isEmpty());
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void emptyItemsSkipsSalesQuery() throws Exception {
-        Map<String, Object> result = node.apply(stateOf());
-
-        assertTrue(((List<ReplenishItem>) result.get(ReplenishStateKeys.KEY_ITEMS)).isEmpty());
-        verifyNoInteractions(salesQueryApi);
+        assertEquals(0, items.get(0).qtyAvailable());
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void missingItemsKeyYieldsEmptyResult() throws Exception {
+        when(calculator.calculate(any(), anyInt(), anyInt(), anyInt())).thenReturn(List.of());
+
         Map<String, Object> result = node.apply(new OverAllState());
 
-        assertEquals(0, ((List<ReplenishItem>) result.get(ReplenishStateKeys.KEY_ITEMS)).size());
+        assertTrue(((List<ReplenishItem>) result.get(ReplenishStateKeys.KEY_ITEMS)).isEmpty());
     }
 }

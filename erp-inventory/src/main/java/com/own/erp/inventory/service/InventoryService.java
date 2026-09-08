@@ -25,7 +25,9 @@ import java.util.Collection;
  *     数量列唯一改动路径 change()(docs/03 §4 / docs/07 铁律 4):同事务更新 inventory 并写 inventory_flow,
  *     禁止任何旁路 update;对外只提供只读查询,写入口只有 change() 与跨仓组合 transfer()。
  *     change 按 flow_type 差异化列语义(#7 2026-09-06,FlowOps 矩阵):采购审核占在途/入库核销(#10)、
- *     发货建单占用/出库核销占用(#11),占用与在途全部落原子 UPDATE 守卫
+ *     发货建单占用/出库核销占用(#11),占用与在途全部落原子 UPDATE 守卫;
+ *     成本账随动账同事务推进(#19③):recordFlow 前 InventoryCostService.apply 锁 sku_cost_state
+ *     推进移动加权并回填流水成本快照(锁序 inventory 行 → state 行,单向无死锁)
  */
 @Service
 @RequiredArgsConstructor
@@ -40,6 +42,7 @@ public class InventoryService {
 
     private final InventoryMapper inventoryMapper;
     private final InventoryFlowMapper inventoryFlowMapper;
+    private final InventoryCostService inventoryCostService;
 
     /** 分页查询(过滤:SKU/仓库) */
     public Page<InventoryResponse> page(InventoryQuery query) {
@@ -161,8 +164,12 @@ public class InventoryService {
                 .remark(remark).createdBy(createdBy).build());
     }
 
-    /** 写流水:before/after 记 qty_available 轨迹(row=null 为首建行,after 即首笔数量);返回流水ID */
+    /**
+     * 写流水:先推进移动加权成本账并回填流水成本快照(#19③,不进账类型成本列原样 NULL),
+     * 再回填 before/after(记 qty_available 轨迹,row=null 为首建行,after 即首笔数量);返回流水ID
+     */
     private Long recordFlow(InventoryFlow flow, Inventory row) {
+        inventoryCostService.apply(flow);
         int after = row == null ? flow.getQuantity() : row.getQtyAvailable();
         flow.setBeforeQty(after - flow.getQuantity());
         flow.setAfterQty(after);

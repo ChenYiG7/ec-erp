@@ -13,4 +13,13 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class PurchaseOrderQuery extends PageQuery {
+
+    /** 供应商ID,精确过滤(可选) */
+    private Long supplierId;
+
+    /** 收货仓ID,精确过滤(可选) */
+    private Long warehouseId;
+
+    /** 状态,精确:DRAFT/AUDITED/PARTIAL_RECEIVED/RECEIVED/CLOSED(可选) */
+    private String status;
 }

@@ -16,14 +16,16 @@
 
     <!-- SKU 映射行同步 upsert(#5):uk(shop_product_id, seller_sku) 冲突即刷新平台侧快照。
          sku_id / match_status 不在更新列——同步永不覆盖绑定状态(人工绑定与自动匹配结果优先,docs/07 核心流程);
-         快照列 null 不覆盖(COALESCE);sku_id 插入即 NULL 进待匹配列表 -->
+         快照列 null 不覆盖(COALESCE);sku_id 插入即 NULL 进待匹配列表;
+         ODKU 用 8.0.19+ 行别名 `AS new`——9.7.2 原生规范形态(VALUES() 已弃用);
+         行别名定义后 ODKU 内列引用必须全限定(new.=插入值,表名=现值),2026-09-08 真库验证 -->
     <insert id="upsert" parameterType="com.own.erp.shop.entity.ShopProductSku">
         INSERT INTO shop_product_sku (shop_product_id, seller_sku, quantity, price, currency)
         VALUES (#{shopProductId}, #{sellerSku}, #{quantity}, #{price}, #{currency})
         AS new
-        ON DUPLICATE KEY UPDATE quantity = COALESCE(new.quantity, quantity),
-                                price    = COALESCE(new.price, price),
-                                currency = COALESCE(new.currency, currency)
+        ON DUPLICATE KEY UPDATE quantity = COALESCE(new.quantity, shop_product_sku.quantity),
+                                price    = COALESCE(new.price, shop_product_sku.price),
+                                currency = COALESCE(new.currency, shop_product_sku.currency)
     </insert>
 
     <!-- 自动匹配取源(#5):该店全部未绑定映射(仅 id/seller_sku 两列,禁 SELECT *) -->

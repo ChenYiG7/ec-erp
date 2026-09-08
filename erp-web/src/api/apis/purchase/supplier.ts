@@ -9,7 +9,9 @@ import type { SupplierResponse, SupplierSaveRequest } from '@/api/interface/purc
 export const supplierApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: PageQuery) =>
-    http.get<PageResult<SupplierResponse>>('/api/purchase/suppliers', params).then(page => ({ list: page.records, total: page.total })),
+    http
+      .get<PageResult<SupplierResponse>>('/api/purchase/suppliers', params)
+      .then(page => ({ list: page.records, total: page.total })),
   /** 详情 */
   detail: (id: number) => http.get<SupplierResponse>(`/api/purchase/suppliers/${id}`),
   /** 新增(后端返回主键) */

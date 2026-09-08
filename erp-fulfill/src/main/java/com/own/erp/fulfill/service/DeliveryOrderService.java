@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.common.api.DeliveryShippedEvent;
 import com.own.erp.common.exception.BusinessException;
 import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.InventoryChangeApi;
@@ -21,6 +22,7 @@ import com.own.erp.fulfill.request.command.DeliveryOrderSaveRequest;
 import com.own.erp.fulfill.request.query.DeliveryOrderQuery;
 import com.own.erp.fulfill.response.DeliveryOrderItemResponse;
 import com.own.erp.fulfill.response.DeliveryOrderResponse;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -53,6 +55,8 @@ public class DeliveryOrderService {
     private final WarehouseApi warehouseApi;
     private final InventoryChangeApi inventoryChangeApi;
     private final CurrentUserApi currentUserApi;
+    /** 发货完成事件发布(#11 回传编排,2026-09-08):仅发布,消费在 erp-api(事务提交后) */
+    private final ApplicationEventPublisher eventPublisher;
 
     /** 契约接口注入一律 @Lazy 断构造环:实现收口 erp-api 反向注入域 Service,急切装配成环(docs/07 §2.2) */
     public DeliveryOrderService(DeliveryOrderMapper deliveryOrderMapper,
@@ -60,13 +64,15 @@ public class DeliveryOrderService {
                                 @Lazy ShopOrderApi shopOrderApi,
                                 @Lazy WarehouseApi warehouseApi,
                                 @Lazy InventoryChangeApi inventoryChangeApi,
-                                @Lazy CurrentUserApi currentUserApi) {
+                                @Lazy CurrentUserApi currentUserApi,
+                                ApplicationEventPublisher eventPublisher) {
         this.deliveryOrderMapper = deliveryOrderMapper;
         this.deliveryOrderItemMapper = deliveryOrderItemMapper;
         this.shopOrderApi = shopOrderApi;
         this.warehouseApi = warehouseApi;
         this.inventoryChangeApi = inventoryChangeApi;
         this.currentUserApi = currentUserApi;
+        this.eventPublisher = eventPublisher;
     }
 
     /** 分页查询(按 id 倒序;过滤:发货单号模糊/订单/店铺/状态);列表不带明细 */
@@ -182,7 +188,9 @@ public class DeliveryOrderService {
      * ③回写 shipped_at;
      * ④发足判定:按 order_item_id 聚合该订单全部非 CANCELLED 发货单明细,仅 sku_id 已绑定行全部发足时
      * casOrderStatus 推进 WAIT_SHIP→SHIPPED(未命中不报错——部分发货/订单已被拉单推进都属正常);
-     * 流水操作人记发货单创建人(确认人维度待前端接 SecurityContext 后补)
+     * ⑤发布 DeliveryShippedEvent(erp-common):仅"事件发布",回传平台编排在 erp-api(ShipmentSyncService)
+     * 以 AFTER_COMMIT 相位消费——本域不具备 ShopSession/AdapterRegistry,且回传失败不得回滚本地发货
+     * (docs/04 回传拍板:失败记 pull_log,平台侧可手工补);事件在事务内发布,提交后才触发
      */
     @Transactional(rollbackFor = Exception.class)
     public void ship(Long id) {
@@ -213,6 +221,7 @@ public class DeliveryOrderService {
         DeliveryOrder mark = DeliveryOrder.builder().id(id).shippedAt(LocalDateTime.now()).build();
         deliveryOrderMapper.updateById(mark);
         advanceOrderIfFullyShipped(delivery.getOrderId());
+        eventPublisher.publishEvent(new DeliveryShippedEvent(id, delivery.getOrderId(), delivery.getShopId()));
     }
 
     /**

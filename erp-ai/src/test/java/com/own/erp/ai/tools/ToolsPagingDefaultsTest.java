@@ -1,10 +1,13 @@
 package com.own.erp.ai.tools;
 
 import com.own.erp.contract.AftersaleQueryApi;
+import com.own.erp.contract.DeliveryQueryApi;
 import com.own.erp.contract.GoodsQueryApi;
 import com.own.erp.contract.InventoryQueryApi;
 import com.own.erp.contract.OrderQueryApi;
+import com.own.erp.contract.PurchaseQueryApi;
 import com.own.erp.contract.QueryPage;
+import com.own.erp.contract.ShopQueryApi;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -72,6 +75,45 @@ class ToolsPagingDefaultsTest {
         ArgumentCaptor<AftersaleQueryApi.AftersaleFilter> captor =
                 ArgumentCaptor.forClass(AftersaleQueryApi.AftersaleFilter.class);
         verify(api).pageAftersales(captor.capture());
+        assertEquals(1, captor.getValue().page());
+        assertEquals(20, captor.getValue().size());
+    }
+
+    @Test
+    void shopNullPagingDefaultsToPageOneSizeTwenty() {
+        ShopQueryApi api = mock(ShopQueryApi.class);
+        when(api.pageShops(any())).thenReturn(QueryPage.of(List.of(), 0));
+        new ShopTools(api).listShops(null, null, null, null);
+
+        ArgumentCaptor<ShopQueryApi.ShopFilter> captor =
+                ArgumentCaptor.forClass(ShopQueryApi.ShopFilter.class);
+        verify(api).pageShops(captor.capture());
+        assertEquals(1, captor.getValue().page());
+        assertEquals(20, captor.getValue().size());
+    }
+
+    @Test
+    void purchaseNullPagingDefaultsToPageOneSizeTwenty() {
+        PurchaseQueryApi api = mock(PurchaseQueryApi.class);
+        when(api.pagePurchaseOrders(any())).thenReturn(QueryPage.of(List.of(), 0));
+        new PurchaseTools(api).listPurchaseOrders(null, null, null, null, null);
+
+        ArgumentCaptor<PurchaseQueryApi.PurchaseOrderFilter> captor =
+                ArgumentCaptor.forClass(PurchaseQueryApi.PurchaseOrderFilter.class);
+        verify(api).pagePurchaseOrders(captor.capture());
+        assertEquals(1, captor.getValue().page());
+        assertEquals(20, captor.getValue().size());
+    }
+
+    @Test
+    void deliveryNullPagingDefaultsToPageOneSizeTwenty() {
+        DeliveryQueryApi api = mock(DeliveryQueryApi.class);
+        when(api.pageDeliveries(any())).thenReturn(QueryPage.of(List.of(), 0));
+        new DeliveryTools(api).listDeliveries(null, null, null, null, null, null);
+
+        ArgumentCaptor<DeliveryQueryApi.DeliveryFilter> captor =
+                ArgumentCaptor.forClass(DeliveryQueryApi.DeliveryFilter.class);
+        verify(api).pageDeliveries(captor.capture());
         assertEquals(1, captor.getValue().page());
         assertEquals(20, captor.getValue().size());
     }

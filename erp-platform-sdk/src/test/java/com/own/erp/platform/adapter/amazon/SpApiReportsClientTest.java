@@ -45,6 +45,7 @@ class SpApiReportsClientTest {
     private HttpServer server;
     private SpApiReportsClient client;
     private final Deque<String> reportResponses = new ConcurrentLinkedDeque<>();
+    private final Deque<String> settlementListResponses = new ConcurrentLinkedDeque<>();
     private final List<String> requestBodies = new ArrayList<>();
     private final List<String> queries = new ArrayList<>();
     private final List<String> authHeaders = new ArrayList<>();
@@ -77,6 +78,11 @@ class SpApiReportsClientTest {
             queries.add(query);
             authHeaders.add(exchange.getRequestHeaders().getFirst("Authorization"));
             respondJson(exchange, "{\"payload\":{\"reportId\":\"REP-123\"}}");
+        } else if (path.equals("/reports/2021-06-30/reports") && exchange.getRequestMethod().equals("GET")) {
+            // 结算报告列表搜索(getReports,#19):查参断言用
+            queries.add(query);
+            String body = settlementListResponses.poll();
+            respondJson(exchange, body == null ? "{\"payload\":{\"reports\":[]}}" : body);
         } else if (path.equals("/reports/2021-06-30/reports/REP-123")) {
             queries.add(query);
             String body = reportResponses.poll();
@@ -196,5 +202,52 @@ class SpApiReportsClientTest {
                 () -> client.requestListingReport("Atoken-LWA", AWS));
 
         assertTrue(exception.getMessage().contains("HTTP 500"), exception.getMessage());
+    }
+
+    @Test
+    void listsSettlementReportsAndFetchesDocumentContent() {
+        settlementListResponses.add("{\"payload\":{\"reports\":[{"
+                + "\"reportId\":\"R-S1\",\"reportDocumentId\":\"DOC-S1\",\"processingStatus\":\"COMPLETED\"}]}}");
+
+        List<SpApiReportsClient.SettlementReportRef> refs =
+                client.listSettlementReports("Atoken-LWA", AWS);
+        String tsv = client.fetchSettlementReportContent("Atoken-LWA", AWS, refs.get(0).documentId());
+
+        assertEquals(1, refs.size());
+        assertEquals("R-S1", refs.get(0).reportId());
+        assertEquals("DOC-S1", refs.get(0).documentId());
+        // 搜索参数:V2 报表类型 + COMPLETED 状态 + 本站点 + 单页 12(官方:结算报告不可主动创建,只能搜索)
+        String query = queries.get(0);
+        assertTrue(query.contains("reportTypes=GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2"), query);
+        assertTrue(query.contains("processingStatuses=COMPLETED"), query);
+        assertTrue(query.contains("marketplaceIds=ATVPDKIKX0DER"), query);
+        assertTrue(query.contains("pageSize=12"), query);
+        assertTrue(tsv.contains("seller-sku"), tsv);
+    }
+
+    @Test
+    void settlementListFollowsNextTokenWithDefensiveCap() {
+        settlementListResponses.add("{\"payload\":{\"reports\":[{"
+                + "\"reportId\":\"R-1\",\"reportDocumentId\":\"D-1\",\"processingStatus\":\"COMPLETED\"}],"
+                + "\"nextToken\":\"NXT-1\"}}");
+        settlementListResponses.add("{\"payload\":{\"reports\":[{"
+                + "\"reportId\":\"R-2\",\"reportDocumentId\":\"D-2\",\"processingStatus\":\"COMPLETED\"}]}}");
+
+        List<SpApiReportsClient.SettlementReportRef> refs =
+                client.listSettlementReports("Atoken-LWA", AWS);
+
+        assertEquals(2, refs.size());
+        assertEquals("R-2", refs.get(1).reportId());
+        assertTrue(queries.get(1).contains("nextToken=NXT-1"), queries.get(1));
+    }
+
+    @Test
+    void settlementListItemWithoutDocumentIdFailsFast() {
+        settlementListResponses.add("{\"payload\":{\"reports\":[{\"reportId\":\"R-X\"}]}}");
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> client.listSettlementReports("Atoken-LWA", AWS));
+
+        assertTrue(exception.getMessage().contains("reportDocumentId"), exception.getMessage());
     }
 }

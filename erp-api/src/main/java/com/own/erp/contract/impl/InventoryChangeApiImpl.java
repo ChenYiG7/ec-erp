@@ -30,6 +30,7 @@ public class InventoryChangeApiImpl implements InventoryChangeApi {
                 .flowType(command.flowType())
                 .bizType(command.bizType())
                 .bizId(command.bizId())
+                .unitCost(command.unitCost())
                 .remark(command.remark())
                 .createdBy(command.createdBy())
                 .build());

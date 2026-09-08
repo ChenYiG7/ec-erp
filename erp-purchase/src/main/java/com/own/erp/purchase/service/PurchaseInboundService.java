@@ -149,7 +149,8 @@ public class PurchaseInboundService {
     /**
      * 确认入库(核销,#10 核心):PENDING → RECEIVED,同事务完成库存动账与采购核销。
      * ①条件更新占位 RECEIVED(并发双确认/重复确认仅一个成功,affected=0 拒;失败由事务整体回滚);
-     * ②逐行库存变更(唯一入口 InventoryService.change,flow_type=IN_PURCHASE,biz 指向本入库单);
+     * ②逐行库存变更(唯一入口 InventoryService.change,flow_type=IN_PURCHASE,biz 指向本入库单;
+     * unitCost 传采购行单价进移动加权成本账 #19③,行缺失防御传 null 走暂估);
      * ③receiveQuantities 原子累加 arrived_qty 并推进采购单状态(超收/单被关闭在此原子兜底);
      * 流水操作人记入库单创建人(确认人维度待前端接 SecurityContext 后补)
      */
@@ -167,7 +168,9 @@ public class PurchaseInboundService {
         if (CollUtil.isEmpty(lines)) {
             throw new BusinessException("入库单无明细,禁止确认:" + id);
         }
+        Map<Long, PurchaseOrderItem> poItemById = poItemMap(inbound.getPoId());
         for (PurchaseInboundItem line : lines) {
+            PurchaseOrderItem poItem = poItemById.get(line.getPoItemId());
             inventoryChangeApi.change(InventoryChangeCommand.builder()
                     .skuId(line.getSkuId())
                     .warehouseId(inbound.getWarehouseId())
@@ -175,6 +178,7 @@ public class PurchaseInboundService {
                     .flowType(InventoryConsts.FLOW_TYPE_IN_PURCHASE)
                     .bizType(PurchaseConsts.BIZ_TYPE_PURCHASE_INBOUND)
                     .bizId(id)
+                    .unitCost(poItem == null ? null : poItem.getPurchasePrice())
                     .remark("入库单:" + inbound.getInboundNo())
                     .createdBy(inbound.getCreatedBy())
                     .build());

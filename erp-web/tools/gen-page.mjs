@@ -13,7 +13,18 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { loadOpenapi, detectBaseSeg, classifyEndpoints, verifyChatEndpoints, fail } from './lib/openapi.js'
 import { parseSpec } from './lib/spec.js'
-import { buildContext, renderApi, renderTypes, renderIndex, renderForm, renderMenuSql, buildChatContext, renderChatTypes, renderChatApi, renderChatIndex } from './lib/render.js'
+import {
+  buildContext,
+  renderApi,
+  renderTypes,
+  renderIndex,
+  renderForm,
+  renderMenuSql,
+  buildChatContext,
+  renderChatTypes,
+  renderChatApi,
+  renderChatIndex,
+} from './lib/render.js'
 import { writeIfAbsent } from './lib/fsutil.js'
 
 const WEB_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
@@ -41,7 +52,7 @@ if (spec.pageType === 'chat') {
   outputs = [
     [`src/api/interface/${ctx.module}/${ctx.domain}.ts`, renderChatTypes(ctx)],
     [`src/api/apis/${ctx.module}/${ctx.domain}.ts`, renderChatApi(ctx)],
-    [`src/views/${ctx.component}.vue`, renderChatIndex(ctx)]
+    [`src/views/${ctx.component}.vue`, renderChatIndex(ctx)],
   ]
 } else {
   const baseSeg = detectBaseSeg(doc, spec.module, spec.domain, spec.base)
@@ -65,7 +76,7 @@ if (spec.pageType === 'chat') {
   outputs = [
     [`src/api/interface/${ctx.module}/${ctx.domain}.ts`, renderTypes(ctx)],
     [`src/api/apis/${ctx.module}/${ctx.domain}.ts`, renderApi(ctx)],
-    [`src/views/${ctx.component}.vue`, renderIndex(ctx)]
+    [`src/views/${ctx.component}.vue`, renderIndex(ctx)],
   ]
   const formContent = renderForm(ctx)
   if (formContent) {

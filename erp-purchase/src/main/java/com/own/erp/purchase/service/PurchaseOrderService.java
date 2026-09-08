@@ -1,6 +1,7 @@
 package com.own.erp.purchase.service;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.exception.BusinessException;
@@ -24,6 +25,7 @@ import com.own.erp.purchase.request.command.PurchaseOrderSaveRequest;
 import com.own.erp.purchase.request.query.PurchaseOrderQuery;
 import com.own.erp.purchase.response.PurchaseOrderItemResponse;
 import com.own.erp.purchase.response.PurchaseOrderResponse;
+import com.own.erp.purchase.response.SkuSupplierRow;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -109,10 +111,26 @@ public class PurchaseOrderService {
         return count == null ? 0L : count;
     }
 
-    /** 分页查询(默认按 id 倒序;过滤条件在 PurchaseOrderQuery 加字段后在此补 Wrapper 条件);列表不带明细 */
+    /**
+     * SKU→最新供应商映射(#17 采购建议取数,经 erp-contract PurchaseQueryApi 暴露):
+     * 每 SKU 取最近一笔非 DRAFT 采购单的明细行(XML 窗口函数,见 PurchaseOrderItemMapper);
+     * 无采购历史的 SKU 不在返回中,由调用方按"无法定位供应商"处理;投影行经域投影类 SkuSupplierRow 中转
+     */
+    public List<SkuSupplierRow> findLatestSupplierBySkuIds(Collection<Long> skuIds) {
+        if (CollUtil.isEmpty(skuIds)) {
+            return List.of();
+        }
+        return purchaseOrderItemMapper.findLatestSupplierRows(skuIds);
+    }
+
+    /** 分页查询(按 id 倒序;过滤:供应商/仓库/状态);列表不带明细 */
     public Page<PurchaseOrderResponse> page(PurchaseOrderQuery query) {
         Page<PurchaseOrder> result = purchaseOrderMapper.selectPage(new Page<>(query.getPageNo(), query.pageSize()),
-                new LambdaQueryWrapper<PurchaseOrder>().orderByDesc(PurchaseOrder::getId));
+                new LambdaQueryWrapper<PurchaseOrder>()
+                        .eq(query.getSupplierId() != null, PurchaseOrder::getSupplierId, query.getSupplierId())
+                        .eq(query.getWarehouseId() != null, PurchaseOrder::getWarehouseId, query.getWarehouseId())
+                        .eq(StrUtil.isNotBlank(query.getStatus()), PurchaseOrder::getStatus, query.getStatus())
+                        .orderByDesc(PurchaseOrder::getId));
         Page<PurchaseOrderResponse> responsePage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
         responsePage.setRecords(result.getRecords().stream().map(PurchaseOrderResponse::from).toList());
         return responsePage;

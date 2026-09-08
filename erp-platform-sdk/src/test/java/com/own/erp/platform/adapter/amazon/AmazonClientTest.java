@@ -162,6 +162,29 @@ class AmazonClientTest {
         assertTrue(exception.getMessage().contains("AWS 密钥"), exception.getMessage());
     }
 
+    @Test
+    void pullSettlementsSharesSessionGuard() {
+        // 结算报告拉取(#19)入口守卫同拉单口径:LWA token 缺失友好报错
+        ShopSession session = new ShopSession(1L, PlatformType.AMAZON, new AuthToken());
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> client.pullSettlements(session));
+
+        assertTrue(exception.getMessage().contains("accessToken"), exception.getMessage());
+    }
+
+    @Test
+    void pullSettlementsRejectsWithoutAwsCredentialsConfigured() {
+        AuthToken token = new AuthToken();
+        token.setAccessToken("Atoken");
+        ShopSession session = new ShopSession(1L, PlatformType.AMAZON, token);
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> client.pullSettlements(session));
+
+        assertTrue(exception.getMessage().contains("AWS 密钥"), exception.getMessage());
+    }
+
     /** 回传命令样板(请求形态细节在 SpApiOrdersClientTest 覆盖,此处不重复) */
     private static PlatformShipment sampleShipment() {
         return PlatformShipment.builder()

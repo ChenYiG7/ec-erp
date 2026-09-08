@@ -50,6 +50,12 @@ public final class ConfigConsts {
     /** 异常检测:单轮送 LLM 评分上限(成本护栏),int */
     public static final String KEY_ANOMALY_LLM_MAX_ITEMS = "erp.ai.anomaly.llm-max-items";
 
+    /** 采购建议:单轮送 LLM 摘要的供应商组上限(成本护栏),int */
+    public static final String KEY_PURCHASE_LLM_MAX_ITEMS = "erp.ai.purchase.llm-max-items";
+
+    /** 文案生成:单轮送 LLM 生成的商品上限(成本护栏,超限截断下轮再生成),int */
+    public static final String KEY_COPY_LLM_MAX_ITEMS = "erp.ai.copy.llm-max-items";
+
     /** 对话 system prompt(多行文本) */
     public static final String KEY_SYSTEM_PROMPT = "erp.ai.system-prompt";
 
@@ -58,6 +64,12 @@ public final class ConfigConsts {
 
     /** 异常评分节点 system prompt(多行文本) */
     public static final String KEY_ANOMALY_SCORE_PROMPT = "erp.ai.anomaly.score-prompt";
+
+    /** 采购摘要节点 system prompt(多行文本) */
+    public static final String KEY_PURCHASE_SUMMARY_PROMPT = "erp.ai.purchase.summary-prompt";
+
+    /** 文案生成节点 system prompt(多行文本) */
+    public static final String KEY_COPY_PROMPT = "erp.ai.copy.prompt";
 
     /** Agent:客服角色 system prompt(多行文本) */
     public static final String KEY_AGENT_SUPPORT_PROMPT = "erp.ai.agent.support-prompt";
@@ -83,6 +95,12 @@ public final class ConfigConsts {
     /** Agent 模型连接三件套:model 名 */
     public static final String KEY_AGENT_MODEL = "erp.ai.agent.model";
 
+    /** 知识库检索:命中条数上限(RAG 注入 chat 上下文的 top-k),int */
+    public static final String KEY_KB_RETRIEVAL_TOP_K = "erp.ai.kb.retrieval-top-k";
+
+    /** 知识库检索:相似度下限(0~1,低于此分不注入),double */
+    public static final String KEY_KB_RETRIEVAL_MIN_SCORE = "erp.ai.kb.retrieval-min-score";
+
     /** ── AI 组合法词表(保存校验用;基础键组 = GROUP_AI)── */
 
     /** AI 组合法键全集(api-key 禁入——凭证类键只走环境变量/local.properties,docs/07 §7 安全红线) */
@@ -91,10 +109,13 @@ public final class ConfigConsts {
             KEY_REPLENISH_SALES_WINDOW_DAYS, KEY_REPLENISH_MIN_SUGGEST_QTY,
             KEY_ANOMALY_BIG_ORDER_AMOUNT, KEY_ANOMALY_UNPAID_HOURS,
             KEY_ANOMALY_HIGH_DISCOUNT_RATIO, KEY_ANOMALY_LLM_MAX_ITEMS,
+            KEY_PURCHASE_LLM_MAX_ITEMS, KEY_COPY_LLM_MAX_ITEMS,
             KEY_SYSTEM_PROMPT, KEY_REPLENISH_SUMMARY_PROMPT, KEY_ANOMALY_SCORE_PROMPT,
+            KEY_PURCHASE_SUMMARY_PROMPT, KEY_COPY_PROMPT,
             KEY_AGENT_SUPPORT_PROMPT, KEY_AGENT_OPS_PROMPT,
             KEY_AGENT_MAX_ITERS, KEY_AGENT_HISTORY_MAX_MESSAGES,
-            KEY_TOOL_AUDIT_MAX_LENGTH, KEY_MODEL, KEY_AGENT_BASE_URL, KEY_AGENT_MODEL);
+            KEY_TOOL_AUDIT_MAX_LENGTH, KEY_MODEL, KEY_AGENT_BASE_URL, KEY_AGENT_MODEL,
+            KEY_KB_RETRIEVAL_TOP_K, KEY_KB_RETRIEVAL_MIN_SCORE);
 
     /** ── 库存预警键(GROUP_ALERT)── */
 

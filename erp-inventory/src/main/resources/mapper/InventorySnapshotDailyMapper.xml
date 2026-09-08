@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.own.erp.inventory.mapper.InventorySnapshotDailyMapper">
+
+    <!-- 每日存量快照(#6 库存快照数据面):把当日 inventory 全量四量按 (sku, 仓) 落快照;
+         ODKU 新值经源表别名 src 引用——直传无聚合的 INSERT...SELECT 直接引用源表列即 9.7.2 规范形态
+         (行别名 `AS new` 仅支持 VALUES 行,INSERT...SELECT 上 1064 语法错误,2026-09-08 于 9.7.2 真库实测;
+          聚合场景需派生表包裹,同 OrderSalesDailyMapper 先例);
+         created_at/updated_at 不在列清单,交库默认值与 ON UPDATE CURRENT_TIMESTAMP 兜底;
+         uk_sku_wh_date 冲突即覆盖当日值 —— 同日重跑/补跑幂等(快照不可回溯,故无窗口重算);
+         库存为 0 的行也入快照(零库存是有意义的事实:缺货持续天数靠它算) -->
+    <insert id="upsertSnapshot">
+        INSERT INTO inventory_snapshot_daily
+            (stat_date, sku_id, warehouse_id, qty_on_hand, qty_locked, qty_transit, qty_available)
+        SELECT #{statDate}      AS stat_date,
+               src.sku_id           AS sku_id,
+               src.warehouse_id     AS warehouse_id,
+               src.qty_on_hand      AS qty_on_hand,
+               src.qty_locked       AS qty_locked,
+               src.qty_transit      AS qty_transit,
+               src.qty_available    AS qty_available
+        FROM inventory src
+        ON DUPLICATE KEY UPDATE qty_on_hand = src.qty_on_hand,
+                                qty_locked = src.qty_locked,
+                                qty_transit = src.qty_transit,
+                                qty_available = src.qty_available
+    </insert>
+
+    <!-- 单 SKU 时间序(读侧只读,契约 InventorySnapshotQueryApi 收口):
+         指定仓库 = 原行直出;warehouseId 为空 = 按 SKU 跨仓聚合(SUM 四量,仓库列置 0)。
+         LIMIT 用 #{} 传入(已由 Service 钳制 1..365,非拼接) -->
+    <select id="listSeries" resultType="com.own.erp.inventory.entity.InventorySnapshotDaily">
+        SELECT stat_date                       AS statDate,
+               sku_id                          AS skuId,
+               <if test="warehouseId != null">
+                   warehouse_id
+               </if>
+               <if test="warehouseId == null">
+                   0
+               </if>
+                                               AS warehouseId,
+               SUM(qty_on_hand)                AS qtyOnHand,
+               SUM(qty_locked)                 AS qtyLocked,
+               SUM(qty_transit)                AS qtyTransit,
+               SUM(qty_available)              AS qtyAvailable
+        FROM inventory_snapshot_daily
+        WHERE sku_id = #{skuId}
+          AND stat_date &gt;= #{from}
+          AND stat_date <![CDATA[<=]]> #{to}
+          <if test="warehouseId != null">
+              AND warehouse_id = #{warehouseId}
+          </if>
+        GROUP BY stat_date, sku_id
+        <if test="warehouseId != null">
+            , warehouse_id
+        </if>
+        ORDER BY stat_date
+        LIMIT #{limit}
+    </select>
+</mapper>

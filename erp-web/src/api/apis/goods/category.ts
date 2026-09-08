@@ -14,5 +14,5 @@ export const categoryApi = {
   /** 修改分类(MP updateById 忽略 null 字段,可部分更新) */
   update: (id: number, data: ProductCategorySaveRequest) => http.put<boolean>(`/api/goods/categories/${id}`, data),
   /** 删除分类(一期硬删;TODO(#7) 后有子分类/商品引用时拦截) */
-  remove: (id: number) => http.delete<boolean>(`/api/goods/categories/${id}`)
+  remove: (id: number) => http.delete<boolean>(`/api/goods/categories/${id}`),
 }

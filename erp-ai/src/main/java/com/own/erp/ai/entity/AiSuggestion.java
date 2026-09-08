@@ -30,7 +30,7 @@ public class AiSuggestion {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    /** 建议类型:REPLENISH补货/PRICING定价/ANOMALY异常/COPYWRITING文案(封闭词表,随AI服务扩容) */
+    /** 建议类型:REPLENISH补货/PRICING定价/ANOMALY异常/COPYWRITING文案/PURCHASE采购(封闭词表,随AI服务扩容) */
     private String suggestionType;
 
     /** 关联店铺ID(shop.id,跨店/全局建议为NULL) */
@@ -39,7 +39,7 @@ public class AiSuggestion {
     /** 关联内部SKU ID(product_sku.id,非SKU维度建议为NULL) */
     private Long skuId;
 
-    /** 关联业务类型(如SHOP_ORDER/INVENTORY,对齐inventory_flow.biz_type风格) */
+    /** 关联业务类型(如SHOP_ORDER/INVENTORY/SUPPLIER,对齐inventory_flow.biz_type风格) */
     private String refType;
 
     /** 关联业务单据ID */

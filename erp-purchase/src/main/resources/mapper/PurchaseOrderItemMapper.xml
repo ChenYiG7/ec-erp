@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- purchase_order_item 自定义查询(#17 采购建议取数):通用 CRUD 走 BaseMapper,本文件只放联查投影 -->
+<mapper namespace="com.own.erp.purchase.mapper.PurchaseOrderItemMapper">
+
+    <!-- SKU→最新供应商映射:每 SKU 取最近一笔非 DRAFT 采购单的明细行
+         (排序键 采购单创建时间 DESC、明细 id DESC;DRAFT 草稿未定案不算采购历史;
+          供应商与采购单业务强关联且删除被引用校验拦截,内联 JOIN 安全)。
+         窗口函数 ROW_NUMBER() 每组(PARTITION BY sku_id)取 rn=1——8.0+ 原生可用,
+         开发库 9.7.2 LTS 2026-09-08 真库验证;id 全局唯一保证同秒并列可决 -->
+    <select id="findLatestSupplierRows" resultType="com.own.erp.purchase.response.SkuSupplierRow">
+        SELECT skuId, supplierId, supplierName, lastPrice, lastPoNo, lastPoAt
+        FROM (
+            SELECT i.sku_id         AS skuId,
+                   po.supplier_id   AS supplierId,
+                   s.name           AS supplierName,
+                   i.purchase_price AS lastPrice,
+                   po.po_no         AS lastPoNo,
+                   po.created_at    AS lastPoAt,
+                   ROW_NUMBER() OVER (PARTITION BY i.sku_id ORDER BY po.created_at DESC, i.id DESC) AS rn
+            FROM purchase_order_item i
+            JOIN purchase_order po ON po.id = i.po_id
+            JOIN supplier s ON s.id = po.supplier_id
+            WHERE po.status != 'DRAFT'
+              AND i.sku_id IN
+            <foreach collection="skuIds" item="skuId" open="(" separator="," close=")">
+                #{skuId}
+            </foreach>
+        ) t
+        WHERE rn = 1
+    </select>
+</mapper>

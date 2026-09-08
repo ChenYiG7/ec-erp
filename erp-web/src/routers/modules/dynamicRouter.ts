@@ -26,7 +26,7 @@ export const initDynamicRouter = async () => {
         title: '无权限访问',
         message: '当前账号无任何菜单权限，请联系系统管理员！',
         type: 'warning',
-        duration: 3000
+        duration: 3000,
       })
       // 必须 clearUserInfo:setToken('') 会把 isLoggedIn 置 true,守卫会把 /login 弹回原页,与 401 拦截器互踢成死循环(docs/09 §3.5)
       userStore.clearUserInfo()
@@ -42,7 +42,9 @@ export const initDynamicRouter = async () => {
         const module = modules[`/src/views/${componentPath}.vue`]
         // 守卫前置:菜单 component 无对应视图必须显式报错,禁静默白屏(docs/09 §7)
         if (!module) {
-          console.error(`[动态路由] 菜单 component 无对应视图: ${item.component}(path=${item.path}, title=${item.meta.title})——请检查 sys_menu.component 与 src/views 目录是否一致`)
+          console.error(
+            `[动态路由] 菜单 component 无对应视图: ${item.component}(path=${item.path}, title=${item.meta.title})——请检查 sys_menu.component 与 src/views 目录是否一致`
+          )
           return
         }
         item.component = module

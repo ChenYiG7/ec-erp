@@ -6,18 +6,34 @@
 
 <template>
   <div class="table-box">
-    <ProTable ref="proTableRef" page-id="/system/users" title="用户管理" :columns="columns" :request-api="sysUserApi.page">
+    <ProTable
+      ref="proTableRef"
+      page-id="/system/users"
+      title="用户管理"
+      :columns="columns"
+      :request-api="sysUserApi.page"
+    >
       <!-- 工具栏左:新增(按钮权限收口在页面侧 v-auth;toolbarLeft prop 的 auth 属性无效,禁用) -->
       <template #toolbarLeft>
-        <el-button v-auth="'system:user:add'" type="primary" :icon="CirclePlus" @click="openForm('add')">新增用户管理</el-button>
+        <el-button v-auth="'system:user:add'" type="primary" :icon="CirclePlus" @click="openForm('add')"
+          >新增用户管理</el-button
+        >
       </template>
 
       <!-- 操作列(ProTable v2:type:'operation' 列必须提供本插槽) -->
       <template #operation="scope">
-        <el-button v-auth="'system:user:edit'" type="primary" link :icon="EditPen" @click="openForm('edit', scope.row)">编辑</el-button>
-        <el-button v-auth="'system:user:remove'" type="danger" link :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
-        <el-button v-auth="'system:user:roles'" type="warning" link :icon="User" @click="openRoles(scope.row)">角色分配</el-button>
-        <el-button v-auth="'system:user:password'" type="warning" link :icon="Key" @click="onPassword(scope.row)">重置密码</el-button>
+        <el-button v-auth="'system:user:edit'" type="primary" link :icon="EditPen" @click="openForm('edit', scope.row)"
+          >编辑</el-button
+        >
+        <el-button v-auth="'system:user:remove'" type="danger" link :icon="Delete" @click="handleDelete(scope.row)"
+          >删除</el-button
+        >
+        <el-button v-auth="'system:user:roles'" type="warning" link :icon="User" @click="openRoles(scope.row)"
+          >角色分配</el-button
+        >
+        <el-button v-auth="'system:user:password'" type="warning" link :icon="Key" @click="onPassword(scope.row)"
+          >重置密码</el-button
+        >
       </template>
     </ProTable>
     <SysUserForm ref="formRef" @saved="refreshTable" />
@@ -47,9 +63,17 @@ const columns: ColumnProps<SysUserResponse>[] = [
   { type: 'index', label: '#', width: 55 },
   { prop: 'username', label: '用户名', width: 140 },
   { prop: 'nickname', label: '昵称', width: 140 },
-  { prop: 'status', label: '状态', width: 90, enum: [{ label: '启用', value: 1, tagType: 'success' }, { label: '停用', value: 0, tagType: 'danger' }] },
+  {
+    prop: 'status',
+    label: '状态',
+    width: 90,
+    enum: [
+      { label: '启用', value: 1, tagType: 'success' },
+      { label: '停用', value: 0, tagType: 'danger' },
+    ],
+  },
   { prop: 'createdAt', label: '创建时间', width: 170 },
-  { prop: 'operation', label: '操作', fixed: 'right', width: 350 }
+  { prop: 'operation', label: '操作', fixed: 'right', width: 350 },
 ]
 
 const openForm = (mode: 'add' | 'edit', row?: SysUserResponse) => {
@@ -71,7 +95,7 @@ const onPassword = async (row: SysUserResponse) => {
   const { value } = await ElMessageBox.prompt(`请输入用户 ${row.username} 的新密码(≥6 位)`, '重置密码', {
     inputType: 'password',
     inputPattern: /^.{6,}$/,
-    inputErrorMessage: '密码至少 6 位'
+    inputErrorMessage: '密码至少 6 位',
   })
   await sysUserApi.password(row.id, { newPassword: value })
   ElMessage.success('密码已重置')

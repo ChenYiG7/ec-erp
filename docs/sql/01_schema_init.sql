@@ -80,7 +80,7 @@ INSERT IGNORE INTO sys_user_role (user_id, role_id) VALUES (1, 1);
 -- 菜单种子(#16 前端工程收敛:页面 component 权威源 = erp-web/tools/specs/*;按钮 id 段 200+ 与 menuId*100+n(1100+,gen:page 生成段),按父菜单分组;
 -- icon 仅限 @element-plus/icons-vue 导出图标名(如 User/Menu/Tools,kebab 亦可解析),自造名如 peoples/tree/tool 前端不渲染)
 INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path, component, icon, sort) VALUES
-(1, 0, '系统管理', 1, NULL, '/system', NULL, 'setting', 7),
+(1, 0, '系统管理', 1, NULL, '/system', NULL, 'setting', 8),
 (2, 1, '用户管理', 2, 'system:user:list', '/system/users', 'system/user/index', 'user', 1),
 (3, 1, '角色管理', 2, 'system:role:list', '/system/roles', 'system/role/index', 'Avatar', 2),
 (4, 1, '菜单管理', 2, 'system:menu:list', '/system/menus', 'system/menu/index', 'Menu', 3),
@@ -112,7 +112,7 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path
 (21, 8, '拉单日志', 2, 'shop:pulllog:list', '/system/pull-logs', 'shop/pull-log/index', 'document', 4),
 -- 通知中心(#14 完整列表面 2026-09-06:铃铛下拉之外的全量分页 + 已读过滤;页面动作仅本人已读状态无 permKey;
 --   2026-09-07 菜单整理:系统管理 -> 顶级 sort=6,path 保持 /system/notifications 不变——页面 page-id 与之绑定,改 path 会使列配置失联)
-(22, 0, '通知中心', 2, 'system:notification:list', '/system/notifications', 'system/notification/index', 'bell', 6),
+(22, 0, '通知中心', 2, 'system:notification:list', '/system/notifications', 'system/notification/index', 'bell', 7),
 -- 商品分类(#5 前端树形页 2026-09-06:手写页,gen:page 不适用——树形域无分页端点;编辑态禁改父级,后端成环校验 TODO#7 待补)
 (23, 6, '分类管理', 2, 'goods:category:list', '/goods/categories', 'goods/category/index', 'Collection', 5),
 -- 品牌管理(#5 gen:page 生成 2026-09-06,spec=goods-brand.txt;契约无业务过滤字段,页无搜索表单)
@@ -124,8 +124,17 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path
 (26, 25, 'AI对话', 2, 'ai:chat:list', '/ai/chat', 'ai/chat/index', 'chat-dot-round', 1),
 (27, 25, 'AI建议', 2, 'ai:suggestion:list', '/ai/suggestions', 'ai/ai-suggestion/index', 'magic-stick', 2),
 (28, 25, 'AI智能体', 2, 'ai:agent:list', '/ai/agent', 'ai/agent/index', 'chat-line-round', 3),
+-- AI知识库(#6 RAG V1 前端页 2026-09-08:文档列表 + 文件/粘贴接入 + 分块预览 + 重建,手写页(上传/预览非标准 CRUD,
+-- gen:page 不适用);读侧登录即可,写侧后端 admin 双闸;知识库语料全局生效,影响所有用户 chat 检索)
+(30, 25, 'AI知识库', 2, 'ai:kb:list', '/ai/kb', 'ai/kb/index', 'notebook', 4),
+-- 财务中心(#19③ 利润核算 V1 2026-09-08:利润报表只读 + 汇率维护,均手写页(汇总卡/筛选卡/单动作弹窗,
+-- gen:page 不适用);利润读侧登录即可;汇率写侧 admin 双闸(按钮 finance:rate:save + @PreAuthorize);
+-- 顶级插库存管理(5)后 sort=6,通知中心(22)7/系统管理(1)8 顺延——存量库走 scripts/profit_menu.py 补 UPDATE)
+(31, 0, '财务中心', 1, NULL, '/finance', NULL, 'wallet', 6),
+(32, 31, '实时销售利润', 2, 'finance:profit:list', '/finance/profit', 'finance/profit/index', 'Coin', 1),
+(33, 31, '汇率快照', 2, 'finance:rate:list', '/finance/exchange-rates', 'finance/exchange-rate/index', 'Money', 2),
 -- 系统设置(TODO#18 前端页 2026-09-07:sys_config 分组面板,手写页(gen:page 不适用——非 CRUD 列表页,
---   只读拉全量+保存动作,后端 admin 双闸);按钮组仅“保存参数”一个动作,幂等 upsert)
+--   只读拉全量+保存动作,后端 admin 双闸);按钮组仅“保存参数”一个动作,幂等 upsert;2026-09-08 sort 5→8 顺延)
 (29, 1, '系统设置', 2, 'system:config:list', '/system/configs', 'system/config/index', 'Tools', 5);
 INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key) VALUES
 (200, 2, '新增', 3, 'system:user:add'),
@@ -188,7 +197,9 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key) VALU
 -- 品牌管理按钮(#5 gen:page 生成 2026-09-06)
 (2401, 24, '新增', 3, 'goods:brand:add'),
 (2402, 24, '编辑', 3, 'goods:brand:edit'),
-(2403, 24, '删除', 3, 'goods:brand:remove');
+(2403, 24, '删除', 3, 'goods:brand:remove'),
+-- 财务中心按钮(#19③ 2026-09-08:汇率录入单动作;利润页只读无按钮)
+(3301, 33, '录入快照', 3, 'finance:rate:save');
 INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
 (1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(1,9),(1,100),(1,101),
 (1,200),(1,201),(1,202),(1,203),(1,204),(1,210),(1,211),(1,212),(1,213),
@@ -200,7 +211,8 @@ INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
 (1,1601),
 (1,20),(1,2001),(1,2002),(1,2003),(1,21),(1,22),
 (1,23),(1,2301),(1,2302),(1,2303),(1,24),(1,2401),(1,2402),(1,2403),
-(1,25),(1,26),(1,27),(1,28),(1,29),(1,290);
+(1,25),(1,26),(1,27),(1,28),(1,29),(1,290),(1,30),
+(1,31),(1,32),(1,33),(1,3301);
 -- ⚠️ 已建库(旧种子已插入)需手工执行对齐 --
 -- UPDATE sys_menu SET path='/goods/product', component='goods/product/index' WHERE id=7;   -- IGNORE 不更新存量行
 -- 再执行上面对应新增段(各新增段均为全新 id,含后续追加的按钮/页面/授权行,整段重跑 INSERT IGNORE 即可,幂等);
@@ -313,6 +325,12 @@ INSERT IGNORE INTO sys_config (config_group, config_key, config_value, remark) V
 ('AI', 'erp.ai.anomaly.high-discount-ratio', '0.5', '异常检测:高折扣比率(0~1,折扣金额≥下单金额×此比率命中)'),
 ('AI', 'erp.ai.anomaly.llm-max-items', '20', '异常检测:单轮送 LLM 评分上限(超限按基线风险降序截断,成本护栏)'),
 ('AI', 'erp.ai.anomaly.score-prompt', '你是电商 ERP 的订单风控助手。根据给定的订单信息与其命中的规则,为每张可疑订单评估风险等级(只能取 LOW/MID/HIGH 之一)并给一句不超过 40 字的中文理由。只输出 JSON 数组,元素形如 {"orderId":1,"riskLevel":"MID","reason":"..."},不输出任何其他文字。', '异常评分节点 system 提示词'),
+('AI', 'erp.ai.purchase.llm-max-items', '20', '采购建议:单轮送 LLM 摘要的供应商组上限(超限按预估金额降序截断,成本护栏)'),
+('AI', 'erp.ai.purchase.summary-prompt', '你是电商 ERP 的采购分析助手。根据给定的按供应商聚合的补货缺口与预估金额,为每个供应商写一句不超过 50 字的中文采购建议摘要(说明采购理由与紧急程度)。只输出 JSON 数组,元素形如 {"supplierId":1,"summary":"..."},不输出任何其他文字。', '采购摘要节点 system 提示词'),
+('AI', 'erp.ai.copy.llm-max-items', '10', '文案生成:单轮送 LLM 生成的商品上限(超限按商品ID升序截断下轮再生成,成本护栏)'),
+('AI', 'erp.ai.copy.prompt', '你是电商平台的 listing 文案专家。根据给定的商品信息(名称/品牌/类目/销售属性/SKU 规格)为每个商品生成一套中文电商文案:标题 title(含品牌与核心卖点,60 字以内)、五点描述 bulletPoints(5 条,每条不超过 40 字,突出卖点与规格)、商品描述 description(150~300 字)、搜索关键词 keywords(5~10 个)。只能基于给定信息撰写,禁止编造商品没有的参数。只输出 JSON 数组,元素形如 {"productId":1,"title":"...","bulletPoints":["..."],"description":"...","keywords":["..."]},不输出任何其他文字。', '文案生成节点 system 提示词'),
+('AI', 'erp.ai.kb.retrieval-top-k', '4', '知识库RAG:检索命中条数上限(注入 chat 上下文的片段数;0=关闭注入)'),
+('AI', 'erp.ai.kb.retrieval-min-score', '0.5', '知识库RAG:检索相似度下限(0~1,低于此分不注入)'),
 ('ALERT', 'erp.alert.enabled', 'true', '库存预警总开关(false 时预警任务直接返回不扫描)'),
 ('ALERT', 'erp.alert.quiet-hours', '24', '预警静默期(小时,同类型告警窗口内只发一条防刷屏)'),
 ('ALERT', 'erp.alert.low-stock-threshold', '10', '预警:低库存阈值(可用库存 ≤ 此值命中)'),
@@ -350,18 +368,18 @@ CREATE TABLE IF NOT EXISTS shop (
 CREATE TABLE IF NOT EXISTS pull_log (
     id            BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
     shop_id       BIGINT      NOT NULL COMMENT '店铺ID(shop.id)',
-    data_type     VARCHAR(32) NOT NULL COMMENT 'ORDER/PRODUCT/REFUND',
+    data_type     VARCHAR(32) NOT NULL COMMENT 'ORDER/PRODUCT/REFUND/SHIPMENT(发货回传,非拉取型:窗口退化为本次时刻、pulled_count 恒 1,2026-09-08 #11 编排)',
     window_start  DATETIME    NOT NULL COMMENT '拉取窗口起点(含)',
     window_end    DATETIME    NOT NULL COMMENT '拉取窗口终点(含);游标=最近成功记录的window_end',
     pulled_count  INT         NOT NULL DEFAULT 0 COMMENT '本次拉取条数',
     success       TINYINT     NOT NULL DEFAULT 1 COMMENT '1成功0失败',
     error_msg     TEXT        NULL COMMENT '失败原因',
     duration_ms   INT         NULL COMMENT '本次拉取耗时(毫秒),观测慢店铺/慢接口',
-    pull_way      VARCHAR(16) NULL COMMENT '触发方式:JOB定时/MANUAL手动',
+    pull_way      VARCHAR(16) NULL COMMENT '触发方式:JOB定时/MANUAL手动/EVENT业务事件(2026-09-08 #11 确认发货事件驱动回传)',
     created_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     KEY idx_shop_type_time (shop_id, data_type, window_end)
-) COMMENT '平台拉取日志(增量游标依据:取成功记录的window_end,左叠5分钟)';
+) COMMENT '平台拉取日志(增量游标依据:取成功记录的window_end,左叠5分钟;SHIPMENT 行非拉取型,不参与游标)';
 
 -- ---------------- 商品 ----------------
 CREATE TABLE IF NOT EXISTS brand (
@@ -678,6 +696,8 @@ CREATE TABLE IF NOT EXISTS inventory_flow (
     after_qty    INT         NOT NULL COMMENT '变更后可用库存',
     biz_type     VARCHAR(32) NULL COMMENT '关联业务类型',
     biz_id       BIGINT      NULL COMMENT '关联业务单据ID',
+    unit_cost    DECIMAL(18,8) NULL COMMENT '动账单价快照(CNY,移动加权 #19③):IN_PURCHASE=采购单价(缺价暂估当时加权价)/OUT_SHIP=结转时加权价/IN_RETURN·ADJUST=当时加权价;IN_TRANSIT·LOCK_SHIP·TRANSFER_OUT·TRANSFER_IN 不进成本账为NULL',
+    cost_amount  DECIMAL(18,2) NULL COMMENT '动账成本额(CNY,带符号=quantity×unit_cost方向随动账:入库正/出库负;不进成本账类型为NULL;Σ可重放校验 sku_cost_state)',
     remark       VARCHAR(255) NULL COMMENT '备注',
     created_by   BIGINT      NULL COMMENT '操作人(sys_user.id),系统动作为NULL',
     created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -685,13 +705,47 @@ CREATE TABLE IF NOT EXISTS inventory_flow (
     KEY idx_sku_time (sku_id, created_at)
 ) COMMENT '库存流水(与库存变更同事务写入)';
 
+-- SKU 移动加权成本账(#19③ 利润核算 V1,2026-09-08 定稿 docs/02 §14 成本计价拍板"先移动加权"):
+--   动账同事务维护(docs/07 铁律 4 同款唯一入口 InventoryService.change),出库结转先 SELECT FOR UPDATE 本行
+--   串行化同 SKU 成本计算(锁序 inventory 行 → 本行,单向无死锁);账本口径=全局跨仓(不分仓,调拨两腿不进账);
+--   无价入库按当时加权价暂估(首次无价记 0,禁猜价);结存金额可由 inventory_flow 成本列逐笔重放校验(V2 对账用)
+CREATE TABLE IF NOT EXISTS sku_cost_state (
+    id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    sku_id       BIGINT NOT NULL COMMENT 'SKU ID(product_sku.id)',
+    total_qty    INT NOT NULL DEFAULT 0 COMMENT '账本结存数量(全局跨仓,移动加权分母;与 inventory 在库量口径一致可核对)',
+    total_amount DECIMAL(18,2) NOT NULL DEFAULT 0 COMMENT '账本结存金额(CNY,移动加权分子)',
+    avg_cost     DECIMAL(18,8) NOT NULL DEFAULT 0 COMMENT '当前移动加权单价(CNY)=total_amount/total_qty;结存清零时保留末次价作下次入库暂估基准',
+    updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_sku (sku_id)
+) COMMENT 'SKU移动加权成本账(出库成本事实源:OUT_SHIP 行 unit_cost 快照落 inventory_flow)';
+
+-- 库存日快照(#6 库存快照/周转报表面,2026-09-08 定稿 docs/03 §7.2):
+--   快照日×SKU×仓库 存量四量;erp-api InventorySnapshotJob 每日低峰 upsert(uk_sku_wh_date 幂等,同日重跑覆盖);
+--   ⚠️ **不可回溯**:快照取的是"当下存量",历史日期无法重算(要回溯需由 inventory_flow 逐日反推,V2 再评估);
+--   读侧只读契约 InventorySnapshotQueryApi(erp-ai/报表域),与销量面 order_sales_daily 相互独立
+CREATE TABLE IF NOT EXISTS inventory_snapshot_daily (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    stat_date      DATE   NOT NULL COMMENT '快照日期(每日低峰取当前存量快照)',
+    sku_id         BIGINT NOT NULL COMMENT '内部SKU ID(product_sku.id)',
+    warehouse_id   BIGINT NOT NULL COMMENT '仓库ID(warehouse.id)',
+    qty_on_hand    INT    NOT NULL DEFAULT 0 COMMENT '在库快照',
+    qty_locked     INT    NOT NULL DEFAULT 0 COMMENT '占用快照(发货单占用未发货,#11 建单占/取消释放)',
+    qty_transit    INT    NOT NULL DEFAULT 0 COMMENT '在途快照(采购审核占用未入库,#10)',
+    qty_available  INT    NOT NULL DEFAULT 0 COMMENT '可用快照=在库-占用',
+    created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_sku_wh_date (sku_id, warehouse_id, stat_date),
+    KEY idx_date (stat_date),
+    KEY idx_sku (sku_id)
+) COMMENT='库存日快照(周转报表/存量趋势数据面,只增不可回溯)';
+
 -- ---------------- AI 辅助(三期 2026-09-06 随 #6 AI 地基落地,docs/03 §7 定稿) ----------------
 CREATE TABLE IF NOT EXISTS ai_suggestion (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
-    suggestion_type VARCHAR(32)  NOT NULL COMMENT '建议类型:REPLENISH补货/PRICING定价/ANOMALY异常/COPYWRITING文案(封闭词表,随AI服务扩容)',
+    suggestion_type VARCHAR(32)  NOT NULL COMMENT '建议类型:REPLENISH补货/PRICING定价/ANOMALY异常/COPYWRITING文案/PURCHASE采购(封闭词表,随AI服务扩容)',
     shop_id         BIGINT       NULL COMMENT '关联店铺ID(shop.id,跨店/全局建议为NULL)',
     sku_id          BIGINT       NULL COMMENT '关联内部SKU ID(product_sku.id,非SKU维度建议为NULL)',
-    ref_type        VARCHAR(32)  NULL COMMENT '关联业务类型(如SHOP_ORDER/INVENTORY,对齐inventory_flow.biz_type风格)',
+    ref_type        VARCHAR(32)  NULL COMMENT '关联业务类型(如SHOP_ORDER/INVENTORY/SUPPLIER,对齐inventory_flow.biz_type风格)',
     ref_id          BIGINT       NULL COMMENT '关联业务单据ID',
     payload_json    JSON         NULL COMMENT '建议结构化负载(补货量/建议价等,展示与采纳回放用)',
     summary         VARCHAR(512) NOT NULL COMMENT '建议摘要(列表直显,LLM结论一句话)',
@@ -727,6 +781,81 @@ CREATE TABLE IF NOT EXISTS ai_chat_message (
     KEY idx_session_time (session_id, created_at)
 ) COMMENT 'AI会话消息(对话落库可审计)';
 
--- TODO(三期余量): settlement/settlement_detail/ad_report_daily/exchange_rate(docs/03 §6 草案)、
---                  inventory_snapshot_daily(docs/03 §4/§7 草案,随库存预警切片落地)
--- 表结构见 docs/03-数据库设计.md,随对应模块开发时建表
+-- ---------------- AI 客服知识库(RAG V1 2026-09-08 随 #6 AI 客服落地) ----------------
+-- 向量库拍板:SimpleVectorStore(JSON 文件持久化,零新基建);向量不入库——
+-- 本表(ai_kb_chunk)存 chunk 文本作为重建正本,索引文件丢失/换 embedding 模型时按正本重建
+CREATE TABLE IF NOT EXISTS ai_kb_document (
+    id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    title        VARCHAR(128) NOT NULL COMMENT '文档标题(上传文件名去后缀/粘贴文本首行截断)',
+    source_type  VARCHAR(16)  NOT NULL COMMENT '来源:UPLOAD文件上传/TEXT粘贴文本',
+    file_name    VARCHAR(255) NULL COMMENT '原始文件名(仅source_type=UPLOAD)',
+    char_count   INT NOT NULL DEFAULT 0 COMMENT '原文总字符数',
+    chunk_count  INT NOT NULL DEFAULT 0 COMMENT '分块数(与ai_kb_chunk行数一致)',
+    status       VARCHAR(16) NOT NULL DEFAULT 'FAILED' COMMENT '状态:READY可检索/FAILED向量化失败(修复后可重建转READY)',
+    uploaded_by  BIGINT NOT NULL COMMENT '上传人(sys_user.id)',
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    KEY idx_created (created_at)
+) COMMENT 'AI客服知识库文档(RAG语料正本元数据,分块文本在ai_kb_chunk)';
+
+CREATE TABLE IF NOT EXISTS ai_kb_chunk (
+    id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键(String.valueOf(id)=向量库文档ID,删除按此对齐)',
+    document_id  BIGINT NOT NULL COMMENT '所属文档ID(ai_kb_document.id)',
+    chunk_index  INT NOT NULL COMMENT '块序号(0起,同文档内连续)',
+    content      TEXT NOT NULL COMMENT '块文本(TokenTextSplitter切分,向量化重建正本)',
+    char_count   INT NOT NULL DEFAULT 0 COMMENT '块字符数',
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    UNIQUE KEY uk_doc_idx (document_id, chunk_index),
+    KEY idx_doc (document_id)
+) COMMENT 'AI客服知识库分块(RAG检索语料正本,向量不入库——向量是索引派生物)';
+
+-- ---------------- 财务/结算域(三期 settlement 主线,#19 2026-09-08 定稿进脚本) ----------------
+-- 利润三口径分层(docs/02 §14):第一层"实时销售利润"吃订单面;本组表承载第二层"周期利润"正本——
+-- 结算报告(平台打款周期)为费用事实源,SKU 级利润按 settlement_detail.order_item_id 归集
+CREATE TABLE IF NOT EXISTS settlement_report (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    shop_id         BIGINT NOT NULL COMMENT '店铺ID(shop.id)',
+    settlement_id   VARCHAR(64) NOT NULL COMMENT '平台结算批次号(Amazon SettlementId,幂等键,重拉 upsert)',
+    period_start    DATETIME NOT NULL COMMENT '结算周期起(报告 StartDate)',
+    period_end      DATETIME NOT NULL COMMENT '结算周期止(报告 EndDate)',
+    currency        VARCHAR(8) NOT NULL COMMENT '结算币种(ISO 4217,Amazon 按站点单一币种,站点映射收口 AmazonMarketplace)',
+    total_amount    DECIMAL(18,2) NOT NULL DEFAULT 0 COMMENT '报告汇总总额(报告头 TotalAmount 原值含正负,勾稽基准=Σ明细金额)',
+    fee_amount      DECIMAL(18,2) NOT NULL DEFAULT 0 COMMENT '费用小计(Σ负项明细绝对值)',
+    transfer_amount DECIMAL(18,2) NOT NULL DEFAULT 0 COMMENT '回款净额(Σ fee_type=TRANSFER 明细;预留金随真凭证实测校准)',
+    raw_file_url    VARCHAR(512) NULL COMMENT '原始报告文件地址(S3 预签名URL会过期,仅审计留痕)',
+    status          VARCHAR(16) NOT NULL DEFAULT 'PARSED' COMMENT '状态:PARSED解析入库(Σ明细=汇总校验平)/FAILED解析或勾稽不平(可重拉覆盖)',
+    pulled_at       DATETIME NULL COMMENT '报告拉取时间',
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_shop_settlement (shop_id, settlement_id),
+    KEY idx_shop_period (shop_id, period_start)
+) COMMENT '平台结算报告(结算周期正本,周期利润数据源;金额事件流水在settlement_detail)';
+
+CREATE TABLE IF NOT EXISTS settlement_detail (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    report_id     BIGINT NOT NULL COMMENT '所属结算报告ID(settlement_report.id)',
+    shop_id       BIGINT NOT NULL COMMENT '店铺ID(冗余自报告同事务写入,免联查)',
+    order_id      VARCHAR(64) NULL COMMENT '平台订单号(Amazon OrderId原文;非订单事件如月租费/打款为NULL)',
+    order_item_id VARCHAR(64) NULL COMMENT '平台订单行号(Amazon OrderItemId原文,SKU级利润归集键,对应shop_order_item.platform_order_item_id)',
+    sku           VARCHAR(64) NULL COMMENT '平台SKU(报告原文,映射本地SKU随#5绑定关系联查,禁解析器猜)',
+    fee_type      VARCHAR(32) NOT NULL COMMENT '费用类型(解析器归一,只加不改:SALE销售回款/REFUND退款/COMMISSION佣金/FBA_FEE履约费/STORAGE仓储费/ADVERTISING广告费/TRANSFER回款打款/OTHER其他)',
+    amount        DECIMAL(18,2) NOT NULL COMMENT '金额(报告原值带符号:正=收入/负=费用,禁取绝对值,勾稽=Σ本列)',
+    posted_at     DATETIME NOT NULL COMMENT '记账时间(报告 PostedDate)',
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    KEY idx_report (report_id),
+    KEY idx_shop_item (shop_id, order_item_id),
+    KEY idx_posted (posted_at)
+) COMMENT '结算报告明细行(金额事件流水;报告级幂等——重拉按report先删后插同#4拉单明细纪律,行级不设唯一键)';
+
+CREATE TABLE IF NOT EXISTS exchange_rate (
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    currency   VARCHAR(8) NOT NULL COMMENT '币种(ISO 4217)',
+    rate       DECIMAL(18,8) NOT NULL COMMENT '汇率快照(1 currency = rate CNY;记账本位币V1固定CNY拍板,扩多本位币随四期评估)',
+    quoted_at  DATETIME NOT NULL COMMENT '报价时间(利润折算口径=取 quoted_at<=业务日(下单日/记账日)的最近一条)',
+    source     VARCHAR(16) NOT NULL DEFAULT 'MANUAL' COMMENT '来源:MANUAL手工录入/API行情接口(随行情源接入评估,先手工维护)',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    KEY idx_currency_quoted (currency, quoted_at)
+) COMMENT '汇率快照(多币种折算依据;汇率是快照不是现值——折算一律按业务日回溯取数,禁取表内最新一条)';
+
+-- TODO(三期余量): ad_report_daily(docs/03 §6 草案,随 erp-ads 广告数据面激活时建表)

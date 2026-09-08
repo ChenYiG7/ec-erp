@@ -3,7 +3,9 @@
 <mapper namespace="com.own.erp.aftersale.mapper.AftersaleOrderMapper">
 
     <!-- 平台售后同步幂等落库唯一写入口(#12):uk(shop_id, platform_refund_id) 冲突即更新(docs/07 §5 禁先查后插),
-         语法用 MySQL 8.0.19+ 的行别名(VALUES() 在 8.0.20+ 已弃用),同 ShopOrderMapper.upsert 先例。
+         ODKU 用 8.0.19+ 行别名 `AS new`——9.7.2 原生规范形态(VALUES() 已弃用,2026-09-08 真库验证),
+         同 ShopOrderMapper.upsert 先例;CASE 中 aftersale_order.status 表名限定恒指冲突行现值、
+         new.status 恒指本条插入值(行别名定义后未限定列引用一律 1052 歧义,实测)。
          状态不整体覆盖:本系统人工状态机是处理主线(docs/04 两条路径口径),
          仅平台终态回传(REJECTED/CANCELLED)且本单仍在人工未决态(PENDING/APPROVED/RETURNING)时条件推进——
          CANCELLED 撤单即 AftersaleConsts 预留的"平台同步撤单"出口;人工已决/终态单不被平台回传回退。
@@ -19,10 +21,10 @@
                                 currency      = new.currency,
                                 reason        = new.reason,
                                 status        = CASE
-                                                     WHEN status IN ('PENDING', 'APPROVED', 'RETURNING')
+                                                     WHEN aftersale_order.status IN ('PENDING', 'APPROVED', 'RETURNING')
                                                          AND new.status IN ('REJECTED', 'CANCELLED')
                                                          THEN new.status
-                                                     ELSE status
+                                                     ELSE aftersale_order.status
                                                  END
     </insert>
 </mapper>

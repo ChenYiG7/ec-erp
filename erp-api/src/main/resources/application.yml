@@ -36,6 +36,12 @@ spring:
       chat:
         options:
           model: ${AI_MODEL:deepseek-chat}
+      # 知识库 RAG(#6 AI 客服 V1)向量化模型:与 chat 共用 base-url/api-key(OpenAI 兼容 /embeddings);
+      # DashScope 兼容模式用 text-embedding-v3/v4,DeepSeek 无 embeddings 端点(接知识库须切通义等兼容服务);
+      # 无 key/调用失败时知识库接入与检索自动降级,chat 主链路不受影响
+      embedding:
+        options:
+          model: ${AI_EMBEDDING_MODEL:text-embedding-v3}
 
 mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml
@@ -77,6 +83,15 @@ erp:
     enabled: true
     # cron: "0 0 1 * * ?"
     # rebuild-days: 30
+  finance:
+    # 退款勾稽(#19④,#12 遗留收口):aftersale_order.refund_amount 对 settlement_detail REFUND 行
+    # 按订单聚合比对,差异经 #14 站内通知扇出;比对规则在 erp-finance RefundReconciliationService,
+    # 编排同 #6 预警模式(erp-api RefundReconciliationJob)。每日一扫(结算报告 14 天一份,不支持高频);
+    # enabled 置 false 可整体关闭(数据面未就绪时降噪)
+    refund-reconciliation:
+      enabled: true
+      # interval-ms: 86400000        # 每日一扫(fixedDelay,上一轮结束再计时)
+      # quiet-hours: 24              # 静默期(小时):同类型告警全局去重窗口(同 #6 口径)
   ai:
     # AI 工作流参数默认值收口 ErpAiProperties(yml 可覆盖):replenish 补货 / anomaly 订单异常检测(#6);
     # 定时接线(2026-09-07 拍板):每日低峰 cron 触发(与补货错峰)+ enabled 开关,
@@ -97,6 +112,41 @@ erp:
       # scan-page-size: 100          # 单页扫描量
       # scan-max-rows: 1000          # 单状态单轮扫描行数上限
       # llm-max-items: 20            # 单轮送 LLM 评分上限(超限按基线风险降序截断)
+    purchase:
+      # 采购建议(#17 三期候选,2026-09-08):补货缺口按最新采购供应商聚合为采购计划建议,
+      # V1 仅手动触发(POST /api/ai/purchase/run),不接定时;输入复用补货四参数同源键(replenish.*),
+      # 去重 = 同供应商存在待确认 PURCHASE 建议即跳过该组;无 AI_API_KEY 摘要自动降级模板
+      scan-page-size: 100            # 单页扫描量
+      # scan-max-rows: 500           # 单轮扫描行数上限
+      # llm-max-items: 20            # 单轮送 LLM 摘要的供应商组上限(超限按预估金额降序截断)
+    copy:
+      # 文案生成(#17 三期候选「产品描述生成」,2026-09-08):为商品库启用商品批量生成 listing 文案建议
+      # (标题/五点描述/商品描述/关键词),V1 仅手动触发(POST /api/ai/copywriting/run),不接定时;
+      # 去重 = 同商品存在待确认 COPYWRITING 建议即跳过;文案本体即 LLM 产出无模板可兜,
+      # 无 AI_API_KEY 本轮零产出(degraded=true),与补货/异常/采购的模板降级语义刻意不同
+      scan-page-size: 100            # 单页扫描量
+      # scan-max-rows: 200           # 单轮扫描商品数上限(文案逐商品产长文本,默认比补货收紧)
+      # llm-max-items: 10            # 单轮送 LLM 生成上限(超限按 productId 升序截断,下轮再生成)
+    kb:
+      # 知识库 RAG(#6 AI 客服 V1,2026-09-08):文档切块向量化入 SimpleVectorStore(JSON 文件持久化),
+      # 检索 top-k/相似度下限入 sys_config(#18 热更);向量不入库,ai_kb_chunk 文本为重建正本。
+      # ⚠️ 登记块至少留一个真键:空 mapping(yml 空节点)在 Boot 4 绑定器会 String→对象 ConverterNotFound 启动即炸
+      max-file-bytes: 1048576        # 上传文件大小上限(字节)
+      # index-path: data/ai/kb-index.json  # 向量索引文件路径(相对工作目录)
+      # chunk-size: 800             # 切块目标 token 数(检索粒度)
+      # max-document-chars: 200000  # 单文档最大字符数
+      # retrieval-top-k: 4          # 检索条数默认值(sys_config erp.ai.kb.retrieval-top-k 可覆盖)
+      # retrieval-min-score: 0.5    # 检索相似度下限默认值(sys_config erp.ai.kb.retrieval-min-score 可覆盖)
+  shipment:
+    # 发货回传平台(#11 编排,2026-09-08):确认发货事务提交后回传运单号与行级发运;
+    # 置 false 则只落本地不回传(接真凭证灰度期用);adapter 未接入的店铺永远静默跳过,不产生失败噪音
+    sync-enabled: true
+  inventory-snapshot:
+    # 库存日快照(#6 库存快照数据面,2026-09-08):每日低峰取当前存量按 (SKU, 仓) 落 snapshot;
+    # 01:30 错峰(销量 01:00 之后、补货 02:00 之前);不可回溯——历史日期只取已有快照行;
+    # 灰度期置 false 整体停(快照是只增不可回溯,关掉期间产生的日期数据不补)
+    enabled: true
+    # cron: "0 30 1 * * ?"
   adapter:
     amazon:
       # SP-API adapter(#3)默认关闭:Bean 不注册,拉单调度按"adapter 未接入"自动跳过;

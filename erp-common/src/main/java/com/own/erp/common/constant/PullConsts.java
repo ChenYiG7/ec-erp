@@ -16,11 +16,19 @@ public final class PullConsts {
     public static final String DATA_TYPE_PRODUCT = "PRODUCT";
     /** pull_log.data_type:售后/退款 */
     public static final String DATA_TYPE_REFUND = "REFUND";
+    /**
+     * pull_log.data_type:发货回传(#11 编排 2026-09-08:非拉取型记录,窗口退化为"本次回传时刻"——
+     * window_start = window_end = 触发时刻,pulled_count 恒 1(一次回传);
+     * 复用 pull_log 而非另建表:排障入口与连续失败告警判定同一套,禁提前抽象)
+     */
+    public static final String DATA_TYPE_SHIPMENT = "SHIPMENT";
 
     /** pull_log.pull_way:定时任务触发 */
     public static final String PULL_WAY_JOB = "JOB";
     /** pull_log.pull_way:人工手动触发 */
     public static final String PULL_WAY_MANUAL = "MANUAL";
+    /** pull_log.pull_way:业务事件触发(#11:确认发货事件驱动回传平台,非人工非定时) */
+    public static final String PULL_WAY_EVENT = "EVENT";
 
     /**
      * 拉取窗口向左重叠分钟数:平台时钟漂移兜底,重叠段靠唯一键幂等去重(docs/04 拉单策略 1)

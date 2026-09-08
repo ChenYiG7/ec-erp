@@ -14,6 +14,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.zip.GZIPInputStream;
@@ -41,6 +43,18 @@ public class SpApiReportsClient {
     private static final String SERVICE = "execute-api";
     /** listing 全量快照报表(官方报表类型字面量) */
     private static final String LISTING_REPORT_TYPE = "GET_MERCHANT_LISTINGS_ALL_DATA";
+    /**
+     * 结算报告 V2(官方报表类型字面量,#19 2026-09-08 选型拍板):
+     * **GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2**——旧版 GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE/XML
+     * 官方宣布 2026-11-11 移除,禁再引用;V2 金额三列归一(amount-type/amount-description/amount)。
+     * 结算报告**不可主动创建**(官方:cannot be requested or scheduled,平台按打款周期自动生成),
+     * 只能 getReports 搜索已生成报告——链路 = 列报告→取文档→下载解析,无 createReport/轮询环节
+     */
+    private static final String SETTLEMENT_REPORT_TYPE = "GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2";
+    /** 结算报告单页拉取数:14 天一份,12 份 ≈ 半年窗口,重拉靠 uk 幂等 upsert 兜底 */
+    private static final int SETTLEMENT_PAGE_SIZE = 12;
+    /** 结算报告列表 NextToken 翻页防御上限(5 页 × 12 份,超限视为异常中止,同拉单翻页防御纪律) */
+    private static final int MAX_LIST_PAGES = 5;
     /** 防御轮询上限:超限视为平台侧异常中止本轮(拉单重试下轮),防调度线程悬挂 */
     private static final int MAX_POLLS = 60;
 
@@ -65,6 +79,55 @@ public class SpApiReportsClient {
     /** 配置的站点 ID(createReport 单站点,值即 erp.adapter.amazon.marketplace-ids 配置原样);币种推导入口见 AmazonMarketplace */
     public String marketplaceId() {
         return marketplaceIds;
+    }
+
+    /** 结算报告引用(reportId 留审计;documentId 即取文档入口,平台侧已生成完毕无需轮询) */
+    public record SettlementReportRef(String reportId, String documentId) {
+    }
+
+    /**
+     * 结算报告列表(#19):按 V2 报表类型 + COMPLETED 状态搜索本站点已生成报告,
+     * NextToken 翻页带防御上限;documentId 缺失(平台侧异常态)即抛异常禁静默,
+     * 上游拉取编排记 pull_log 走连续失败告警
+     */
+    public List<SettlementReportRef> listSettlementReports(String lwaAccessToken, SpApiSigner.AwsCredentials awsCredentials) {
+        List<SettlementReportRef> refs = new ArrayList<>();
+        String nextToken = null;
+        for (int page = 1; page <= MAX_LIST_PAGES; page++) {
+            Map<String, String> query = new TreeMap<>();
+            query.put("reportTypes", SETTLEMENT_REPORT_TYPE);
+            query.put("processingStatuses", "COMPLETED");
+            query.put("pageSize", String.valueOf(SETTLEMENT_PAGE_SIZE));
+            if (StrUtil.isNotBlank(marketplaceIds)) {
+                query.put("marketplaceIds", marketplaceIds);
+            }
+            if (nextToken != null) {
+                query.put("nextToken", nextToken);
+            }
+            SpApiSigner.SignedHeaders signed = sign("GET", REPORTS_PATH, query, null, awsCredentials);
+            JsonNode payload = execute("GET", REPORTS_PATH + "?" + signed.canonicalQueryString(), null, signed,
+                    lwaAccessToken, awsCredentials);
+            for (JsonNode report : payload.path("reports")) {
+                String reportId = report.path("reportId").asText(null);
+                String documentId = report.path("reportDocumentId").asText(null);
+                if (StrUtil.isBlank(reportId) || StrUtil.isBlank(documentId)) {
+                    throw new IllegalStateException("结算报告列表项缺 reportId/reportDocumentId,拒绝静默跳过:"
+                            + report);
+                }
+                refs.add(new SettlementReportRef(reportId, documentId));
+            }
+            nextToken = payload.path("nextToken").asText(null);
+            if (StrUtil.isBlank(nextToken)) {
+                return refs;
+            }
+        }
+        throw new IllegalStateException("结算报告列表翻页超出防御上限(" + MAX_LIST_PAGES + " 页),中止本轮");
+    }
+
+    /** 结算报告文档下载(同 listing 文档:S3 预签名 URL 鉴权不走 SigV4,GZIP 解压交翻译器) */
+    public String fetchSettlementReportContent(String lwaAccessToken, SpApiSigner.AwsCredentials awsCredentials,
+                                               String documentId) {
+        return downloadDocument(lwaAccessToken, awsCredentials, documentId);
     }
 
     /** 第一步:创建 listing 全量报表,返回 reportId(报表数据窗口参数不传 = 当前全量快照) */
@@ -124,6 +187,15 @@ public class SpApiReportsClient {
      */
     public String fetchListingReportContent(String lwaAccessToken, SpApiSigner.AwsCredentials awsCredentials,
                                             String documentId) {
+        return downloadDocument(lwaAccessToken, awsCredentials, documentId);
+    }
+
+    /**
+     * 报表文档下载共用链:getReportDocument 取 S3 预签名 URL → 下载(该请求不走 SigV4,鉴权在 URL)→
+     * GZIP 解压 → UTF-8 文本交翻译器(listing/settlement 同款)
+     */
+    private String downloadDocument(String lwaAccessToken, SpApiSigner.AwsCredentials awsCredentials,
+                                    String documentId) {
         String path = DOCUMENTS_PATH + documentId;
         SpApiSigner.SignedHeaders signed = sign("GET", path, Map.of(), null, awsCredentials);
         JsonNode payload = execute("GET", path + "?" + signed.canonicalQueryString(), null, signed,

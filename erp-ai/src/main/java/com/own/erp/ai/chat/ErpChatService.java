@@ -4,12 +4,16 @@ import cn.hutool.core.util.StrUtil;
 import com.own.erp.ai.config.AiRuntimeProperties;
 import com.own.erp.ai.config.ErpAiProperties;
 import com.own.erp.ai.constant.AiConsts;
+import com.own.erp.ai.kb.KbSearchService;
 import com.own.erp.ai.service.AiChatMessageService;
 import com.own.erp.ai.service.AiChatSessionService;
 import com.own.erp.ai.tools.AftersaleTools;
+import com.own.erp.ai.tools.DeliveryTools;
 import com.own.erp.ai.tools.GoodsTools;
 import com.own.erp.ai.tools.InventoryTools;
 import com.own.erp.ai.tools.OrderTools;
+import com.own.erp.ai.tools.PurchaseTools;
+import com.own.erp.ai.tools.ShopTools;
 import com.own.erp.common.exception.BusinessException;
 import com.own.erp.contract.CurrentUserApi;
 import org.springframework.ai.chat.client.ChatClient;
@@ -47,6 +51,7 @@ public class ErpChatService {
     private final CurrentUserApi currentUserApi;
     private final AiChatSessionService aiChatSessionService;
     private final AiChatMessageService aiChatMessageService;
+    private final KbSearchService kbSearchService;
     /** 只读工具白名单转 ToolCallback 一次构建复用;每请求经 wrapToolCallbacks 包装审计装饰器 */
     private final ToolCallback[] toolCallbacks;
 
@@ -62,17 +67,23 @@ public class ErpChatService {
                           @Lazy CurrentUserApi currentUserApi,
                           AiChatSessionService aiChatSessionService,
                           AiChatMessageService aiChatMessageService,
+                          KbSearchService kbSearchService,
                           OrderTools orderTools,
                           InventoryTools inventoryTools,
                           GoodsTools goodsTools,
-                          AftersaleTools aftersaleTools) {
+                          AftersaleTools aftersaleTools,
+                          ShopTools shopTools,
+                          PurchaseTools purchaseTools,
+                          DeliveryTools deliveryTools) {
         this.chatClient = chatClientBuilder.build();
         this.props = props;
         this.runtime = runtime;
         this.currentUserApi = currentUserApi;
         this.aiChatSessionService = aiChatSessionService;
         this.aiChatMessageService = aiChatMessageService;
-        this.toolCallbacks = ToolCallbacks.from(orderTools, inventoryTools, goodsTools, aftersaleTools);
+        this.kbSearchService = kbSearchService;
+        this.toolCallbacks = ToolCallbacks.from(orderTools, inventoryTools, goodsTools, aftersaleTools,
+                shopTools, purchaseTools, deliveryTools);
     }
 
     /** 同步对话:归属校验 → 标题回填 → USER 落库 → 模型调用 → AI 落库(带 token 用量)→ 回复 */
@@ -82,7 +93,7 @@ public class ErpChatService {
                 .system(runtime.systemPrompt())
                 .options(chatOptions())
                 .toolCallbacks(wrapToolCallbacks(sessionId))
-                .user(question)
+                .user(withKbContext(question))
                 .call()
                 .chatResponse();
         String reply = response == null || response.getResult() == null
@@ -111,7 +122,7 @@ public class ErpChatService {
                 .system(runtime.systemPrompt())
                 .options(chatOptions())
                 .toolCallbacks(wrapToolCallbacks(sessionId))
-                .user(question)
+                .user(withKbContext(question))
                 .stream()
                 .content()
                 .doOnNext(full::append)
@@ -149,6 +160,22 @@ public class ErpChatService {
                 .map(cb -> new AuditingToolCallback(cb, sessionId, aiChatMessageService,
                         props.getToolAuditMaxLength()))
                 .toArray(ToolCallback[]::new);
+    }
+
+    /**
+     * RAG 注入(#6 AI 客服 V1):知识库命中则把参考上下文拼在问题后注入 user message(非 system,
+     * 与工具数据冲突时提示以工具为准);KB 空/关闭/检索异常 → 原样返回零侵入,双通道统一走此口。
+     * USER 审计行仍存原始问题(prepare 落库在前),注入只影响模型入参不影响审计与历史回显
+     */
+    private String withKbContext(String question) {
+        try {
+            String context = kbSearchService.buildContext(question);
+            return StrUtil.isBlank(context) ? question : question + context;
+        } catch (Exception e) {
+            // 双保险(KbVectorIndex.search 内已降级,此处兜 KB 配置读取等未预期异常):RAG 失败不阻断 chat
+            log.warn("知识库上下文装配失败,本次对话按无检索处理:{}", e.getMessage());
+            return question;
+        }
     }
 
     /**

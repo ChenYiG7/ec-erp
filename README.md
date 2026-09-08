@@ -4,7 +4,7 @@
 
 ## 技术栈
 
-JDK 21 · **Spring Boot 4.0.6**(Spring Framework 7)· Spring AI **2.0.0-M5** · Spring AI Alibaba **2.0.0-M1.1**(Graph 工作流)· AgentScope Java **2.0.0-RC5**(多 Agent)· MyBatis-Plus 3.5.17(boot4-starter)· Hutool 5.8.47(工具库)· MySQL 8 · Redis 7 · Vue3 + TS + Element Plus
+JDK 21 · **Spring Boot 4.0.6**(Spring Framework 7)· Spring AI **2.0.0-M5** · Spring AI Alibaba **2.0.0-M1.1**(Graph 工作流)· AgentScope Java **2.0.0-RC5**(多 Agent)· MyBatis-Plus 3.5.17(boot4-starter)· Hutool 5.8.47(工具库)· MySQL 9.7.2 LTS(SQL 9.7.2 原生口径,见 TODO"SQL 兼容性红线")· Redis 7 · Vue3 + TS + Element Plus
 
 > 为什么必须 Boot 4.x:Spring AI Alibaba 2.0 与 AgentScope 2.0 都构建在 Spring AI 2.0(Spring Framework 7)之上,而 Spring AI 2.0 要求 Boot 4.x。三者是叠加关系,不是三选一。
 > ⚠️ 三个 AI 依赖尚未 GA(SAI 2.0=里程碑 / SAA 2.0=里程碑 / AgentScope 2.0=RC),升级只动根 pom 的三个 version 属性。
@@ -75,7 +75,7 @@ java -jar erp-api/target/erp-api-0.1.0-SNAPSHOT.jar
 # 6. AI 功能(可选,三期才实现):设置环境变量 AI_API_KEY 或改 application.yml
 ```
 
-环境要求:JDK 21 · MySQL 8 · Redis 7。
+环境要求:JDK 21 · MySQL 9.7.2 LTS(mapper XML 自定义 SQL 用 9.7.2 原生形态并须真库验证,见 TODO"SQL 兼容性红线") · Redis 7。
 
 ## 开发工具:erp-codegen(CRUD 脚手架生成器)
 

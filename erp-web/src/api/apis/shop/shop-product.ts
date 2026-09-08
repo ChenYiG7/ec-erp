@@ -9,7 +9,9 @@ import type { ShopProductResponse, ShopProductQuery } from '@/api/interface/shop
 export const shopProductApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: ShopProductQuery & PageQuery) =>
-    http.get<PageResult<ShopProductResponse>>('/api/shop-products', params).then(page => ({ list: page.records, total: page.total })),
+    http
+      .get<PageResult<ShopProductResponse>>('/api/shop-products', params)
+      .then(page => ({ list: page.records, total: page.total })),
   /** 详情 */
   detail: (id: number) => http.get<ShopProductResponse>(`/api/shop-products/${id}`),
 }

@@ -61,7 +61,7 @@ import {
   ElSwitch,
   ElTable,
   ElTableColumn,
-  ElTag
+  ElTag,
 } from 'element-plus'
 import { ColumnTypes, type ColumnProps } from '@/components/ProTable/interface'
 import Sortable from 'sortablejs'

@@ -45,6 +45,9 @@ public interface ShopOrderApi {
             /** 店铺ID(shop.id,发货单 shop_id 服务端按此回填) */
             Long shopId,
 
+            /** 平台订单号(shop_order.platform_order_id,#11 发货回传 2026-09-08 加字段:回传命令要素) */
+            String platformOrderId,
+
             /** 订单状态:WAIT_PAY/WAIT_SHIP/SHIPPED/COMPLETED/CANCELLED/CLOSED */
             String orderStatus,
 
@@ -61,6 +64,13 @@ public interface ShopOrderApi {
 
                 /** 订单明细ID(shop_order_item.id) */
                 Long orderItemId,
+
+                /**
+                 * 平台订单行ID(shop_order_item.platform_order_item_id,#11 发货回传 2026-09-08 加字段:
+                 * Amazon MFN confirmShipment 行级发运必填要素,发货明细行经本字段翻译后回传;
+                 * 缺失即回传失败记 pull_log,禁静默丢行)
+                 */
+                String platformOrderItemId,
 
                 /** 内部SKU ID(product_sku.id),非空 */
                 Long skuId,

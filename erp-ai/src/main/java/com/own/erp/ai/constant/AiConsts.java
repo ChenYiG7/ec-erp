@@ -29,11 +29,20 @@ public final class AiConsts {
     /** 建议类型:文案 */
     public static final String TYPE_COPYWRITING = "COPYWRITING";
 
+    /** 建议类型:采购(#17 三期候选落地,2026-09-08:补货缺口按供应商聚合为采购计划建议) */
+    public static final String TYPE_PURCHASE = "PURCHASE";
+
     /** 关联业务类型:订单(异常建议 refType) */
     public static final String REF_TYPE_SHOP_ORDER = "SHOP_ORDER";
 
     /** 关联业务类型:库存(补货建议 refType,无 refId,dedup 键为 skuId) */
     public static final String REF_TYPE_INVENTORY = "INVENTORY";
+
+    /** 关联业务类型:供应商(采购建议 refType,refId=supplierId,dedup 键为 refId) */
+    public static final String REF_TYPE_SUPPLIER = "SUPPLIER";
+
+    /** 关联业务类型:商品(文案建议 refType,#17 产品描述生成 2026-09-08 加,refId=productId,dedup 键为 refId) */
+    public static final String REF_TYPE_GOODS_PRODUCT = "GOODS_PRODUCT";
 
     /** 风险等级:低 */
     public static final String RISK_LOW = "LOW";
@@ -64,6 +73,24 @@ public final class AiConsts {
 
     /** 会话标题截断长度(首条消息截断作 title,DB 列 VARCHAR(128) 内) */
     public static final int TITLE_MAX_LEN = 24;
+
+    /** 知识库文档来源:文件上传(.txt/.md) */
+    public static final String KB_SOURCE_UPLOAD = "UPLOAD";
+
+    /** 知识库文档来源:粘贴文本 */
+    public static final String KB_SOURCE_TEXT = "TEXT";
+
+    /** 知识库文档状态:READY(分块已入库且向量化成功,参与检索) */
+    public static final String KB_STATUS_READY = "READY";
+
+    /** 知识库文档状态:FAILED(文本与分块已留存,向量化失败——修复后可重建索引转 READY) */
+    public static final String KB_STATUS_FAILED = "FAILED";
+
+    /** 向量库文档元数据键:所属知识库文档ID(ai_kb_document.id,按文档清理向量用) */
+    public static final String KB_META_DOCUMENT_ID = "documentId";
+
+    /** 向量库文档元数据键:文档标题(检索命中回显来源) */
+    public static final String KB_META_TITLE = "title";
 
     private AiConsts() {
     }

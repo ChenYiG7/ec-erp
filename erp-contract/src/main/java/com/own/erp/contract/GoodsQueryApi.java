@@ -3,6 +3,7 @@ package com.own.erp.contract;
 import lombok.Builder;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * @author : chenyi
@@ -23,7 +24,20 @@ public interface GoodsQueryApi {
     SkuView findSkuByCode(String skuCode);
 
     /**
-     * 商品过滤条件 + 分页入参:keyword/categoryId 均可空;pageNo/pageSize 为 int,
+     * 单商品 SKU 行列表(#17 文案生成取数,2026-09-08 只加方法):按 product_id 查启用与否全部 SKU 行
+     * (文案材料含规格属性,状态过滤交调用方);商品无 SKU 返回空列表
+     */
+    List<SkuView> listSkusByProductId(Long productId);
+
+    /** 品牌名称精确查(brand 直连 Mapper 纯配置域口径;不存在返回 null)——文案生成 prompt 材料 */
+    String findBrandNameById(Long brandId);
+
+    /** 类目名称精确查(实现委托 ProductCategoryService;不存在返回 null)——文案生成 prompt 材料 */
+    String findCategoryNameById(Long categoryId);
+
+    /**
+     * 商品过滤条件 + 分页入参:keyword/categoryId/status 均可空(status 只加字段不改语义,
+     * #17 文案生成扫启用商品,2026-09-08);pageNo/pageSize 为 int,
      * @Builder 不设时默认 0,经 page()/size() 归一后生效
      */
     @Builder
@@ -34,6 +48,9 @@ public interface GoodsQueryApi {
 
             /** 类目ID(product_category.id,精确,可空) */
             Long categoryId,
+
+            /** 状态过滤(1启用 0停用,空=不过滤,#17 文案生成 2026-09-08 加) */
+            Integer status,
 
             /** 页码(从 1 起) */
             int pageNo,
@@ -53,7 +70,10 @@ public interface GoodsQueryApi {
         }
     }
 
-    /** 商品 SPU 行视图(不含 attrs_json 大字段,AI 场景无需销售属性全集) */
+    /**
+     * 商品 SPU 行视图(AI 场景字段;attrsJson 销售属性原样 JSON 串 #17 文案生成 2026-09-08 只加字段——
+     * 文案材料需要销售属性,tools 面不消费该字段无增量成本)
+     */
     @Builder
     record ProductView(
 
@@ -72,12 +92,16 @@ public interface GoodsQueryApi {
             /** 品牌ID(brand.id) */
             Long brandId,
 
+            /** 销售属性(原样 JSON 串,可空) */
+            String attrsJson,
+
             /** 1启用 0停用 */
             Integer status
     ) {
     }
 
-    /** SKU 行视图(内部 SKU 全量可读字段:成本/跨境物流属性,补货与定价建议的取数基础) */
+    /** SKU 行视图(内部 SKU 全量可读字段:成本/跨境物流属性,补货与定价建议的取数基础;
+     *  attrsJson 规格值原样 JSON 串 #17 文案生成 2026-09-08 只加字段) */
     @Builder
     record SkuView(
 
@@ -92,6 +116,9 @@ public interface GoodsQueryApi {
 
             /** 条码/EAN/UPC */
             String barcode,
+
+            /** 规格值(原样 JSON 串,可空) */
+            String attrsJson,
 
             /** 成本价(本位币,DECIMAL(12,4)) */
             BigDecimal costPrice,

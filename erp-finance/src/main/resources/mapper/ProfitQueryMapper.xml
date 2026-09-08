@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.own.erp.finance.mapper.ProfitQueryMapper">
+
+    <!-- 利润主查询公共片段(#19③):订单行 join 订单;口径拍板 docs/03 §6.1——
+         已支付态三态 WAIT_SHIP/SHIPPED/COMPLETED(同销量日表口径,WAIT_PAY/CANCELLED/CLOSED 不进利润面);
+         时间窗=下单时间 so.order_time(dateFrom 含/dateTo 不含);汇率折算不在此做(逐行走 resolveRate 回溯) -->
+    <sql id="profitLines">
+        SELECT soi.id                     AS orderItemId,
+               so.id                      AS orderId,
+               so.platform_order_id       AS platformOrderId,
+               so.platform                AS platform,
+               so.order_time              AS orderTime,
+               so.shop_id                 AS shopId,
+               soi.platform_order_item_id AS platformOrderItemId,
+               soi.platform_sku           AS platformSku,
+               soi.product_name           AS productName,
+               soi.sku_id                 AS skuId,
+               soi.quantity               AS quantity,
+               soi.item_amount            AS itemAmount,
+               soi.currency               AS currency
+        FROM shop_order_item soi
+                 JOIN shop_order so ON soi.order_id = so.id
+        <where>
+            so.order_status IN ('WAIT_SHIP', 'SHIPPED', 'COMPLETED')
+            <if test="shopId != null">
+                AND so.shop_id = #{shopId}
+            </if>
+            <if test="platform != null and platform != ''">
+                AND so.platform = #{platform}
+            </if>
+            <if test="skuId != null">
+                AND soi.sku_id = #{skuId}
+            </if>
+            <if test="dateFrom != null">
+                AND so.order_time &gt;= #{dateFrom}
+            </if>
+            <if test="dateTo != null">
+                AND so.order_time &lt; #{dateTo}
+            </if>
+        </where>
+        ORDER BY so.order_time DESC, soi.id DESC
+    </sql>
+
+    <select id="selectProfitLines" resultType="com.own.erp.finance.profit.OrderProfitLine">
+        <include refid="profitLines"/>
+    </select>
+
+    <!-- 汇总全量:硬 LIMIT 防御 20000(量级增长落库方案随 V2 周期口径,docs/03 §6.1) -->
+    <select id="selectProfitLinesAll" resultType="com.own.erp.finance.profit.OrderProfitLine">
+        <include refid="profitLines"/>
+        LIMIT 20000
+    </select>
+
+    <!-- 出库成本聚合:OUT_SHIP 移动加权快照(inventory_flow.unit_cost/cost_amount,#19③ 成本账)
+         经发货单行归集到订单行(biz 指向发货单 + sku 匹配,部分发货多笔自然 SUM);
+         Σ(−cost_amount) = 正数 CNY(出库行 cost_amount 为负) -->
+    <select id="sumCostByOrderItemIds" resultType="com.own.erp.finance.profit.OrderProfitAmountGroup">
+        SELECT doi.order_item_id      AS orderItemId,
+               SUM(-flow.cost_amount) AS amount
+        FROM inventory_flow flow
+                 JOIN delivery_order_item doi
+                      ON flow.biz_type = 'DELIVERY_ORDER'
+                          AND flow.biz_id = doi.delivery_id
+                          AND flow.sku_id = doi.sku_id
+        WHERE flow.flow_type = 'OUT_SHIP'
+          AND flow.cost_amount IS NOT NULL
+          AND doi.order_item_id IN
+        <foreach collection="orderItemIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        GROUP BY doi.order_item_id
+    </select>
+
+    <!-- 平台佣金聚合:settlement_detail COMMISSION 行按 店铺+平台订单行 归集(行级不设唯一键,
+         同键多行自然 SUM;order_item_id=platform_order_item_id 归集键,#19② DDL 拍板);
+         金额报告原值带符号(佣金为负数),调用方取负值语义 -->
+    <select id="sumCommissionByPlatformItemIds" resultType="com.own.erp.finance.profit.OrderProfitAmountGroup">
+        SELECT sd.shop_id             AS shopId,
+               sd.order_item_id       AS platformOrderItemId,
+               SUM(sd.amount)         AS amount
+        FROM settlement_detail sd
+        WHERE sd.fee_type = 'COMMISSION'
+          AND sd.order_item_id IN
+        <foreach collection="platformItemIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        GROUP BY sd.shop_id, sd.order_item_id
+    </select>
+</mapper>

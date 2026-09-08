@@ -1,8 +1,5 @@
-/**
- * 本文件由 pnpm gen:page 生成(spec 行式拍板 + tools/openapi.json 快照)
- * 默认存在即跳过:人工改动不会被 --force 之外的任何方式覆盖;重新生成前先 diff 人工改动
- * 框架代码禁手改;业务槽位一律 TODO(编号),编号已登记 TODO.md
- */
+/** * 本文件由 pnpm gen:page 生成(spec 行式拍板 + tools/openapi.json 快照) * 默认存在即跳过:人工改动不会被 --force
+之外的任何方式覆盖;重新生成前先 diff 人工改动 * 框架代码禁手改;业务槽位一律 TODO(编号),编号已登记 TODO.md */
 
 <template>
   <el-dialog v-model="visible" :title="title" width="560px" :close-on-click-modal="false" destroy-on-close>
@@ -58,7 +55,7 @@ const formData = ref<WarehouseSaveRequest>({} as WarehouseSaveRequest)
 
 const rules: FormRules = {
   whName: [{ required: true, message: '请输入仓库名称', trigger: 'blur' }],
-  whType: [{ required: true, message: '请选择仓库类型', trigger: 'change' }]
+  whType: [{ required: true, message: '请选择仓库类型', trigger: 'change' }],
 }
 
 const title = ref('仓库管理')

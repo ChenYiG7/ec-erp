@@ -3,6 +3,7 @@ package com.own.erp.platform;
 import com.own.erp.platform.unified.UnifiedOrder;
 import com.own.erp.platform.unified.UnifiedProduct;
 import com.own.erp.platform.unified.UnifiedRefund;
+import com.own.erp.platform.unified.UnifiedSettlement;
 
 import java.time.Instant;
 import java.util.List;
@@ -50,6 +51,16 @@ public interface PlatformClient {
     List<UnifiedProduct> pullProducts(ShopSession session, Instant start, Instant end);
 
     List<UnifiedRefund> pullRefunds(ShopSession session, Instant start, Instant end);
+
+    /**
+     * 拉取平台结算报告(#19 财务域,2026-09-08 签名扩容):结算报告是平台按打款周期自动生成的
+     * 离散费用正本,非时序事件流——**无时间窗入参**(与上方三个窗口式拉取的语义差异,docs/04),
+     * 游标退化为幂等 upsert(PRODUCT 全量对账先例);结算报告不可主动创建(平台自动调度),
+     * 实现只搜索已生成报告逐份下载翻译。未适配平台抛 UnsupportedOperationException
+     */
+    default List<UnifiedSettlement> pullSettlements(ShopSession session) {
+        throw new UnsupportedOperationException("平台暂不支持结算报告拉取");
+    }
 
     // ---- 回写 ----
 

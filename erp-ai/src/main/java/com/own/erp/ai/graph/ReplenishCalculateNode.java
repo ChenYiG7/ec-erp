@@ -1,71 +1,38 @@
 package com.own.erp.ai.graph;
 
 import com.own.erp.ai.config.AiRuntimeProperties;
-import com.own.erp.contract.SalesQueryApi;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * @author : chenyi
  * @Date : 2026/9/6
- * @Description : 计算节点(#6 SAA Graph 补货工作流):纯程序规则算建议补货量,不调模型(铁律 8:
- *     判断归 AI、执行归程序——公式确定性强、零 token)。公式:日均销量 = 动销窗口内真实销量合计/窗口天数
- *     (2026-09-07 重估:销量数据面 order_sales_daily 落地,弃固定估计值 assumedDailySales;
- *     读侧走 SalesQueryApi 只读契约,铁律 2);
- *     建议量 = 覆盖天数 × 日均销量 − 可用 − 在途;≤0 不建议(有货且动销跟得上/窗口内零动销的死 SKU
- *     不再硬补);>0 时按最小建议量下限兜底。参数全走 erp.ai.replenish.* 配置不硬编码
+ * @Description : 计算节点(#6 SAA Graph 补货工作流):建议量公式(2026-09-08 抽取)
+ *     收口共享组件 ReplenishCalculator——补货/采购两工作流单一来源(纯程序零 token,铁律 8);
+ *     参数每轮取值(#18 系统设置):窗口/覆盖天数/下限即时生效
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class ReplenishCalculateNode implements NodeAction {
 
+    private final ReplenishCalculator calculator;
     private final AiRuntimeProperties runtime;
-    private final @Lazy SalesQueryApi salesQueryApi;
 
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, Object> apply(OverAllState state) {
-        // 参数每轮取值(#18 系统设置):窗口/覆盖天数/下限即时生效
-        int salesWindowDays = runtime.replenishSalesWindowDays();
-        int coverageDays = runtime.replenishCoverageDays();
-        int minSuggestQty = runtime.replenishMinSuggestQty();
         List<ReplenishItem> items = (List<ReplenishItem>) state.value(ReplenishStateKeys.KEY_ITEMS)
                 .orElse(List.of());
-        if (items.isEmpty()) {
-            return Map.of(ReplenishStateKeys.KEY_ITEMS, items);
-        }
-        Map<Long, Integer> soldBySku = salesQueryApi.sumQtyBySku(
-                items.stream().map(ReplenishItem::skuId).collect(Collectors.toSet()),
-                salesWindowDays);
-        List<ReplenishItem> calculated = new ArrayList<>(items.size());
-        int skipped = 0;
-        for (ReplenishItem item : items) {
-            int sold = soldBySku.getOrDefault(item.skuId(), 0);
-            // 覆盖需求 = 覆盖天数×日均销量(窗口合计折算,日均值不在中间步骤截断)
-            long demand = (long) Math.ceil((double) coverageDays * sold / salesWindowDays);
-            long need = demand - item.qtyAvailable() - item.qtyTransit();
-            if (need <= 0) {
-                // 有货且动销跟得上,或窗口内零动销(死 SKU 不硬补):不产建议
-                skipped++;
-                continue;
-            }
-            calculated.add(item.toBuilder()
-                    .suggestQty((int) Math.min(Integer.MAX_VALUE,
-                            Math.max(minSuggestQty, need)))
-                    .build());
-        }
-        log.info("补货计算完成:候选 {} 个,建议 {} 个,不需要补货剔除 {} 个",
-                items.size(), calculated.size(), skipped);
+        List<ReplenishItem> calculated = calculator.calculate(items,
+                runtime.replenishSalesWindowDays(), runtime.replenishCoverageDays(),
+                runtime.replenishMinSuggestQty());
         return Map.of(ReplenishStateKeys.KEY_ITEMS, calculated);
     }
 }

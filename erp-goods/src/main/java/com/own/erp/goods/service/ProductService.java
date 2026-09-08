@@ -57,6 +57,7 @@ public class ProductService {
                 new LambdaQueryWrapper<Product>()
                         .like(StrUtil.isNotBlank(query.getKeyword()), Product::getName, query.getKeyword())
                         .eq(query.getCategoryId() != null, Product::getCategoryId, query.getCategoryId())
+                        .eq(query.getStatus() != null, Product::getStatus, query.getStatus())
                         .orderByDesc(Product::getId));
         Page<ProductResponse> responsePage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
         responsePage.setRecords(result.getRecords().stream().map(ProductResponse::from).toList());

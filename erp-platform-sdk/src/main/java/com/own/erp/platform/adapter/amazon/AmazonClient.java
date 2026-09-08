@@ -10,6 +10,7 @@ import com.own.erp.platform.ShopSession;
 import com.own.erp.platform.unified.UnifiedOrder;
 import com.own.erp.platform.unified.UnifiedProduct;
 import com.own.erp.platform.unified.UnifiedRefund;
+import com.own.erp.platform.unified.UnifiedSettlement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -192,6 +194,29 @@ public class AmazonClient implements PlatformClient {
         return events.stream()
                 .map(event -> AmazonRefundTranslator.translateRefund(event, session.getShopId(), platform()))
                 .toList();
+    }
+
+    /**
+     * 结算报告同步(#19 财务域 2026-09-08 脱机落地,docs/04 拍板):
+     * GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2 已生成报告搜索(V2 flat file 官方 2026-11-11 移除 V1,
+     * 禁再引用)→ 逐份下载 → AmazonSettlementTranslator 翻译;无时间窗(离散正本非时序流,SPI 签名注释),
+     * 重拉靠 settlement_report uk_shop_settlement 幂等 upsert 兜底(落库侧 erp-finance,编排接线随联调拍板);
+     * 币种无需站点推导——V2 报文自带 currency 列(与 listing 报表差异);真凭证样本到位后 --force 校准一轮
+     */
+    @Override
+    public List<UnifiedSettlement> pullSettlements(ShopSession session) {
+        if (session == null || session.getToken() == null
+                || StrUtil.isBlank(session.getToken().getAccessToken())) {
+            throw new IllegalStateException("ShopSession 缺 LWA accessToken,无法调用 SP-API");
+        }
+        String accessToken = session.getToken().getAccessToken();
+        SpApiSigner.AwsCredentials awsCredentials = currentAwsCredentials();
+        List<UnifiedSettlement> settlements = new ArrayList<>();
+        for (SpApiReportsClient.SettlementReportRef ref : spApiReportsClient.listSettlementReports(accessToken, awsCredentials)) {
+            String tsv = spApiReportsClient.fetchSettlementReportContent(accessToken, awsCredentials, ref.documentId());
+            settlements.add(AmazonSettlementTranslator.translate(tsv, session.getShopId(), platform()));
+        }
+        return settlements;
     }
 
     /**

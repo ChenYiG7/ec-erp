@@ -6,7 +6,13 @@
 
 <template>
   <div class="table-box">
-    <ProTable ref="proTableRef" page-id="/shop-products" title="店铺商品" :columns="columns" :request-api="shopProductApi.page">
+    <ProTable
+      ref="proTableRef"
+      page-id="/shop-products"
+      title="店铺商品"
+      :columns="columns"
+      :request-api="shopProductApi.page"
+    >
     </ProTable>
   </div>
 </template>

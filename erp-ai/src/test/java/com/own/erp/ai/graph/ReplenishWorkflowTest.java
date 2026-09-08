@@ -61,9 +61,10 @@ class ReplenishWorkflowTest {
         ReplenishSummarizeNode summarizeNode = new ReplenishSummarizeNode(builder, runtime);
         ReflectionTestUtils.setField(summarizeNode, "apiKey", "");
 
+        // 共享组件真实装配(2026-09-08 抽取):扫描/计算逻辑单一来源,契约 mock 注入组件
         workflow = new ReplenishWorkflow(
-                new ReplenishCollectNode(inventoryQueryApi, props, runtime, aiSuggestionService),
-                new ReplenishCalculateNode(runtime, salesQueryApi),
+                new ReplenishCollectNode(new LowStockScanner(inventoryQueryApi), props, runtime, aiSuggestionService),
+                new ReplenishCalculateNode(new ReplenishCalculator(salesQueryApi), runtime),
                 summarizeNode,
                 new ReplenishPersistNode(aiSuggestionService));
     }

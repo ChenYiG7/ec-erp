@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -51,6 +52,13 @@ public class InventoryFlow {
 
     /** 关联业务单据ID */
     private Long bizId;
+
+    /** 动账单价快照(CNY,移动加权 #19③):IN_PURCHASE=采购单价(缺价暂估当时加权价)/OUT_SHIP=结转时加权价/
+     *  IN_RETURN·ADJUST=当时加权价;IN_TRANSIT·LOCK_SHIP·TRANSFER_OUT·TRANSFER_IN 不进成本账为NULL */
+    private BigDecimal unitCost;
+
+    /** 动账成本额(CNY,带符号=quantity×unit_cost:入库正/出库负;不进成本账类型为NULL) */
+    private BigDecimal costAmount;
 
     /** 备注 */
     private String remark;

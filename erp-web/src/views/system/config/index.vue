@@ -70,6 +70,8 @@ const PROMPT_KEYS = new Set([
   'erp.ai.system-prompt',
   'erp.ai.replenish.summary-prompt',
   'erp.ai.anomaly.score-prompt',
+  'erp.ai.purchase.summary-prompt',
+  'erp.ai.copy.prompt',
   'erp.ai.agent.support-prompt',
   'erp.ai.agent.ops-prompt',
 ])
@@ -125,7 +127,11 @@ const CONFIG_ITEMS: Record<string, { label: string; desc?: string; def?: string 
     desc: 'OPS 角色的 system 提示词(库存/商品盘面)',
   },
   // —— AI 组 · 补货建议 ——
-  'erp.ai.replenish.low-stock-threshold': { label: '低库存阈值', desc: '库存可用 ≤ 此值的 SKU 参与补货建议', def: '10' },
+  'erp.ai.replenish.low-stock-threshold': {
+    label: '低库存阈值',
+    desc: '库存可用 ≤ 此值的 SKU 参与补货建议',
+    def: '10',
+  },
   'erp.ai.replenish.coverage-days': {
     label: '目标覆盖天数',
     desc: '建议补货量使库存可支撑的天数',
@@ -152,6 +158,31 @@ const CONFIG_ITEMS: Record<string, { label: string; desc?: string; def?: string 
     def: '20',
   },
   'erp.ai.anomaly.score-prompt': { label: '评分提示词' },
+  // —— AI 组 · 采购建议 ——
+  'erp.ai.purchase.llm-max-items': {
+    label: '单轮送评上限',
+    desc: '单轮送 LLM 摘要的供应商组上限,超限按预估金额降序截断(成本护栏)',
+    def: '20',
+  },
+  'erp.ai.purchase.summary-prompt': { label: '摘要生成提示词' },
+  // —— AI 组 · 文案生成 ——
+  'erp.ai.copy.llm-max-items': {
+    label: '单轮生成商品上限',
+    desc: '单轮送 LLM 生成的商品上限,超限按商品ID升序截断下轮再生成(成本护栏)',
+    def: '10',
+  },
+  'erp.ai.copy.prompt': { label: '文案生成提示词' },
+  // —— AI 组 · 知识库 RAG(#6 AI 客服 V1)——
+  'erp.ai.kb.retrieval-top-k': {
+    label: '检索命中条数上限',
+    desc: '提问时注入 chat 上下文的知识库片段数;0 = 关闭注入(检索不进行)',
+    def: '4',
+  },
+  'erp.ai.kb.retrieval-min-score': {
+    label: '检索相似度下限(0~1)',
+    desc: '低于此相似度的命中不注入(调高更精准,调低更召回)',
+    def: '0.5',
+  },
   // —— ALERT 组:库存预警 ——
   'erp.alert.enabled': { label: '总开关', def: 'true' },
   'erp.alert.quiet-hours': { label: '静默期(小时)', desc: '同类型告警窗口内只发一条防刷屏', def: '24' },
@@ -184,6 +215,9 @@ const AI_SECTIONS = [
   { name: 'agent', label: '智能体 Agent' },
   { name: 'replenish', label: '补货建议' },
   { name: 'anomaly', label: '订单异常检测' },
+  { name: 'purchase', label: '采购建议' },
+  { name: 'copy', label: '文案生成' },
+  { name: 'kb', label: '知识库 RAG' },
 ] as const
 
 const activeSection = ref<string>('base')
@@ -197,13 +231,20 @@ const sectionOf = (key?: string | null) => {
   if (key?.startsWith('erp.ai.anomaly.')) {
     return 'anomaly'
   }
+  if (key?.startsWith('erp.ai.purchase.')) {
+    return 'purchase'
+  }
+  if (key?.startsWith('erp.ai.copy.')) {
+    return 'copy'
+  }
+  if (key?.startsWith('erp.ai.kb.')) {
+    return 'kb'
+  }
   return 'base'
 }
 /** 当前应渲染的行:AI 组按小节过滤,其余组整组平铺 */
 const visibleRows = computed(() =>
-  activeGroup.value === 'AI'
-    ? rows.value.filter(row => sectionOf(row.configKey) === activeSection.value)
-    : rows.value
+  activeGroup.value === 'AI' ? rows.value.filter(row => sectionOf(row.configKey) === activeSection.value) : rows.value
 )
 
 const canSave = computed(() => true) // 权限由 v-auth 收口按钮;输入态不按权限禁用(仅展示)
@@ -211,8 +252,7 @@ const canSave = computed(() => true) // 权限由 v-auth 收口按钮;输入态�
 const isBoolKey = (key?: string | null) => !!key && BOOL_KEYS.has(key)
 const isPromptKey = (key?: string | null) => !!key && PROMPT_KEYS.has(key)
 /** 说明文字:后端 remark 优先,为空回落词表 desc,再兜底"(无说明)" */
-const remarkOf = (row: SysConfig) =>
-  row.remark || (row.configKey && CONFIG_ITEMS[row.configKey]?.desc) || '(无说明)'
+const remarkOf = (row: SysConfig) => row.remark || (row.configKey && CONFIG_ITEMS[row.configKey]?.desc) || '(无说明)'
 /** 表单标签中文优先:词表 → 后端 remark → 原键兜底(未登记键不至于空白) */
 const labelOf = (row: SysConfig) =>
   (row.configKey && CONFIG_ITEMS[row.configKey]?.label) || row.remark || row.configKey || ''

@@ -18,4 +18,7 @@ public class ProductQuery extends PageQuery {
 
     /** 分类ID 精确过滤(可选) */
     private Long categoryId;
+
+    /** 状态过滤 1启用 0停用(可选,空=不过滤;#17 文案生成扫启用商品,2026-09-08 加) */
+    private Integer status;
 }

@@ -3,12 +3,16 @@ package com.own.erp.ai.chat;
 import com.own.erp.ai.constant.AiConsts;
 import com.own.erp.ai.config.ErpAiProperties;
 import com.own.erp.ai.graph.RuntimePropsStub;
+import com.own.erp.ai.kb.KbSearchService;
 import com.own.erp.ai.service.AiChatMessageService;
 import com.own.erp.ai.service.AiChatSessionService;
 import com.own.erp.ai.tools.AftersaleTools;
+import com.own.erp.ai.tools.DeliveryTools;
 import com.own.erp.ai.tools.GoodsTools;
 import com.own.erp.ai.tools.InventoryTools;
 import com.own.erp.ai.tools.OrderTools;
+import com.own.erp.ai.tools.PurchaseTools;
+import com.own.erp.ai.tools.ShopTools;
 import com.own.erp.common.exception.BusinessException;
 import com.own.erp.contract.CurrentUserApi;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +55,7 @@ class ErpChatServiceTest {
     private ChatClient.ChatClientRequestSpec spec;
     private AiChatSessionService sessionService;
     private AiChatMessageService messageService;
+    private KbSearchService kbSearchService;
     private ErpChatService service;
 
     @BeforeEach
@@ -64,10 +69,12 @@ class ErpChatServiceTest {
         when(currentUserApi.currentUserId()).thenReturn(USER_ID);
         sessionService = mock(AiChatSessionService.class);
         messageService = mock(AiChatMessageService.class);
+        kbSearchService = mock(KbSearchService.class);
         service = new ErpChatService(builder, new ErpAiProperties(),
                 RuntimePropsStub.of(new ErpAiProperties()), currentUserApi, sessionService,
-                messageService, mock(OrderTools.class), mock(InventoryTools.class),
-                mock(GoodsTools.class), mock(AftersaleTools.class));
+                messageService, kbSearchService, mock(OrderTools.class), mock(InventoryTools.class),
+                mock(GoodsTools.class), mock(AftersaleTools.class), mock(ShopTools.class),
+                mock(PurchaseTools.class), mock(DeliveryTools.class));
         ReflectionTestUtils.setField(service, "apiKey", "test-key");
     }
 
@@ -149,5 +156,54 @@ class ErpChatServiceTest {
         assertTrue(chunks.get(0).contains("401: api key invalid"));
         verify(messageService).append(eq(1L), eq("USER"), eq("hi"), isNull(), isNull(), isNull());
         verify(messageService, never()).append(eq(1L), eq("AI"), any(), any(), any(), any());
+    }
+
+    @Test
+    void chatInjectsKbContextAfterQuestion() {
+        // RAG V1(#6):知识库命中 → 上下文拼在问题后注入 user message;USER 审计行仍存原始问题
+        String context = "\n\n【知识库参考资料】...[1] 退货须在签收后 7 天内发起。";
+        when(kbSearchService.buildContext("查一下退货流程")).thenReturn(context);
+        stubCallChain(emptyResponse("按资料回答"));
+
+        service.chat(1L, "查一下退货流程");
+
+        verify(spec).user("查一下退货流程" + context);
+        verify(messageService).append(1L, "USER", "查一下退货流程", null, null, null);
+    }
+
+    @Test
+    void chatWithoutKbHitsKeepsQuestionAsIs() {
+        when(kbSearchService.buildContext(any())).thenReturn("");
+        stubCallChain(emptyResponse("好"));
+
+        service.chat(1L, "hi");
+
+        verify(spec).user("hi");
+    }
+
+    @Test
+    void chatDegradesWhenKbContextAssemblyThrows() {
+        // 双保险:RAG 装配异常不阻断 chat,提问原样进模型
+        when(kbSearchService.buildContext(any())).thenThrow(new RuntimeException("kb boom"));
+        stubCallChain(emptyResponse("好"));
+
+        service.chat(1L, "hi");
+
+        verify(spec).user("hi");
+        verify(messageService).append(eq(1L), eq("AI"), eq("好"), any(), any(), any());
+    }
+
+    private ChatResponse emptyResponse(String text) {
+        ChatResponse response = mock(ChatResponse.class);
+        Generation generation = mock(Generation.class);
+        when(response.getResult()).thenReturn(generation);
+        when(generation.getOutput()).thenReturn(new AssistantMessage(text));
+        ChatResponseMetadata metadata = mock(ChatResponseMetadata.class);
+        when(response.getMetadata()).thenReturn(metadata);
+        Usage usage = mock(Usage.class);
+        when(usage.getPromptTokens()).thenReturn(0);
+        when(usage.getCompletionTokens()).thenReturn(0);
+        when(metadata.getUsage()).thenReturn(usage);
+        return response;
     }
 }

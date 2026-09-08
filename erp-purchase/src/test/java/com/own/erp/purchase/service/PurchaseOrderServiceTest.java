@@ -408,4 +408,17 @@ class PurchaseOrderServiceTest {
         when(purchaseOrderMapper.selectCount(any())).thenReturn(3L);
         assertEquals(3L, purchaseOrderService.countBySupplierId(1L));
     }
+
+    @Test
+    void findLatestSupplierBySkuIdsDelegatesToMapperAndGuardsEmpty() {
+        // #17 采购建议取数:XML 窗口函数联查透传 + 空集合短路不触库
+        com.own.erp.purchase.response.SkuSupplierRow row = new com.own.erp.purchase.response.SkuSupplierRow();
+        row.setSkuId(4L);
+        row.setSupplierId(2L);
+        when(purchaseOrderItemMapper.findLatestSupplierRows(List.of(4L))).thenReturn(List.of(row));
+
+        assertEquals(1, purchaseOrderService.findLatestSupplierBySkuIds(List.of(4L)).size());
+        assertEquals(List.of(), purchaseOrderService.findLatestSupplierBySkuIds(List.of()));
+        verify(purchaseOrderItemMapper, never()).findLatestSupplierRows(List.of());
+    }
 }

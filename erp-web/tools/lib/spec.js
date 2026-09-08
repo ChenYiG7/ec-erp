@@ -9,7 +9,27 @@ import { fileURLToPath } from 'node:url'
 const WEB_ROOT = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url)))) // erp-web/
 const REPO_ROOT = path.dirname(WEB_ROOT)
 
-const HEAD_KEYS = ['module', 'domain', 'entity', 'nameZh', 'permPrefix', 'todoId', 'menuParent', 'menuId', 'menuSort', 'path', 'component', 'base', 'icon', 'readonly', 'pageType', 'chatBase', 'typesFrom', 'emptyText', 'placeholder']
+const HEAD_KEYS = [
+  'module',
+  'domain',
+  'entity',
+  'nameZh',
+  'permPrefix',
+  'todoId',
+  'menuParent',
+  'menuId',
+  'menuSort',
+  'path',
+  'component',
+  'base',
+  'icon',
+  'readonly',
+  'pageType',
+  'chatBase',
+  'typesFrom',
+  'emptyText',
+  'placeholder',
+]
 const PAGE_TYPES = ['crud', 'chat']
 const ROLE_KEYS = ['name', 'empty', 'placeholder']
 const FIELD_ROLES = ['search', 'column', 'form', 'all']
@@ -146,15 +166,39 @@ function parseFieldLine(line, lineNo, fieldByName) {
   }
 
   /** @type {object} */
-  const field = { name, role: null, label: null, dict: null, enumMap: null, width: null, money: false, required: false, hide: false, tag: false, lineNo }
+  const field = {
+    name,
+    role: null,
+    label: null,
+    dict: null,
+    enumMap: null,
+    width: null,
+    money: false,
+    required: false,
+    hide: false,
+    tag: false,
+    lineNo,
+  }
 
   for (const token of tokens.slice(1)) {
     const eq = token.indexOf('=')
     if (eq === -1) {
-      if (token === 'money') { field.money = true; continue }
-      if (token === 'required') { field.required = true; continue }
-      if (token === 'hide') { field.hide = true; continue }
-      if (token === 'tag') { field.tag = true; continue }
+      if (token === 'money') {
+        field.money = true
+        continue
+      }
+      if (token === 'required') {
+        field.required = true
+        continue
+      }
+      if (token === 'hide') {
+        field.hide = true
+        continue
+      }
+      if (token === 'tag') {
+        field.tag = true
+        continue
+      }
       failAt(specPath, lineNo, `字段 ${name} 存在无法识别的标记: ${token}`)
     }
     const k = token.slice(0, eq)

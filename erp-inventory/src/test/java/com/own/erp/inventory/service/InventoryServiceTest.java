@@ -42,13 +42,16 @@ class InventoryServiceTest {
 
     private InventoryMapper inventoryMapper;
     private InventoryFlowMapper inventoryFlowMapper;
+    private com.own.erp.inventory.service.InventoryCostService inventoryCostService;
     private InventoryService inventoryService;
 
     @BeforeEach
     void setUp() {
         inventoryMapper = mock(InventoryMapper.class);
         inventoryFlowMapper = mock(InventoryFlowMapper.class);
-        inventoryService = new InventoryService(inventoryMapper, inventoryFlowMapper);
+        // 成本账 mock 注入:本测试关注点在数量语义矩阵,成本推进(#19③)独立成 InventoryCostServiceTest
+        inventoryCostService = mock(com.own.erp.inventory.service.InventoryCostService.class);
+        inventoryService = new InventoryService(inventoryMapper, inventoryFlowMapper, inventoryCostService);
     }
 
     /** 造行:默认数量列 0,按需覆写 */

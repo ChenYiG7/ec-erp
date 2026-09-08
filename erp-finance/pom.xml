@@ -17,10 +17,26 @@
             <groupId>com.own.erp</groupId>
             <artifactId>erp-common</artifactId>
         </dependency>
+        <!-- 仅消费 UnifiedSettlement 落库模型(#19 saveUnifiedSettlement),禁调平台 API;
+             同 erp-order 消费 UnifiedOrder 规约(docs/07 §2.2) -->
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-platform-sdk</artifactId>
+        </dependency>
+        <!-- 契约模型(ProfitQueryApi 契约消费 + Controller 出参复用契约 record,#19③) -->
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-contract</artifactId>
+        </dependency>
         <!-- 本模块含 Controller/CRUD,自带 web + mybatis-plus;由 erp-api 聚合运行 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- 仅 @PreAuthorize 注解(汇率写侧 admin 鉴权),过滤链仍收口 erp-api(禁引 Security starter),同 erp-purchase 先例 -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-core</artifactId>
         </dependency>
         <!-- 参数校验(@Valid),TODO#7 -->
         <dependency>

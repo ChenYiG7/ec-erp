@@ -9,7 +9,9 @@ import type { ShopOrderResponse, ShopOrderQuery } from '@/api/interface/order/or
 export const shopOrderApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: ShopOrderQuery & PageQuery) =>
-    http.get<PageResult<ShopOrderResponse>>('/api/orders', params).then(page => ({ list: page.records, total: page.total })),
+    http
+      .get<PageResult<ShopOrderResponse>>('/api/orders', params)
+      .then(page => ({ list: page.records, total: page.total })),
   /** 详情 */
   detail: (id: number) => http.get<ShopOrderResponse>(`/api/orders/${id}`),
 }

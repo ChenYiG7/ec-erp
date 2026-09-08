@@ -39,8 +39,48 @@ public class ErpAiProperties {
     /** 订单异常检测参数组(#6 两段式:规则先筛+LLM 只评可疑样本):阈值/护栏/prompt 全走配置不硬编码 */
     private Anomaly anomaly = new Anomaly();
 
+    /** 采购建议工作流参数组(#17 三期候选落地,2026-09-08):输入复用补货计算口径
+     *  (低库存阈值/覆盖天数/动销窗口/最小建议量四参数走 replenish 同源键,语义=同一"低库存"定义),
+     *  仅扫描护栏与摘要配置独立;V1 仅手动触发(采购是人类决策节奏),定时接线待拍板 */
+    private Purchase purchase = new Purchase();
+
+    /** 文案生成工作流参数组(#17 三期候选「产品描述生成」落地,2026-09-08):
+     *  扫描护栏独立;LLM 上限与 prompt 入 sys_config(#18 热更);V1 仅手动触发不接定时 */
+    private Copy copy = new Copy();
+
     /** Agent 参数组(四期 agent/):角色 system prompt 收口本类(docs/07 §9),yml `erp.ai.agent.*` 可覆盖 */
     private Agent agent = new Agent();
+
+    /** 知识库参数组(RAG V1,2026-09-08):切块/索引文件/上传护栏 yml 口径;检索 top-k 与相似度下限入 sys_config(#18 热更) */
+    private Kb kb = new Kb();
+
+    /**
+     * 知识库参数组(#6 AI 客服 RAG V1):向量库拍板 = Spring AI SimpleVectorStore(JSON 文件持久化,
+     * 零新基建;VectorStore 接口编程,后续换 pgvector/Redis 只换实现);向量不入库——
+     * ai_kb_chunk 存 chunk 文本作为重建正本,索引文件丢失/换 embedding 模型时按正本重建
+     */
+    @Getter
+    @Setter
+    public static class Kb {
+
+        /** 向量索引文件路径(SimpleVectorStore JSON 持久化;相对路径相对进程工作目录) */
+        private String indexPath = "data/ai/kb-index.json";
+
+        /** 切块目标 token 数(TokenTextSplitter chunkSize;中文 ≈ 等量字符级,检索粒度调参面) */
+        private int chunkSize = 800;
+
+        /** 上传文件大小上限(字节;防超长文件拉爆切块与 embedding) */
+        private int maxFileBytes = 1048576;
+
+        /** 单文档最大字符数(文件解码后/粘贴文本同口径,超限拒绝) */
+        private int maxDocumentChars = 200000;
+
+        /** 检索条数默认值(sys_config erp.ai.kb.retrieval-top-k 可覆盖) */
+        private int retrievalTopK = 4;
+
+        /** 检索相似度下限默认值(0~1,sys_config erp.ai.kb.retrieval-min-score 可覆盖) */
+        private double retrievalMinScore = 0.5;
+    }
 
     /**
      * Agent 参数组:ReActAgent 角色 prompt 与循环护栏。
@@ -142,5 +182,55 @@ public class ErpAiProperties {
         private String scorePrompt = "你是电商 ERP 的订单风控助手。根据给定的订单信息与其命中的规则,为每张可疑订单评估风险等级"
                 + "(只能取 LOW/MID/HIGH 之一)并给一句不超过 40 字的中文理由。只输出 JSON 数组,"
                 + "元素形如 {\"orderId\":1,\"riskLevel\":\"MID\",\"reason\":\"...\"},不输出任何其他文字。";
+    }
+
+    /**
+     * 采购建议工作流参数组(#17,2026-09-08):聚合口径 = 待确认补货缺口按"最新采购供应商"分组,
+     * 预估金额 = Σ(最新采购单价×建议量);护栏语义同 replenish/anomaly
+     */
+    @Getter
+    @Setter
+    public static class Purchase {
+
+        /** 单页扫描量(契约钳制 ≤100) */
+        private int scanPageSize = 100;
+
+        /** 单轮扫描行数上限 */
+        private int scanMaxRows = 500;
+
+        /** 单轮送 LLM 摘要的供应商组上限(超限按预估金额降序截断,未送评组走模板摘要) */
+        private int llmMaxItems = 20;
+
+        /** 摘要节点 system prompt(集中配置,docs/07 §9) */
+        private String summaryPrompt = "你是电商 ERP 的采购分析助手。根据给定的按供应商聚合的补货缺口与预估金额,"
+                + "为每个供应商写一句不超过 50 字的中文采购建议摘要(说明采购理由与紧急程度)。只输出 JSON 数组,"
+                + "元素形如 {\"supplierId\":1,\"summary\":\"...\"},不输出任何其他文字。";
+    }
+
+    /**
+     * 文案生成参数组(#17 三期候选「产品描述生成」,2026-09-08):为商品库启用商品批量生成
+     * listing 文案建议(标题/五点描述/商品描述/关键词);降级语义与补货/异常/采购刻意不同——
+     * 文案本体即 LLM 产出无模板可兜,LLM 不可用本轮零产出(degraded=true),不落垃圾建议
+     */
+    @Getter
+    @Setter
+    public static class Copy {
+
+        /** 单页扫描量(契约钳制 ≤100) */
+        private int scanPageSize = 100;
+
+        /** 单轮扫描商品数上限(文案逐商品产长文本,上限比补货/采购收紧防长跑) */
+        private int scanMaxRows = 200;
+
+        /** 单轮送 LLM 生成的商品上限(超限按 productId 升序截断,截断商品下轮再生成不算降级) */
+        private int llmMaxItems = 10;
+
+        /** 生成节点 system prompt(集中配置,docs/07 §9) */
+        private String prompt = "你是电商平台的 listing 文案专家。根据给定的商品信息(名称/品牌/类目/销售属性/SKU 规格)"
+                + "为每个商品生成一套中文电商文案:标题 title(含品牌与核心卖点,60 字以内)、五点描述 bulletPoints"
+                + "(5 条,每条不超过 40 字,突出卖点与规格)、商品描述 description(150~300 字)、搜索关键词 keywords"
+                + "(5~10 个)。只能基于给定信息撰写,禁止编造商品没有的参数。只输出 JSON 数组,元素形如"
+                + " {\"productId\":1,\"title\":\"...\",\"bulletPoints\":[\"...\"],\"description\":\"...\","
+                + "\"keywords\":[\"...\"]},不输出任何其他文字。";
     }
 }

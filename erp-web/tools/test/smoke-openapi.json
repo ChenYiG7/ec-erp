@@ -38,7 +38,9 @@
         "tags": ["冒烟域"],
         "summary": "冒烟详情",
         "operationId": "getSmoke",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+        ],
         "responses": {
           "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultSmokeResponse" } } } }
         }
@@ -47,7 +49,9 @@
         "tags": ["冒烟域"],
         "summary": "修改冒烟",
         "operationId": "updateSmoke",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+        ],
         "requestBody": {
           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SmokeSaveRequest" } } }
         },
@@ -59,7 +63,9 @@
         "tags": ["冒烟域"],
         "summary": "删除冒烟",
         "operationId": "deleteSmoke",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+        ],
         "responses": {
           "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } } }
         }
@@ -70,7 +76,9 @@
         "tags": ["冒烟域"],
         "summary": "激活冒烟",
         "operationId": "activateSmoke",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+        ],
         "requestBody": {
           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SmokeActivateRequest" } } }
         },
@@ -84,7 +92,9 @@
         "tags": ["冒烟域"],
         "summary": "冒烟日志(扩展动作示范)",
         "operationId": "listSmokeLogs",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+        ],
         "responses": {
           "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } } }
         }

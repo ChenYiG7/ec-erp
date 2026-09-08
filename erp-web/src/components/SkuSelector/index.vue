@@ -73,14 +73,16 @@ const search = async (keyword: string) => {
       if (seq !== searchSeq) {
         return
       }
-      options.value = list.flatMap((p: ProductResponse, i: number) =>
-        (skuLists[i] ?? []).map(sku => ({
-          label: `${sku.skuCode} · ${p.name}`,
-          value: sku.id,
-          skuCode: sku.skuCode,
-          productName: p.name
-        }))
-      ).slice(0, OPTION_LIMIT)
+      options.value = list
+        .flatMap((p: ProductResponse, i: number) =>
+          (skuLists[i] ?? []).map(sku => ({
+            label: `${sku.skuCode} · ${p.name}`,
+            value: sku.id,
+            skuCode: sku.skuCode,
+            productName: p.name,
+          }))
+        )
+        .slice(0, OPTION_LIMIT)
     } finally {
       if (seq === searchSeq) {
         loading.value = false
@@ -91,7 +93,10 @@ const search = async (keyword: string) => {
 
 const onSelect = (value: number | undefined) => {
   emit('update:modelValue', value)
-  emit('change', options.value.find(o => o.value === value))
+  emit(
+    'change',
+    options.value.find(o => o.value === value)
+  )
 }
 
 const onClear = () => {

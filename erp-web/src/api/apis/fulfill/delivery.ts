@@ -1,6 +1,10 @@
 import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
-import type { DeliveryOrderResponse, DeliveryOrderQuery, DeliveryOrderSaveRequest } from '@/api/interface/fulfill/delivery'
+import type {
+  DeliveryOrderResponse,
+  DeliveryOrderQuery,
+  DeliveryOrderSaveRequest,
+} from '@/api/interface/fulfill/delivery'
 
 /**
  * 发货单(/api/fulfill/delivery-orders,由 gen:page 生成)
@@ -9,7 +13,9 @@ import type { DeliveryOrderResponse, DeliveryOrderQuery, DeliveryOrderSaveReques
 export const deliveryOrderApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: DeliveryOrderQuery & PageQuery) =>
-    http.get<PageResult<DeliveryOrderResponse>>('/api/fulfill/delivery-orders', params).then(page => ({ list: page.records, total: page.total })),
+    http
+      .get<PageResult<DeliveryOrderResponse>>('/api/fulfill/delivery-orders', params)
+      .then(page => ({ list: page.records, total: page.total })),
   /** 详情 */
   detail: (id: number) => http.get<DeliveryOrderResponse>(`/api/fulfill/delivery-orders/${id}`),
   /** 新增(后端返回主键;仅 WAIT_SHIP+卖家自履约订单可建,#11 建发货单表单槽位) */

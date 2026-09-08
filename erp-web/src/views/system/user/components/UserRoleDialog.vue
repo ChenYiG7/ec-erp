@@ -42,7 +42,10 @@ const open = async (row: SysUserResponse) => {
   visible.value = true
   loading.value = true
   try {
-    const [roleIds, rolePage] = await Promise.all([sysUserApi.getRoles(row.id), sysRoleApi.page({ pageNo: 1, pageSize: 200 })])
+    const [roleIds, rolePage] = await Promise.all([
+      sysUserApi.getRoles(row.id),
+      sysRoleApi.page({ pageNo: 1, pageSize: 200 }),
+    ])
     roles.value = rolePage.list
     checkedRoleIds.value = roleIds
   } finally {

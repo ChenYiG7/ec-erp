@@ -62,7 +62,8 @@
       AmazonClientTest 适配新构造 +2 守卫);已知边界:getOrderItems 页内循环未单独走限流,随实调真值评估
 - [ ] SP-API 真凭证联调(剩余部分):Seller Central 应用授权 + IAM 权限/role-arn 上线 + getOrders 冒烟;
       SP-API 限流真值按响应头 x-amzn-RateLimit-Limit 校准;~~pullProducts/pullRefunds 占位~~
-      (✅ 2026-09-06 联调预备骨架落地,见下条)/ ~~uploadTracking 占位~~(✅ 2026-09-06 脱机落地,见下条)(docs/07 §12)
+      (✅ 2026-09-06 联调预备骨架落地,见下条)/ ~~uploadTracking 占位~~(✅ 2026-09-06 脱机落地,
+      ✅ 2026-09-08 #11 编排接线落地,见 #11 条目)(docs/07 §12)
 - [x] 2026-09-06 #3 联调预备骨架落地(选型拍板进 docs/04「Amazon 拉取/回写面选型拍板」节,代码 adapter/amazon):
       ①pullProducts 选型 **Reports GET_MERCHANT_LISTINGS_ALL_DATA**(Listings Items API 无枚举能力,
       报表全量快照 + saveUnifiedProduct upsert 幂等,PRODUCT 游标退化为频率控制)——SpApiReportsClient
@@ -97,8 +98,8 @@
       PlatformGateway 回写桶限流透传同步适配;AmazonClient 守卫(缺 LWA token/未配 AWS 密钥)同拉单口径;
       单测 +7(SpApiOrdersClientTest 7→13:POST 形态与签名/请求体逐字段/承运商兜底省空字段/
       安全令牌头/错误透状态码/校验守卫/配置守卫;AmazonClientTest 占位测试改双守卫);
-      ⚠️ **#11 ship 编排接线仍留**(发货明细行→platformOrderItemId 翻译经 ShopOrderApi 契约、
-      回传失败记 pull_log 不回滚本地发货,docs/04)——随联调需要另做,本条目只交付 adapter 能力面
+      ⚠️ **#11 ship 编排接线** —— ✅ 2026-09-08 已落地(erp-api ShipmentSyncService 事件驱动,
+      事务提交后回传、失败记 pull_log 不回滚本地;明细行翻译经 ShopOrderApi 契约扩容字段,见 #11 条目)
 - [x] 2026-09-04 OAuth 回调 + Token 刷新落地(脱机部分,erp-shop 授权中心):
       `GET /{id}/auth-url` 实装(state 加密签发)→ `GET /api/shops/oauth/callback`(SecurityConfig 放行,浏览器直跳无 JWT)
       → OAuthStateService 校验(state = AES-GCM 加密 `用途|shopId|到期ms`,复用 ERP_TOKEN_KEY,10 分钟 TTL,
@@ -132,7 +133,7 @@
       shop_order / shop_order_item 域骨架已生成,对外只读查询(`/api/orders`,店铺/平台/状态过滤),无人工写接口——
       剩余工作 = OrderPullJob 调度 + `saveUnifiedOrder` 落库(ShopOrderService 类注释 TODO(#4) 有实现指引)
 - [x] 2026-09-04 `saveUnifiedOrder` 落库落地(ShopOrderService):主表 `upsert` ON DUPLICATE KEY UPDATE
-      (uk_shop_platform_order,docs/07 §5 禁先查后插,XML 见 erp-order mapper/ShopOrderMapper.xml,行别名语法 MySQL 8.0.19+)
+      (uk_shop_platform_order,docs/07 §5 禁先查后插,XML 见 erp-order mapper/ShopOrderMapper.xml;行别名 `AS new` 9.7.2 原生形态,见"SQL 兼容性红线")
       → 按 uk 反查 id → 明细先删后插(状态回传可能改行,同事务);缺省值:履约渠道 SELF_FULFILL、汇率 1(跨境缺汇率记 warn)、金额归零;
       明细 sku_id 由 erp-api 编排批量翻译(`ShopProductSkuService.mapSellerSkuToSkuId`,XML JOIN shop_product 限定店铺),未绑定 NULL 订单照常入库;
       `getById` 随单带明细(ShopOrderItemResponse,shop_product_id 内部列不对外);单测 8 个(翻译/金额/必填校验/反查兜底)
@@ -164,7 +165,7 @@
       `/api/shop-products`、`/api/shop-product-skus`,待匹配列表 = match_status=0 过滤);
       人工绑定接口已实现 `PUT /api/shop-product-skus/{id}/bind`(回填 sku_id + match_status=2,重复绑定幂等,6 个单测)
 - [x] 2026-09-04 店铺商品同步落地:`ShopProductService.saveUnifiedProduct`(唯一写入口)——主表 upsert
-      (uk_shop_platform_product,XML 行别名语法)+ uk 反查 id + 级联 upsert SKU 行(uk_shop_seller_sku);
+      (uk_shop_platform_product,XML upsert;行别名 `AS new` 9.7.2 原生形态,见"SQL 兼容性红线")+ uk 反查 id + 级联 upsert SKU 行(uk_shop_seller_sku);
       绑定字段(product_id/sku_id/match_status)永不被同步覆盖(XML 更新列不含绑定列,快照列 COALESCE);
       无 seller_sku 的平台 SKU 行不进映射表;单 SKU 商品回填 platform_sku_id,多 SKU 落 NULL;
       UnifiedProduct.Sku 演进新增 currency 字段(只加不改,docs/07 §8)
@@ -207,7 +208,23 @@
       过滤 record + 行视图 record + QueryPage,全 record 不引 MP 类型;实现收口 erp-api 委托各域 Service.page;
       erp-ai 取数唯一正道,铁律 2)
 - [x] `tools/` 只读 @Tool 首批四类(OrderTools/InventoryTools/GoodsTools/AftersaleTools,取数走契约;
-      余量:Shop/Purchase/Delivery/Report 等待随查询契约扩容,ACOS 无数据不开;写操作必须人工确认,铁律 7)
+      写操作必须人工确认,铁律 7)
+- [x] 2026-09-08 `tools/` 扩容三类(**Shop/Purchase/Delivery 随查询契约落地**,余量仅剩 Report——报表域未建,
+      ACOS 无数据不开):
+      ①契约三件(erp-contract,与查询契约五件同构:过滤 record + 行视图 record + QueryPage,全 record 不引 MP 类型):
+      `ShopQueryApi`(pageShops/getShop——**凭证字段不进契约**:ShopView 只收 id/platform/shopName/sellerId/status/
+      tokenExpireAt,appKey/accessToken 源头上不映射,模型零消费场景即编译期不可见,安全红线 docs/07 §7)/
+      `PurchaseQueryApi`(pagePurchaseOrders/getPurchaseOrderDetail,带 PO 明细)/
+      `DeliveryQueryApi`(pageDeliveries/getDeliveryDetail,带发货明细;waybillUrl 无消费场景不出契约);
+      实现收口 erp-api(三 Impl 委托各域 Service,entity→record 显式逐字段映射经域 Response 中转,禁反射拷贝);
+      ②\`erp-ai/tools/` 新增 `ShopTools`/`PurchaseTools`/`DeliveryTools`(一类一文件,qihang 11 类 checklist 对齐,
+      只读铁律 7 + @Lazy 断环 + 分页 int 入参空值回退 0 走契约 filter 归一,同 2026-09-07 拆箱 NPE 修复口径);
+      ③`ErpChatService`/`AgentService` 工具面四类 → **七类**(`ToolCallbacks.from` 本地转换,
+      复刻 2026-09-07 勘误:禁注入 List<ToolCallback>,容器无该 Bean 恒空会静默丢工具);
+      ④`PurchaseOrderQuery`/`PurchaseOrderService` 补过滤三条件(供应商/收货仓/状态,AI 过滤必需,
+      原分页无过滤条件全量扫);
+      单测 +9(erp-api 三 Impl 各 2 + erp-ai ToolsPagingDefaultsTest 三类分页默认归一 +3);
+      全 reactor 18 模块 BUILD SUCCESS(erp-ai 105+ / erp-api 106+)
 - [x] `ErpChatService.chat/chatStream`:ChatClient + system prompt 集中 ErpAiProperties(yml `erp.ai.system-prompt` 可覆盖);
       无 AI_API_KEY 调用友好报错、启动不炸
 - [x] `ErpChatController`:POST /api/ai/chat/sessions/{id}/chat(SSE 流式)+ chat-sync 同步 + 会话新建/列表/历史
@@ -225,12 +242,13 @@
       条件边(无可补项直达 END)→summarize→persist→END,图构造器装配 compile 一次持有可重复 invoke;
       **拍板偏离 TODO 原文"取数LLM"**:程序取数+程序计算、LLM 只写报告——公式确定性强/零 token
       (铁律 8 判断归 AI、执行归程序)。collect 分页扫 inventory(可用≤阈值)按 skuId 跨仓合并(可用/在途求和);
-      calculate 纯公式 max(最小建议量,覆盖天数×日均销量估计−可用−在途),V1 简化口径——
-      TODO(#6): 待销量数据面落地后按近期动销重估公式;summarize 单次 LLM 调用产逐 SKU 摘要,
+      calculate 纯公式:日均销量 = 动销窗口真实销量合计/窗口天数——✅ 2026-09-07 动销重估收口
+      (旧固定 assumedDailySales 估计口径已弃,详见下方「销量数据面」条目);summarize 单次 LLM 调用产逐 SKU 摘要,
       **三重降级**(apiKey 空/调用失败/解析失败,含 ``` 围栏容错)统一落模板串 degraded=true 照跑照落库——
       模型故障不阻断建议产出;persist 经 AiSuggestionService.save 唯一入口落 ai_suggestion(type=REPLENISH,
       风险分级:可用≤0 即缺货 HIGH 否则 MID;payloadJson 存 三数量,不碰业务单据);
-      触发 = POST /api/ai/replenishment/run(登录即可);TODO(#6): 定时接线(每日低峰,参考 AlertJob 模式)待拍板间隔后接;
+      触发 = POST /api/ai/replenishment/run(登录即可);定时接线 ✅ 2026-09-07 落地
+      (ReplenishJob 每日 02:00 低峰,见下方「两工作流定时接线」条目);
       单测 12 个(Collect 扫描护栏+跨仓合并/Calculate 公式/Summarize 三重降级+解析/Persist 落库字段/Workflow 条件边);
       ⚠️ **victools 仲裁钉版**(根 pom,T1 当场炸出):spring-ai 2.0.1 JsonSchemaGenerator 静态引
       jsonschema-module-jackson 的 JacksonSchemaModule(仅 5.0.0 有,4.38.0 已更名),agentscope 2.0.2
@@ -295,9 +313,8 @@
       余量:更多角色
 - [x] 库存预警规则引擎 ✅ 2026-09-06 落地(alert/ + erp-api AlertJob,V1 三规则:
       低库存(可用≤阈值聚一条,明细 topN)/ 发货超时(WAIT_SHIP 且下单超 N 小时)/
-      退款异常(窗口内按店铺聚合 REFUNDED 单数达阈值);滞销/积压依赖销量统计面(现无销量表/视图)——
-      TODO(#6): 待销量数据面落地后补规则(口径 docs/02"规则引擎先筛"两段式;qihang 同款销售额为零等规则
-      一并纳入,见 #17 落位表)。取数只走只读查询契约(铁律 2/7);分页扫全量,
+      退款异常(窗口内按店铺聚合 REFUNDED 单数达阈值);滞销/积压两规则 ✅ 2026-09-07 随销量数据面
+      补齐(V1 三规则→五规则,详见下方「销量数据面」条目)。取数只走只读查询契约(铁律 2/7);分页扫全量,
       scanPageSize/scanMaxRows 护栏钳制防大表拖死;单规则失败隔离只记日志不殃及本轮其余规则;
       出口仅产 AlertEvent,推送/静默去重收口 **erp-api AlertJob**(erp-ai 不依赖 erp-system,
       模式同 OrderPullJob:每小时 fixedDelay 开关→抢锁(LockService alert:scan 效率锁,漏扫一轮无损失)→
@@ -321,9 +338,11 @@
       逐单漏回/词表外 riskLevel → 规则定级+模板 summary+degraded=true 照跑照落库;
       prompt 集中 ErpAiProperties.Anomaly.scorePrompt(docs/07 §9)。落库经 AiSuggestionService.save 唯一入口
       (type=ANOMALY/refType=SHOP_ORDER/refId=orderId/payloadJson={hitRules,ruleRisk,金额汇率,时间,llmScored});
-      重复 run 产生新一批 = 已接受语义(同补货),**接定时前必须先拍去重语义 → TODO(#6)**;
+      重复 run 产生新一批 = 已接受语义(同补货),去重语义 ✅ 2026-09-07 拍板(同键存在待确认建议即跳过,
+      见下方「两工作流定时接线」条目);
       触发 = POST /api/ai/anomaly/run(登录即可),返回 {scannedCount,suspiciousCount,persistedCount,llmScoredCount,degraded};
-      定时接线与补货同张 TODO 一并拍板;HIGH 推通知随实际告警量评估 → TODO(#6);「同买家批量下单」
+      定时接线 ✅ 2026-09-07 随 ReplenishJob/AnomalyJob 落地(见下方条目);HIGH 推通知随实际告警量评估
+      → TODO(#6);「同买家批量下单」
       契约无 buyer 字段(PII 不出契约)随 V2 契约扩容再上 → TODO(#6);
       单测 19 个(Scan 9 规则命中边界/paidTime 守卫/汇率缺省/合并取 max/护栏/单态隔离 +
       Score 6 三重降级/围栏对齐/词表外回落/截断不算降级 + Persist 2 + Workflow 2);
@@ -349,9 +368,29 @@
       ②预警引擎 V1 三规则→五规则:滞销(有库存但窗口内零动销,SLOW_MOVING)/
       积压(可用/日均 ≥ overstock-days 默认 90,OVERSTOCK)聚一条 topN 明细;
       notify_type 词表同步 AlertEvent ↔ 01_schema_init.sql COMMENT(已建库 COMMENT 变更可选手工 ALTER,
-      仅注释无功能影响);inventory_snapshot_daily(库存快照/周转报表面)仍留草案,与销量面相互独立;
+      仅注释无功能影响);库存快照面见下条(2026-09-08 落地,与销量面相互独立);
+      ⚠️ **2026-09-08 真库炸出修复**:upsertWindow 曾因 SQL 写法与开发库引擎不符直接语法错误,
+      SalesSnapshotJob 自 2026-09-07 起连日空跑、order_sales_daily 零行(单测 mock Mapper 测不出 XML,
+      补货动销/滞销积压规则一直拿空销量数据)——现行派生表别名引用即 9.7.2 规范形态(单语句原子语义不变),
+      真库回填 30 天窗口(17 行)并经与直查 SQL 行数/合计核对,详见"SQL 兼容性红线"节
       单测 +15(erp-order OrderSalesDailyService 3 / erp-api SalesSnapshotJob 4 + SalesQueryApiImpl 1 /
       erp-ai Calculate 重写 7 + AlertEngine +3),全 reactor 18 模块 BUILD SUCCESS(erp-ai 80 / erp-api 70)
+- [x] 库存日快照数据面 ✅ 2026-09-08 落地(表 inventory_snapshot_daily,docs/03 §7.2 定稿:
+      快照日×SKU×仓 存量四量(在库/占用/在途/可用),uk_sku_wh_date 幂等 upsert 同日重跑覆盖;
+      **只增不可回溯**——快照取"当下存量",历史日期无法重算(要回溯需 inventory_flow 逐日反推,V2 再评估),
+      故无窗口重算,与销量面"可重算窗口"是两种语义;零库存行也入快照(缺货持续天数靠它算))。
+      写侧 = erp-api InventorySnapshotJob 每日 01:30 cron(erp.inventory-snapshot.enabled/cron yml 可配,默认开;
+      01:00 销量之后、02:00 补货之前错峰;灰度置 false 整体停,关停期间日期数据不补;
+      未接 #18 面板只走 yml,同 sales 口径;LockService inventory:snapshot 效率锁,双跑无害同库幂等;
+      @Scheduled 线程自行 MDC traceId finally 清,同 AlertJob 模式)调 InventorySnapshotDailyService.snapshot
+      (单语句 INSERT...SELECT 直传全量四量,ODKU 源表别名引用 9.7.2 规范形态,见"SQL 兼容性红线");
+      读侧 = 只读契约第六件 InventorySnapshotQueryApi(erp-api Impl 委托 erp-inventory
+      InventorySnapshotDailyService.listSeries;单 SKU 时间序,warehouseId 空=跨仓聚合 SUM 四量仓库列置 0,
+      limit 空/非正回落 365、超界钳 365 防长区间拉爆;非法入参空集合不触库;全 record 不引 MP 类型)。
+      单测 +11(erp-inventory Service 5:快照委托/非法入参防触库/limit 钳制三态/warehouseId 空透传 +
+      erp-api Impl 2:entity→record 逐字段映射/空透传 + erp-api Job 4:开关/锁被占/Clock 当日/异常不穿透);
+      真库验证 7 项全绿(scripts/validate_mapper_sql.py:建表/upsert 两遍幂等+行数合计核对/
+      listSeries 单仓+跨仓形态;9.7.2 真库验证全绿);前端报表页暂不接(数据面先行,AI/报表域取数用)
 - [x] 前端聊天页/AI 建议页(✅ 2026-09-06 T4 收口:AI对话页手写(会话列表+SSE 流式+首条自动建会话,
       每轮结束服务端历史回读兜底;markdown 渲染/停止生成留余量,引库需拍板)+ AI建议页 gen:page
       (readonly + adopt/ignore 动作,payloadJson 详情抽屉,动作按钮不带 v-auth 同通知中心口径);
@@ -366,6 +405,76 @@
       (Boot 4 ConverterNotFound,登记块须留真键);②流式错误穿透伪装 401 未登录(转可见错误帧+失败轮不落 AI 行);
       ③四类 tools 分页参数基础类型 int 拆箱 NPE(模型不传可选参数时)——统一 Integer+空值回退 0,
       归一收口 Filter record,回归测试 4 个)
+- [x] 采购建议工作流 ✅ 2026-09-08 落地(#17 落位表「智能采购建议」三期候选 V1,照 ReplenishWorkflow 母本,
+      落位表拍板:建议层叠加 #10 采购域之上,只产建议进 ai_suggestion,不碰状态机与单据):
+      collect(低库存扫描+补货量计算)→ aggregate(按"最新采购供应商"聚合+去重)→
+      条件边(无供应商组直达 END 零 LLM 成本)→ summarize(LLM 单次调用逐供应商摘要,
+      三重降级 + llm-max-items 超限按预估金额降序截断走模板)→ persist(type=PURCHASE/refType=SUPPLIER/
+      refId=supplierId/skuId=NULL,组内含缺货 SKU(可用≤0)→HIGH 否则 MID)→ END。
+      **共享组件抽取(逻辑单一来源,铁律 8)**:`LowStockScanner`(分页扫 InventoryQueryApi+跨仓合并)+
+      `ReplenishCalculator`(建议量公式)自补货两节点抽取,补货/采购两工作流组合复用——低库存阈值/覆盖天数/
+      动销窗口/最小建议量四参数同源 replenish 键(#18 热更),"缺什么缺多少"两工作流口径强一致;
+      供应商映射 = `PurchaseQueryApi.findLatestSupplierBySkuIds`(契约只加方法,实现收口 erp-api 委托
+      PurchaseOrderService;PurchaseOrderItemMapper XML 窗口函数 ROW_NUMBER 取每 SKU 最近一笔非 DRAFT
+      采购行的 供应商/最新单价/单号/时间——草稿未定案不算历史;联查禁 Wrapper .in() 急切解析坑);
+      无采购历史 SKU 不纳入建议(无法定位供应商无行动价值)计数上报 noSupplierCount;
+      预估金额 = Σ(最新单价×建议量,BigDecimal 精确累加,单价缺失按 0 禁猜价);
+      去重 = 同供应商存在待确认(status=0)PURCHASE 建议即跳过该组(同 2026-09-07 拍板语义,
+      findPendingRefIds 复用);V1 仅手动触发 POST /api/ai/purchase/run(登录即可),**不接定时**——
+      采购是人类决策节奏,定时随实际使用节奏拍板 → TODO(#17);
+      配置 2 键(erp.ai.purchase.llm-max-items/summary-prompt 入 sys_config AI 组白名单+系统设置页
+      CONFIG_ITEMS/PROMPT_KEYS 同步登记;scan 护栏走 yml purchase 段留真键防空 mapping 启动炸);
+      词表扩容 AiConsts TYPE_PURCHASE/REF_TYPE_SUPPLIER + DDL COMMENT 同步(已建库可选手工 ALTER 仅注释);
+      前端:AI 建议页类型 enum 加"采购"(success tag);单测 +28(Purchase 五测试类 15:
+      Collect 透传/Aggregate 5/Summarize 5/Persist 1/Workflow 3 + LowStockScannerTest 4 +
+      ReplenishCalculatorTest 6(自节点测试迁移)+ PurchaseQueryApiImplTest 2 + PurchaseOrderServiceTest 1,
+      存量 ReplenishCollect/Calculate/Workflow 测试改薄委托适配);
+      全 reactor 20 模块 mvn test 绿(erp-ai 125 / erp-api 108 / erp-purchase 51);vue-tsc/oxlint 绿
+- [x] 文案生成工作流 ✅ 2026-09-08 落地(#17 落位表「产品描述生成」三期候选 V1,照 Purchase/Anomaly
+      工作流母本,落位表拍板:listing 文案生成产出进 ai_suggestion,人工采纳后复制使用):
+      collect(分页扫商品库**启用**商品——GoodsQueryApi.ProductFilter 扩 status 过滤 + ProductView/SkuView
+      加 attrsJson 只加字段不改语义;去重 = 同商品存在待确认 COPYWRITING 建议即跳过(2026-09-07 拍板语义);
+      材料装配逐商品隔离,品牌/类目/SKU 查询失败只跳过该商品;SKU 行截前 20 条防超变体拉爆 prompt,
+      硬护栏属实现细节不入配置)→ 条件边(无待生成商品直达 END 零 LLM 成本)→
+      generate(LLM 批量单次调用照 AnomalyScoreNode,JSON 数组按 productId 对齐回填
+      标题/五点描述/商品描述/关键词;材料不含成本价/条码/HS 等内部字段——价格不进文案 prompt 防抄成本当售价;
+      llmMaxItems(sys_config erp.ai.copy.llm-max-items 默认 10)超限按 productId 升序截断,
+      截断商品下轮再生成不算降级)→ persist(type=COPYWRITING(词表既留槽位)/refType=GOODS_PRODUCT/
+      refId=productId/summary=建议标题/risk 恒 LOW,payloadJson=文案四件)→ END。
+      ⚠️ **降级语义与补货/异常/采购三工作流刻意不同(拍板)**:那三处建议本体是程序算的,LLM 只写报告,
+      故模板兜底照落库;文案本体即 LLM 产出无模板可兜——无 key/调用失败/解析失败/逐商品漏回或必填缺失
+      → 该商品跳不产出,degraded=true **零垃圾建议落库**。prompt 集中 ErpAiProperties.Copy + sys_config
+      erp.ai.copy.prompt(#18 热更);触发 = POST /api/ai/copywriting/run(登录即可),V1 不接定时
+      (文案采纳是人工编辑节奏,定时待拍板);V1 不自动回填平台 listing(改写随 adapter 扩容);
+      附带修复:sys_config 种子补上 2026-09-08 采购两键(erp.ai.purchase.llm-max-items/summary-prompt,
+      此前前端 CONFIG_ITEMS 已登记而 01_schema_init.sql 种子行遗漏,开发库已补);
+      单测 +17(Collect 4:扫描装配/去重跳过/材料失败隔离/SKU 截断 + Generate 8:无 key/调用失败/
+      解析失败/围栏对齐/可选字段缺省/漏回跳过/截断不算降级/空短路 + Persist 2 + Workflow 3 +
+      GoodsQueryApiImpl 扩容 3),全 reactor 20 模块 mvn test 绿(erp-ai 142);vue-tsc/oxlint 绿
+- [x] AI 客服 RAG V1 ✅ 2026-09-08 落地(#6 落位表「AI 客服」知识库半边,意图识别/多语言随四期):
+      **向量库选型拍板(2026-09-08,结"三期开工拍板"悬案)** = Spring AI `SimpleVectorStore`
+      (spring-ai-vector-store 构件,内存余弦 + JSON 文件持久化,零新基建零运维);VectorStore 接口编程,
+      后续换 pgvector/Redis 只换实现类;**向量不入库**——ai_kb_chunk 存 chunk 文本作为重建正本,
+      索引文件丢失/换 embedding 模型时按正本重嵌入重建(启动自动判定 + 手动端点双路径)。
+      表 ai_kb_document/ai_kb_chunk(正本元数据 + 分块文本,docs/sql 定稿;开发库已建);
+      切块 TokenTextSplitter builder(chunk-size 800 yml 可调,2.0.1 无参构造已废弃);
+      embedding 走 openai starter 自动装配 EmbeddingModel(与 chat 同 base-url/api-key 单源,
+      spring.ai.openai.embedding.options.model=${AI_EMBEDDING_MODEL:text-embedding-v3},DeepSeek 无
+      /embeddings 端点须切通义等兼容服务);接入面 = 上传 .txt/.md(≤1MB)+ 粘贴文本,写侧 admin 双闸
+      (@PreAuthorize hasRole('admin'),同 #18 口径——知识库是全局语料),读侧登录即可;
+      **降级语义(拍板)**:无 key 接入直接拒绝;向量化调用失败 → 正本与分块留存 status=FAILED
+      (文本是资产向量只是派生索引,修复后重建转 READY),不抛不回滚;检索空/未命中/异常 → prompt 原样
+      零侵入,RAG 失败绝不阻断 chat。检索注入 = chat 双通道调用前向量检索 top-k(min-score 过滤,
+      两键入 sys_config erp.ai.kb.retrieval-top-k/min-score #18 热更)→ 固定格式上下文拼在问题后
+      进 user message(不用 Advisor 魔法显式可测;USER 审计行仍存原始问题);V1 只接 chat 不接 agent;
+      删除次序拍板 = 先删向量(失败即中止)后删正本(事务),防"正本已删向量残留"脏检索;
+      前端 AI 助手组新页「AI知识库」(menu id=30,手写页:上传/粘贴/分块预览抽屉/重建索引,
+      系统设置页补 KB 小节 tab 并顺手补齐采购/文案 tab);配置 2 键入 sys_config AI 组 + 种子;
+      单测 +26(KbVectorIndex 5 文件往返/重建换引用/坏文件空起步 + Ingest 7 + Document 7 + Search 6
+      + ErpChat 注入 3),erp-ai 170 全绿、全 reactor 20 模块绿;vue-tsc/oxlint 绿;开发库已建表落种子。
+      ⚠️ 实测坑(2.0.1):Mockito mock 接口 default 方法整体拦截不执行真实实现——embed(String) 不打桩
+      返回 null 检索恒空;LambdaQueryWrapper.select(SFunction) 急切解析 MP 元数据纯单测炸(生产代码
+      避用,同 #14 set 坑先例);TokenTextSplitter 无参构造已废弃统一 builder
 - ℹ️ 版本提示(2026-09-06 回写):Spring AI 2.0.1 与 AgentScope 2.0.2 已 GA;SAA 仍为里程碑,
   graph/ 开工前再核实有无 GA;升级照旧只动根 pom 三属性
 
@@ -649,8 +758,30 @@
       后端 update 全量 SaveRequest 明细整体替换,释放旧占→替换→重占由后端事务收口);
       按钮 1405 fulfill:delivery:edit,回写 01_schema_init.sql(已建库直接跑新增段);
       ⚠️ 顺手修 1404 漏配:sys_role_menu 缺 (1,1404) 授权行,admin 看不到"新建发货单"按钮,已补
-- [ ] 遗留:电子面单/运单号回传平台随 #3 adapter(✅ 2026-09-06 adapter 侧脱机落地,见 #3 条目;
-      **ship 编排接线仍留**——发货明细行翻译 + 失败记 pull_log,随联调需要)/ 签收回传平台物流轨迹 /
+- [x] 2026-09-08 发货回传平台编排接线(**电子面单/运单号回传平台遗留项收口**,adapter 侧 2026-09-06 已脱机落地):
+      编排收口 erp-api `ShipmentSyncService`(事件驱动,**事务提交后才回传**):
+      ①erp-common 新增 `DeliveryShippedEvent`(erp-fulfill 在 ship 事务内发布,erp-api 以
+      `@TransactionalEventListener(AFTER_COMMIT)` 消费——事件只进 erp-common,发布方与监听方互不依赖,
+      同 #18 SystemConfigChangedEvent 先例;erp-fulfill 无 ShopSession/AdapterRegistry,回传只可能落 erp-api);
+      ②跳过 vs 失败分清楚(噪音纪律同拉单 Job):**跳过**=开关关闭(`erp.shipment.sync-enabled` 默认 true)/
+      adapter 未接入/非卖家自履约(FBA·海外仓平台自履约)/运单号未填(要素未齐)/单据非已发货状态——不记 pull_log;
+      **失败**=会话装配失败/订单不存在/缺平台订单号/**缺任一发货行 platformOrderItemId(禁静默丢行,
+      半回传比不回传更难对账)**/平台调用抛错——记 pull_log(`DATA_TYPE_SHIPMENT`+`PULL_WAY_EVENT` 新常量,
+      窗口退化为本次时刻,pulled_count 恒 1;复用 pull_log 而非另建表:排障入口与连续失败告警同一套,禁提前抽象)
+      + 连续 3 次失败推站内告警(同 #14 扇出);
+      ③命令装配:发货明细行 order_item_id → platform_order_item_id 翻译走 ShopOrderApi 契约
+      (**契约扩容 2026-09-08:OrderDeliveryView 加 platformOrderId、Item 加 platformOrderItemId,只加字段不改语义**),
+      carrierCode 无平台映射表故置空、carrierName 取 logisticsCompany 由 adapter 兜底(编外承运商),
+      shipTime = shippedAt(Asia/Shanghai → Instant);
+      ④**失败不回滚本地发货**(docs/04 拍板):AFTER_COMMIT 相位 + 监听器吞异常,ship 返回不受回传影响;
+      单测 +16(erp-api ShipmentSyncServiceTest 14:五跳过分支/命令逐字段/五失败分支/告警阈值/事件入口吞异常/开关关闭;
+      erp-fulfill DeliveryOrderServiceTest +2:ship 发事件、ship 被拒不发);全 reactor 18 模块 BUILD SUCCESS;
+      ⚠️ **已知边界**:回传在 ship 请求线程内同步执行(AFTER_COMMIT 后、Controller 返回前),平台慢/超时会拖长
+      "确认发货"响应——V1 接受(失败只记 pull_log 不影响正确性),真凭证联调实测耗时后再评估异步化
+      (需独立 executor,禁复用 pullScheduler 单线程池)
+- [ ] 遗留:签收回传平台物流轨迹 /
+      ~~电子面单/运单号回传平台~~(✅ 2026-09-08 编排接线落地,见上条;电子面单取号 fetchWaybill 跨境平台恒不支持,
+      国内平台随首个国内 adapter 落地)/
       ~~createdBy 接 SecurityContext~~(✅ 2026-09-06 已随 #10 同款收口:CurrentUserApi,发货单 save 服务端回填)/
       ~~并发建单超发窗口~~(✅ 2026-09-06 随占用模型闭合:并发建单在占用动账处被 inventory 行锁 + 可用守卫串行化,
       后到者占用失败整体回滚)/ 发货单类型 FBA/OVERSEAS 的供应商代发与海外仓发货流程待业务确认后细化
@@ -659,7 +790,7 @@
 - [x] 2026-09-03 前置就位:aftersale_order 域骨架已生成(readOnly=true 系统写入表,对外只读查询,写入口留 TODO)
 - [x] 2026-09-05 平台售后同步 upsert 落地(脱机部分,TODO(#12) 槽位收口,同 #4 saveUnifiedOrder 套路):
       `AftersaleOrderService.saveUnifiedRefund` 唯一写入口——幂等靠 uk_shop_platform_refund upsert 冲突即更新
-      (XML 行别名语法,AftersaleOrderMapper.xml 首建);aftersale_no=platformRefundId(uk_aftersale_no 防御兜底);
+      (XML upsert,AftersaleOrderMapper.xml 首建;行别名 `AS new` 9.7.2 原生形态,见"SQL 兼容性红线");aftersale_no=platformRefundId(uk_aftersale_no 防御兜底);
       **order_id 经契约跨域翻译**:ShopOrderApi 扩 `findIdByPlatformOrderId`(实现收口 erp-api,取数走 ShopOrderService),
       关联订单未入库(售后先于订单拉到)跳过返回 false 等下轮窗口重拉,不抛异常断整批;
       **状态映射拍板**:平台状态只做首插初始映射(APPLYING→PENDING/WAIT_RECEIVE→RETURNING/FINISHED 按类型分流
@@ -706,7 +837,7 @@
       超退预校验留在后端)+ 退货明细展开行(懒加载详情 returnItems);
       菜单种子:订单中心下 id=15 + 按钮段 1501~1505,回写 01_schema_init.sql;~~仓库改下拉随 warehouse 页建设另议~~
       (✅ 2026-09-06 已随仓库管理页收口,收退件表单下拉选仓)
-- [ ] 退款金额与财务勾稽(三期 settlement)
+- [x] 退款金额与财务勾稽(2026-09-08 随 #19④ 退款勾稽收口,#12 槽位关闭)
 - ⚠️ 已建库手工 ALTER(#12 状态机注释定版,仅注释无数据变更):
       `ALTER TABLE aftersale_order MODIFY COLUMN status VARCHAR(32) NOT NULL COMMENT 'PENDING待处理/APPROVED已同意/RETURNING待收退件/RETURN_RECEIVED已收退件/REFUNDED已退款/COMPLETED已完成/REJECTED已拒绝/CANCELLED已取消(#12 状态机 2026-09-04 定版)';`
 
@@ -888,18 +1019,19 @@ docs/design/、docs/devlog/。历史排查结论(2026-09-05 两轮盘点):15 提
 
 > **三期开工注记(2026-09-06)**:#6 AI 地基已落地(查询契约四件 + 只读 tools 首批四类 + chat 同步/SSE 双通道 +
 > ai_suggestion 确认闭环 + TOOL 行审计,详见 #6 勾选);**库存预警规则引擎(V1 三规则)与 graph/ 补货工作流
-> 同日收口**;智能采购/定价/文案维持三期候选量力后移,报表/客服(向量库)/选品四期再议。
+> 同日收口**;2026-09-08 三期 AI 面基本收口:采购建议/文案生成/AI 客服 RAG(向量库拍板 SimpleVectorStore)
+> 当日三连,余量仅智能定价(竞品价数据卡,随 adapter 扩容)与报表/选品(四期)。
 
 | OmniTrade 服务 | 功能面 | ec-erp 落位 | 归属 |
 |---|---|---|---|
 | 库存预警 | 滞销检测/低库存/积压预警 | 规则先筛(#6"两段式"的规则半边),出口 #14 站内通知已就位;qihang 同款规则(销售额为零/发货超时/退款过多)一并纳入规则集 | 三期最先(成本最低) |
 | 库存预测/补货建议 | 时序预测+补货量建议 | #6 已规划:SAA Graph 补货建议工作流(取数 LLM→规则校验→报告) | 三期(已对齐) |
 | 订单异常检测 | 规则引擎+AI 评分双层融合/风险分级 | #6 已规划:"规则引擎先筛+LLM 评分"两段式控成本 | 三期(已对齐) |
-| 智能采购建议 | 采购预测/供应商比价/采购计划 | 建议层叠加 #10 采购域之上(只产建议进 ai_suggestion,不碰状态机与单据) | 三期候选 |
+| 智能采购建议 | 采购预测/供应商比价/采购计划 | ✅ 2026-09-08 V1 落地(graph/purchase 四节点:补货缺口按最新采购供应商聚合,预估金额=最新单价×建议量;比价随多供应商数据积累评估,定时接线待拍板)——建议层叠加 #10 采购域之上(只产建议进 ai_suggestion,不碰状态机与单据) | 三期(已对齐) |
 | 智能定价 | 竞品价监控/动态调价/利润优化 | 竞品价拉取随 adapter 平台扩容;定价建议进 ai_suggestion,人工确认后走改价 | 三期候选 |
-| 产品描述生成 | SEO 文案/批量生成/平台风格适配 | listing 文案生成,产出进 ai_suggestion,人工采纳后回填 | 三期候选 |
+| 产品描述生成 | SEO 文案/批量生成/平台风格适配 | ✅ 2026-09-08 V1 落地(graph/copywriting 三节点:扫启用商品→LLM 批量产 listing 文案(标题/五点/描述/关键词)→落 ai_suggestion;人工采纳后文案在详情 payload 复制使用,V1 不自动回填平台——改写 listing 随 adapter 上架类接口扩容再评估;平台风格适配 V2) | 三期候选(V1 已落地) |
 | 智能报表 | 日/周/月报自动生成+Excel 导出 | erp-report 域(休眠),依赖销售/广告数据面先齐 | 四期 BI |
-| AI 客服 | RAG 知识库/意图识别/多语言 7×24 | #6 chat/tools 占位承接;向量库选型(pgvector 等)三期开工拍板;多语言随跨境平台接入 | 三期~四期 |
+| AI 客服 | RAG 知识库/意图识别/多语言 7×24 | ✅ 2026-09-08 RAG V1 落地(向量库拍板 SimpleVectorStore 文件持久化零新基建,向量不入库 ai_kb_chunk 正本可重建;上传/粘贴接入 → 切块向量化 → chat 双通道检索注入,admin 双闸写侧,降级零侵入);意图识别/多语言随四期 | 三期(V1 已落地) |
 | 智能选品 | 多维加权评分/趋势/风险评估+Feedback 自调优 | 评分引擎产建议进 ai_suggestion;其 Feedback 闭环由 ai_suggestion(待确认/已采纳/已忽略)天然承接;权重自调优四期评估 | 四期候选 |
 
 ### 非 AI 功能面(各项目对标,随期吸收)
@@ -956,6 +1088,19 @@ qihang 开源版/企业版双轨宣传,只取开源版功能面,企业版能力(
 - **`IService`/`ServiceImpl` 已被移除**(新替代品是 `extension.repository.IRepository`)。本项目统一写法:**Mapper 做通用 CRUD(selectPage/insert/updateById/deleteById),Service 只装业务逻辑**,不依赖 MP 的泛型 Service 基类,版本再变也不受影响;
 - 若启动报 AgentScope/SAA 自动装配错误,先在依赖里临时注释掉 erp-ai 的对应 starter(AI 代码本来就没写,不影响一二期)。
 
+## ⚠️ SQL 兼容性红线(写 mapper XML 时必须遵守)
+- **开发库 = MySQL 9.7.2 LTS,mapper XML 自定义 SQL 一律 9.7.2 原生形态**:
+  VALUES 行 upsert 统一 8.0.19+ 行别名 `AS new`——ShopOrderMapper/ShopProductMapper/ShopProductSkuMapper/
+  AftersaleOrderMapper 四处(**行别名定义后 ODKU 内列引用必须全限定:`new.` 前缀=本条插入值、表名前缀=冲突行
+  现值,未限定一律 1052 歧义,9.7.2 实测**;弃用语法 VALUES(col) 禁用);
+  INSERT...SELECT 场景行别名不支持(9.7.2 实测 1064):直传用**源表别名引用**(InventorySnapshotDailyMapper
+  .upsertSnapshot),聚合值用**派生表别名引用**(OrderSalesDailyMapper.upsertWindow);
+  "每组取排序键最大一行"用 **ROW_NUMBER() 窗口函数**(PurchaseOrderItemMapper.findLatestSupplierRows);
+- 且单测全 mock Mapper 永远测不出来,**mapper XML 的自定义 SQL 必须真库验证**
+  (脚本 scripts/validate_mapper_sql.py,七项断言+弃用告警探测);
+- **教训(勿忘)**:单测 mock 测不出 XML 语法错误,作业会静默空跑——SalesSnapshotJob 曾连日语法错误空跑
+  (order_sales_daily 零行,补货动销/滞销积压规则拿空销量数据);**改 SQL/换引擎当天必须重跑验证脚本**。
+
 ## #18 系统设置:大模型等启动后可变项前端可配 ✅ 2026-09-07 落地
 - [x] sys_config 键值表(config_group 实际三组=AI/ALERT/SALES——对话与 Agent 的提示词/连接键统一归 AI 组,词表收口
       ConfigConsts:GROUP_AI 19 键/GROUP_ALERT 9 键/GROUP_SALES 2 键;config_key 与 yml relaxed-binding 键同名;
@@ -996,5 +1141,100 @@ qihang 开源版/企业版双轨宣传,只取开源版功能面,企业版能力(
       测试桩 RuntimePropsStub(graph 测试包内,函数式 SystemConfigApi 桩:AiRuntimeProperties 全量回落 yml 默认);
       存量节点/Service/Job 测试构造器全量适配,语义不变
 - 验证:mvn 全 reactor 18 模块 test 全绿(erp-system 73 / erp-ai 102+ / erp-api 70+);前端 vue-tsc 0 错、
-  oxlint 0 错、新文件 oxfmt 通过(存量 95 文件 fmt 基线陈旧系 oxfmt 版本差异,非本次引入);
+  oxlint 0 错、新文件 oxfmt 通过(存量 95 文件 fmt 基线陈旧系 oxfmt 版本差异,非本次引入
+  ——✅ 2026-09-08 基线对齐收口:全仓 fmt 一次归一 103/288 文件(纯格式零语义),三件门禁复验全绿;
+  权威格式=oxfmt,openapi.json 等生成物导出后跑 fmt 归一);
   api:sync 契约快照 86→87 路径(+GET/PUT /api/system/configs/group/{group})
+
+## #19 财务/结算域(三期 settlement 主线,2026-09-08 立项;求职作品集 L3 深度样本,利润核算的"准"=领星护城河位)
+
+> 落位拍板(2026-09-08 会话结论):三期 AI 面收口后,复杂逻辑缺口集中在 L3 财务利润——settlement 主线先行
+> (脱机落地,真凭证即插即用),补货算法升级穿插其后,AI 扩容冻结(没有 L3 利润数据,ACOS/定价/选品开不了)。
+> 四步路线:①立项+DDL(本条)→ ②结算报告解析 → ③利润核算 V1(实时口径先行)→ ④退款勾稽(#12 遗留收口)。
+
+- [x] ① 立项 + DDL(2026-09-08):
+  - 三表定稿进 01_schema_init.sql(docs/03 §6 同步定稿,2026-09-08):`settlement_report`(周期正本,
+    uk_shop_settlement 幂等键=平台 SettlementId,重拉 upsert;status=PARSED 勾稽平/FAILED 可重拉覆盖)、
+    `settlement_detail`(金额事件流水,report 级幂等——重拉按 report 先删后插同 #4 纪律,行级不设唯一键:
+    平台允许多行同键事件;order_item_id=SKU 级利润归集键对应 shop_order_item.platform_order_item_id;
+    金额带符号存报告原值禁取绝对值)、`exchange_rate`(汇率快照,折算按业务日回溯取最近报价禁取表内最新,
+    本位币 V1 固定 CNY);scripts/settlement_migration.py 幂等落开发库(三表+关键索引自检 ALL GREEN);
+  - 拍板:fee_type 解析器归一集 V1 = SALE/REFUND/COMMISSION/FBA_FEE/STORAGE/ADVERTISING/TRANSFER/OTHER
+    (只加不改);勾稽口径 = Σ明细金额 = 报告头 TotalAmount 才入库,否则整单 FAILED(禁静默截断);
+    ad_report_daily 留草案随 erp-ads 广告数据面激活;
+  - erp-finance 骨架:entity 三件 + mapper 三件(BaseMapper 通能力,零自定义 SQL),包结构 com.own.erp.finance
+    (@MapperScan com.own.erp.**.mapper 天然覆盖);Service/Controller/解析器刻意不建——复杂逻辑占位待②③切片;
+- [x] ② 结算报告解析(2026-09-08 脱机落地,✅ 报表类型勘误:**GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2**——
+      立项时误记 GET_V2_SETTLEMENT_REPORT_FLAT_FILE;旧 V1 flat file/XML 官方 2026-11-11 移除禁再引用):
+      结算报告**不可主动创建**(平台自动按打款周期调度)——链路=SpApiReportsClient.listSettlementReports
+      (getReports 搜 COMPLETED,marketplaceIds 限站点 + pageSize=12≈半年 + NextToken 翻页防御上限 5 页)
+      → fetchSettlementReportContent(下载链抽共用 downloadDocument,listing/settlement 同款)
+      → AmazonSettlementTranslator TSV 按列名解析(三段结构:结算头行/事件行/"Settlement Total" 汇总段容忍跳过);
+      拍板:①SPI `pullSettlements(session)` **无时间窗**(离散费用正本非时序流,docs/04 拍板表),
+      游标退化为幂等 upsert(PRODUCT 先例),落库 erp-finance `SettlementService.saveUnifiedSettlement`
+      (事务=正本 upsert + 明细先删后插;uk_shop_settlement 幂等——PARSED 跳过/FAILED 重拉覆盖);
+      ②勾稽=Σ明细 vs 报告头 total-amount,不平整单 FAILED 留痕(费用事实是资产禁静默截断);
+      ③金额报告原值带符号 + **本地化小数格式**(EUR "1.234,56" 按币种拍板解析);
+      ④fee_type 归一只加不改,**⚠ 实测坑:报文里佣金/FBA 费行 transaction-type=Order,描述与
+      amount-type 检查必须先于 Order 短路**(单测 fixture 两轮抓出 COMMISSION/FBA_FEE 双误判);
+      ⑤币种无需站点推导(V2 报文自带 currency 列,与 listing 报表差异);
+      单测 +21(AmazonSettlementTranslatorTest 8 + SpApiReportsClientTest +3 + AmazonClientTest 守卫 +2
+      + SettlementServiceTest 5),erp-platform-sdk 87 / erp-finance 5 全绿;
+      ⚠ 编排接线(手动触发或低频 Job)随真凭证联调拍板——无凭证时 Job 只会空转;
+      翻译 fixture 为官方文档结构推导样例,真凭证样本到位后 --force 校准一轮(docs/07 §8)
+- [x] ③ 利润核算 V1(2026-09-08 落地,实时销售利润先行,docs/02 §14 三口径第一层):
+      订单口径 SKU 级利润 = 售价 − 成本 − 平台佣金(− 退款);成本先移动加权(基于 inventory_flow,
+      docs/02 §114 拍板;product_sku.cost_price 静态价撑不起利润核算,FIFO 全局批次核算更重放后面);
+      汇率折算按下单日回溯 exchange_rate;周期口径(结算单)随②数据到位后做差值校准:
+  - 成本账 DDL:inventory_flow 加 unit_cost/cost_amount 两列(带符号,Σ 可逐笔重放校验 sku_cost_state) +
+    新表 sku_cost_state(uk_sku,全局跨仓账本不分仓,调拨两腿不进账);scripts/profit_v1_migration.py 幂等落
+    开发库 ALL GREEN;菜单种子:财务中心(31,sort=6)/实时销售利润(32)/汇率快照(33)+录入按钮(3301),
+    通知中心 6→7/系统管理 7→8 顺移,scripts/profit_menu.py 存量库对齐 ALL GREEN;
+  - 移动加权核心 erp-inventory InventoryCostService.apply(recordFlow 同事务调,FlowCostOps 枚举分派):
+    仅 IN_PURCHASE 重算加权(scale 8 HALF_UP),出库/退货/调整按当时加权价结转共用 settleAtAvgCost,
+    IN_TRANSIT/LOCK_SHIP/TRANSFER_OUT/TRANSFER_IN 不进成本账(NULL);缺价入库按当时加权价暂估、
+    首次无价记 0(禁猜价);账本结存<0 抛 BusinessException 拒动账;
+  - 并发拍板:SELECT FOR UPDATE 锁 sku_cost_state 行串行化同 SKU 成本计算(锁序 inventory 行→state 行
+    单向无死锁),首建撞 uk_sku 捕 DuplicateKeyException 回退重读;InventoryChangeCommand 加 unitCost,
+    PurchaseInboundService.confirm 传采购单价(单测断言 10.50 全链贯通);
+  - 汇率回溯 erp-finance ExchangeRateService.resolveRate:CNY 短路=1,quoted_at<=下单时间最近一条
+    (禁取表内最新),无报价返回 NULL 禁猜;/api/finance/exchange-rates 写侧 hasRole('admin');
+  - 利润查询:契约 ProfitQueryApi 归 erp-contract(Query/Row 20 字段/Summary),视图 SQL 归 erp-finance
+    (ProfitQueryMapper.xml 四条语句,Java 依赖走契约不破坏铁律 2);归集键:成本=OUT_SHIP×发货单行
+    (biz_type/biz_id 指向发货单+sku 匹配,部分发货多笔自然 SUM),佣金=settlement_detail COMMISSION 行按
+    shop_id+order_item_id(=platform_order_item_id) 聚合(SUM 报告原值负数);assemble 批量 map+逐行回溯汇率;
+    缺口纪律(同②勾稽):缺成本利润置 null、缺佣金按 0 计毛利并打标记、缺汇率行不折算——三缺口单独计数
+    (missingRate/costMissing/commissionMissing)不静默归零;
+  - 前端六件:api interface/apis×2 + finance/profit(汇总卡+筛选+ProTable+缺口 tag+负利润红字) +
+    finance/exchange-rate(列表+录入弹窗,双 v-auth);
+  - 测试 +26(InventoryCostServiceTest 11/ExchangeRateServiceTest 7/ProfitQueryServiceTest 8,适配 2),
+    全 reactor 20 模块 BUILD SUCCESS,vue-tsc/oxlint 0 错;
+  - mapper XML 真库验证 scripts/validate_profit_sql.py 六项 ALL GREEN(主查询全参/无参两形态/分页 LIMIT/
+    成本聚合 SUM(-cost_amount)/佣金同键 SUM/哑元清理,990001 哑元段);⚠ 提取器三坑:<where> 须补 WHERE
+    关键字、foreach 的 open/close 括号在标签属性里随标签丢失、无参形态 <if> 须整块剔除(留内容会生成
+    = NULL 滤空全表)
+- [x] ④ 退款勾稽(2026-09-08 落地,#12 遗留"退款金额与财务勾稽"收口):aftersale_order.refund_amount 对
+      settlement_detail REFUND 行按订单聚合比对,差异经 #14 站内通知扇出(notify_type=REFUND_DIFF):
+      归集键 = 店铺+平台订单号拍板——结算 REFUND 行无退款单 ID(平台结算报文不携带),逐单勾稽不可行,
+      售后侧经 shop_order 翻译 platform_order_id 对齐(settlement_detail.order_id=平台原文),
+      同订单多售后单/部分退款自然 SUM;参与范围拍板:售后侧=已退款终态(REFUNDED/COMPLETED)且
+      refund_amount 非空(未决态钱未退不比,平台先行退款的时序差等状态同步后自然纳入),
+      结算侧=PARSED 报告 REFUND 行(FAILED 报告明细是待校准暂存态,参与会污染比对,重拉转 PARSED 后纳入);
+      金额方向:售后恒正(AmazonRefundTranslator 绝对值口径)/结算 Σ(−amount) 转正同向比对
+      (报告原值带符号纪律不破坏);差异判定三类:AMOUNT_MISMATCH(双侧有行且 |差|>容差 0.01,
+      容差=结算列 DECIMAL(18,2) 精度口径,防售后 DECIMAL(12,4) 舍入尾差误报)/
+      MISSING_IN_SETTLEMENT(售后已退款而该订单在 PARSED 报告中无任何 REFUND 行,疑似报告未拉/
+      退款未入结算周期)/CURRENCY_MISMATCH(任一侧同订单多币种或两侧币种不同,金额比对失真禁混币计算);
+      ⚠ 已知边界(V1 不告警真凭证后评估):结算 REFUND 行按②拍板含退款负佣金行,售后 refund_amount
+      为 Principal 本金口径,两侧或存佣金级系统性偏差——差异告警带双侧金额供人工判读,
+      真凭证校准 translator 归一时随②一并定版;落位:erp-finance RefundReconciliationService
+      (纯读侧不改表,reconcile 包三 record=RefundSideRow 投影/RefundDiffEvent 差异事件/
+      RefundReconciliationAlert 聚合告警,Mapper XML 两聚合语句跨域只读 join 同 ProfitQueryMapper 先例)
+      + erp-api RefundReconciliationJob(模式同 #6 AlertJob:每日一扫 fixedDelay(结算 14 天一份
+      不支持高频)→ MDC traceId → 全局锁 reconciliation:refund → 勾稽 → 静默期去重
+      existsRecent(默认 24h)→ pushAllUsers 聚合单条扇出,明细列 topN 20 声明总笔数,
+      bizType/bizId 留空同 #6 聚合口径,通知写失败不阻断);开关 erp.finance.refund-reconciliation.*
+      (enabled/interval-ms/quiet-hours,yml 已登记);零 DDL(读侧勾稽无表结构变更,无新前端面——
+      差异走通知中心既有页);单测 +16(RefundReconciliationServiceTest 9:三类差异全分支/容差恰界=平/
+      跨报告多行归并/跨店铺同订单号隔离/topN 截断声明总笔数 + RefundReconciliationJobTest 7:
+      开关短路/锁被占跳过/无差异不扇出/静默期去重/聚合单条扇出/推送失败不上抛/锁必释放)

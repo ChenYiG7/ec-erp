@@ -23,7 +23,7 @@ export const MODULE_BY_SEG = {
   'shop-products': 'shop',
   'shop-product-skus': 'shop',
   orders: 'order',
-  auth: 'system'
+  auth: 'system',
 }
 
 export function loadOpenapi() {
@@ -70,7 +70,7 @@ export function verifyChatEndpoints(doc, chatBase) {
     ['POST', '/sessions'],
     ['GET', '/sessions/{sessionId}/messages'],
     ['POST', '/sessions/{sessionId}/chat'],
-    ['POST', '/sessions/{sessionId}/chat-sync']
+    ['POST', '/sessions/{sessionId}/chat-sync'],
   ]
   const missing = required.filter(([method, suffix]) => !doc.paths?.[chatBase + suffix]?.[method.toLowerCase()])
   if (missing.length) {
@@ -153,7 +153,10 @@ export function pageParameterEntries(op, doc) {
   const flatSearch = params.filter(pr => pr.in === 'query' && !pageKeys.includes(pr.name) && !pr.schema?.$ref)
   const flat = params.filter(pr => pr.in === 'query' && pageKeys.includes(pr.name))
   if (flat.length) {
-    return { flat: true, fields: flatSearch.map(pr => ({ name: pr.name, description: pr.description || '', schema: pr.schema })) }
+    return {
+      flat: true,
+      fields: flatSearch.map(pr => ({ name: pr.name, description: pr.description || '', schema: pr.schema })),
+    }
   }
   for (const pr of params) {
     if (pr.in !== 'query' || !pr.schema?.$ref) {
@@ -165,7 +168,7 @@ export function pageParameterEntries(op, doc) {
         ...flatSearch.map(fpr => ({ name: fpr.name, description: fpr.description || '', schema: fpr.schema })),
         ...Object.entries(schema.properties)
           .filter(([k]) => !pageKeys.includes(k))
-          .map(([name, s]) => ({ name, description: schema.properties[name]?.description || '', schema: s }))
+          .map(([name, s]) => ({ name, description: schema.properties[name]?.description || '', schema: s })),
       ]
       return { flat: false, fields }
     }
@@ -175,8 +178,9 @@ export function pageParameterEntries(op, doc) {
 
 /** 200 响应的 content schema(无则 null) */
 export function responseSchema(op, doc) {
-  const schema = op?.responses?.['200']?.content?.['*/*']?.schema ?? op?.responses?.['200']?.content?.['application/json']?.schema
-  return schema ? resolveRef(doc, schema.$ref) ?? schema : null
+  const schema =
+    op?.responses?.['200']?.content?.['*/*']?.schema ?? op?.responses?.['200']?.content?.['application/json']?.schema
+  return schema ? (resolveRef(doc, schema.$ref) ?? schema) : null
 }
 
 /** 解包 Result 包装(properties 含 code/msg/data)→ data schema;否则原样 */
@@ -206,7 +210,10 @@ export function requestBodySchema(op, doc) {
 
 /** GET query 搜索字段(剔除分页;对象形态 Query $ref 展开) */
 export function queryParameters(op, doc) {
-  return pageParameterEntries(op, doc)?.fields ?? (op.parameters || [])
-    .filter(pr => pr.in === 'query' && !['pageNo', 'pageSize', 'pageNum'].includes(pr.name) && !pr.schema?.$ref)
-    .map(pr => ({ name: pr.name, description: pr.description || '', schema: pr.schema || { type: 'string' } }))
+  return (
+    pageParameterEntries(op, doc)?.fields ??
+    (op.parameters || [])
+      .filter(pr => pr.in === 'query' && !['pageNo', 'pageSize', 'pageNum'].includes(pr.name) && !pr.schema?.$ref)
+      .map(pr => ({ name: pr.name, description: pr.description || '', schema: pr.schema || { type: 'string' } }))
+  )
 }

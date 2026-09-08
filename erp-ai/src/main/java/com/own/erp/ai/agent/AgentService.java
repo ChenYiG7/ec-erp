@@ -11,9 +11,12 @@ import com.own.erp.ai.response.AiChatSessionResponse;
 import com.own.erp.ai.service.AiChatMessageService;
 import com.own.erp.ai.service.AiChatSessionService;
 import com.own.erp.ai.tools.AftersaleTools;
+import com.own.erp.ai.tools.DeliveryTools;
 import com.own.erp.ai.tools.GoodsTools;
 import com.own.erp.ai.tools.InventoryTools;
 import com.own.erp.ai.tools.OrderTools;
+import com.own.erp.ai.tools.PurchaseTools;
+import com.own.erp.ai.tools.ShopTools;
 import com.own.erp.common.exception.BusinessException;
 import com.own.erp.contract.CurrentUserApi;
 import io.agentscope.core.ReActAgent;
@@ -77,6 +80,9 @@ public class AgentService {
                         InventoryTools inventoryTools,
                         GoodsTools goodsTools,
                         AftersaleTools aftersaleTools,
+                        ShopTools shopTools,
+                        PurchaseTools purchaseTools,
+                        DeliveryTools deliveryTools,
                         ErpAiProperties props,
                         AiRuntimeProperties runtime,
                         AiChatSessionService aiChatSessionService,
@@ -85,9 +91,10 @@ public class AgentService {
                         @Value("${spring.ai.openai.base-url:https://api.deepseek.com}") String baseUrl,
                         @Value("${spring.ai.openai.api-key:}") String apiKey,
                         @Value("${spring.ai.openai.chat.options.model:deepseek-chat}") String modelName) {
-        // tools/ 四类 @Tool 经 ToolCallbacks.from 转回调(ErpChatService 同款,本地转换非 Bean——
+        // tools/ 七类 @Tool 经 ToolCallbacks.from 转回调(ErpChatService 同款,本地转换非 Bean——
         // 容器内无 ToolCallback Bean,注入 List<ToolCallback> 恒为空,工具面会静默丢失,#6 联调 2026-09-07 勘误)
-        this(List.of(ToolCallbacks.from(orderTools, inventoryTools, goodsTools, aftersaleTools)),
+        this(List.of(ToolCallbacks.from(orderTools, inventoryTools, goodsTools, aftersaleTools,
+                        shopTools, purchaseTools, deliveryTools)),
                 props, runtime, aiChatSessionService, aiChatMessageService, currentUserApi,
                 baseUrl, apiKey, modelName);
     }

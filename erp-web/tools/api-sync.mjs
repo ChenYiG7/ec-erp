@@ -55,7 +55,9 @@ async function main() {
   const prevDoc = JSON.parse(prev)
   const added = Object.keys(doc.paths).filter(p => !prevDoc.paths[p])
   const removed = Object.keys(prevDoc.paths).filter(p => !doc.paths[p])
-  console.log(`[api:sync] 快照已更新(${Object.keys(prevDoc.paths).length} -> ${Object.keys(doc.paths).length} 个路径),git diff 可核账`)
+  console.log(
+    `[api:sync] 快照已更新(${Object.keys(prevDoc.paths).length} -> ${Object.keys(doc.paths).length} 个路径),git diff 可核账`
+  )
   if (added.length) {
     console.log('[api:sync] 新增路径:')
     added.forEach(p => console.log(`  + ${p}`))
