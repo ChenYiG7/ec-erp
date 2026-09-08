@@ -450,12 +450,18 @@ public final class CodeGenerator {
         return comment.isBlank() ? indent : indent + "/** " + comment + " */\n" + indent;
     }
 
-    /** entity 字段块:javadoc + @TableId(仅 id)+ private 类型名(entity 模板用) */
+    /** entity 字段块:javadoc + @TableId(仅 id)+ @TableLogic(仅 deleted)+ private 类型名(entity 模板用) */
     private static List<String> fieldChunks(List<Col> cols) {
         List<String> chunks = new ArrayList<>();
         for (Col c : cols) {
-            String id = c.name().equals("id") ? "@TableId(type = IdType.AUTO)\n    " : "";
-            chunks.add(chunkHead(c, "    ") + id + "private " + javaType(c.type()) + " " + toCamel(c.name()) + ";");
+            String ann = "";
+            if (c.name().equals("id")) {
+                ann = "@TableId(type = IdType.AUTO)\n    ";
+            } else if (c.name().equals("deleted")) {
+                // 逻辑删除统一口径(TODO#7):0=正常,删时置主键 id,配合唯一键含 deleted 删后同键可重建
+                ann = "@TableLogic(value = \"0\", delval = \"id\")\n    ";
+            }
+            chunks.add(chunkHead(c, "    ") + ann + "private " + javaType(c.type()) + " " + toCamel(c.name()) + ";");
         }
         return chunks;
     }
@@ -495,10 +501,15 @@ public final class CodeGenerator {
     private static String renderEntity(String table, String tableComment, String entity,
                                        String module, List<Col> cols) {
         String comment = tableComment.isBlank() ? table : tableComment;
+        String extraImports = collectImports(cols);
+        if (cols.stream().anyMatch(c -> c.name().equals("deleted"))) {
+            String logicImport = "import com.baomidou.mybatisplus.annotation.TableLogic;\n";
+            extraImports = extraImports.isBlank() ? "\n" + logicImport : extraImports + logicImport;
+        }
         return ENTITY_TEMPLATE
                 .replace("__HEADER__", headerOf(module, ".entity", comment + "(" + table + ")"))
                 .replace("__MODULE__", module)
-                .replace("__EXTRA_IMPORTS__", collectImports(cols))
+                .replace("__EXTRA_IMPORTS__", extraImports)
                 .replace("__TABLE__", table)
                 .replace("__ENTITY__", entity)
                 .replace("__FIELDS__", String.join("\n\n", fieldChunks(cols)));
@@ -519,10 +530,13 @@ public final class CodeGenerator {
                 .replace("__NAME_ZH__", nameZh);
     }
 
-    /** Response:record+@Builder 全字段(含 id/created_at/updated_at,读侧常要展示)+ 显式 from(entity) builder 链映射 */
+    /** Response:record+@Builder 全字段(含 id/created_at/updated_at,读侧常要展示;剔除 deleted 服务端管理列)+ 显式 from(entity) builder 链映射 */
     private static String renderResponse(String entity, String module, String nameZh, List<Col> cols) {
+        List<Col> visible = cols.stream()
+                .filter(c -> !"deleted".equals(c.name()))
+                .toList();
         StringBuilder mappings = new StringBuilder();
-        for (Col c : cols) {
+        for (Col c : visible) {
             String field = toCamel(c.name());
             mappings.append("                .").append(field)
                     .append("(entity.get").append(accessor(field)).append("())\n");
@@ -535,17 +549,18 @@ public final class CodeGenerator {
                 .replace("__MODULE__", module)
                 .replace("__ENTITY__", entity)
                 .replace("__NAME_ZH__", nameZh)
-                .replace("__EXTRA_IMPORTS__", collectImports(cols))
-                .replace("__FIELDS__", String.join(",\n\n", componentChunks(cols)))
+                .replace("__EXTRA_IMPORTS__", collectImports(visible))
+                .replace("__FIELDS__", String.join(",\n\n", componentChunks(visible)))
                 .replace("__MAPPINGS__", mappings.toString());
     }
 
-    /** 写侧入参:record+@Builder,剔除 id/created_at/updated_at(服务端管理),其余全含 + 显式 toEntity() builder 链映射 */
+    /** 写侧入参:record+@Builder,剔除 id/created_at/updated_at/deleted(服务端管理),其余全含 + 显式 toEntity() builder 链映射 */
     private static String renderSaveRequest(String entity, String module, String nameZh, List<Col> cols) {
         List<Col> writable = cols.stream()
                 .filter(c -> !"id".equals(c.name())
                         && !"created_at".equals(c.name())
-                        && !"updated_at".equals(c.name()))
+                        && !"updated_at".equals(c.name())
+                        && !"deleted".equals(c.name()))
                 .toList();
         StringBuilder mappings = new StringBuilder();
         for (Col c : writable) {
@@ -557,7 +572,7 @@ public final class CodeGenerator {
                 .replace("__HEADER__", headerOf(module, ".request.command",
                         nameZh + "写侧入参(docs/07 §1:XxxSaveRequest,创建/更新共用,id 由路径携带不入参)",
                         "record+@Builder(模型可变性分级 docs/07 §1);toEntity 用 entity builder 链一次成型(纯构造位,docs/07 §1 分级①)",
-                        "生成器已剔除 id/created_at/updated_at(服务端管理列);其余服务端管理列(如 merchant_id)按业务人工删减",
+                        "生成器已剔除 id/created_at/updated_at/deleted(服务端管理列);其余服务端管理列(如 merchant_id)按业务人工删减",
                         "校验注解(@NotNull/@Size 等)随业务约束逐步补,Controller 侧 @Valid 已就位(docs/07 §7)",
                         "含敏感字段(凭证/密码)的 record 必须手写 toString 脱敏——record 自动 toString 无法排除组件(docs/07 §1)"))
                 .replace("__MODULE__", module)

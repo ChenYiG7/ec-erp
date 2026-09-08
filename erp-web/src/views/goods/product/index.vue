@@ -10,7 +10,14 @@
   <div class="table-box product-box">
     <TreeFilter title="商品分类" label="name" :data="categoryTree" @change="changeCategory" />
     <div class="table-main">
-      <ProTable ref="proTableRef" page-id="/goods/product" title="商品管理" :columns="columns" :request-api="productApi.page" :init-param="initParam">
+      <ProTable
+        ref="proTableRef"
+        page-id="/goods/product"
+        title="商品管理"
+        :columns="columns"
+        :request-api="productApi.page"
+        :init-param="initParam"
+      >
       </ProTable>
     </div>
   </div>
@@ -70,7 +77,15 @@ const columns: ColumnProps<ProductResponse>[] = [
   { prop: 'name', label: '商品名称', width: 220 },
   { prop: 'brandId', label: '品牌', width: 140, enum: brandEnum },
   { prop: 'categoryId', label: '分类', width: 140, enum: categoryEnum },
-  { prop: 'status', label: '状态', width: 90, enum: [{ label: '启用', value: 1, tagType: 'success' }, { label: '停用', value: 0, tagType: 'danger' }] },
+  {
+    prop: 'status',
+    label: '状态',
+    width: 90,
+    enum: [
+      { label: '启用', value: 1, tagType: 'success' },
+      { label: '停用', value: 0, tagType: 'danger' },
+    ],
+  },
   { prop: 'createdAt', label: '创建时间', width: 170 },
 ]
 

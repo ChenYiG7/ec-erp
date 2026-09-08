@@ -51,7 +51,12 @@ class PurchaseWorkflowTest {
     void setUp() {
         inventoryQueryApi = mock(InventoryQueryApi.class);
         salesQueryApi = mock(SalesQueryApi.class);
-        when(salesQueryApi.sumQtyBySku(any(), anyInt())).thenReturn(Map.of(1L, 60));
+        // V2 逐日序列桩:sku1 窗口 30 天均匀 2 件/天(σ=0 退化纯均值口径,期望值可手算)
+        Map<java.time.LocalDate, Integer> series = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < 30; i++) {
+            series.put(java.time.LocalDate.of(2026, 8, 10).plusDays(i), 2);
+        }
+        when(salesQueryApi.listDailyQtyBySku(any(), anyInt())).thenReturn(Map.of(1L, series));
         purchaseQueryApi = mock(PurchaseQueryApi.class);
         aiSuggestionService = mock(AiSuggestionService.class);
         when(aiSuggestionService.save(any())).thenReturn(1L);
@@ -125,9 +130,10 @@ class PurchaseWorkflowTest {
         assertEquals(AiConsts.TYPE_PURCHASE, saved.getSuggestionType());
         assertEquals("SUPPLIER", saved.getRefType());
         assertEquals(10L, saved.getRefId());
-        // calculate: max(10, 14*2-3-0)=25;预估金额 = 12.50×25 = 312.50
+        // V2 均匀动销:SS=0,ROP=14≥IP=3 触发,S=ceil(2×21)=42 → 建议 42−3=39;预估金额 = 12.50×39 = 487.50
         assertTrue(saved.getSummary().contains("供应商甲"));
-        assertTrue(saved.getPayloadJson().contains("312.50"));
+        assertTrue(saved.getPayloadJson().contains("487.50"));
+        assertTrue(saved.getPayloadJson().contains("39"));
         assertEquals(AiConsts.RISK_MID, saved.getRiskLevel());
     }
 

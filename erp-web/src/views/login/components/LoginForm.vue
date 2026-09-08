@@ -67,7 +67,7 @@ const { loading } = storeToRefs(useLoadingStore())
 // 安全红线:禁硬编码/提示默认凭证(docs/09 §10)
 const loginForm = reactive<ReqLoginForm>({
   username: '',
-  password: ''
+  password: '',
 })
 
 // login
@@ -98,7 +98,7 @@ const login = (formEl: FormInstance | undefined) => {
         title: getTimeState(),
         message: `欢迎登录 ${import.meta.env.VITE_GLOB_APP_TITLE}`,
         type: 'success',
-        duration: 3000
+        duration: 3000,
       })
     } catch (error) {
       // 拦截器已统一弹错,这里仅吞掉 Promise 链

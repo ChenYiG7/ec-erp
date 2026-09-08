@@ -7,10 +7,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.constant.PullConsts;
 import com.own.erp.common.exception.BusinessException;
 import com.own.erp.system.entity.SysNotification;
+import com.own.erp.system.event.NotifyPushedEvent;
 import com.own.erp.system.mapper.SysNotificationMapper;
 import com.own.erp.system.request.query.SysNotificationQuery;
 import com.own.erp.system.response.SysNotificationResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +25,9 @@ import java.util.List;
  * @Description : 站内通知服务(#14):sys_notification 域整域收口,Controller 不直连 Mapper(docs/07 §2.1)。
  *     系统写入表:写侧唯一入口 pushAllUsers(系统告警扇出,禁旁路 insert);用户侧仅已读状态变更(本人归属校验),
  *     无人工 CRUD 写接口;通知类型/业务类型常量收口本类,拉单告警接线见 OrderPullJob/ProductPullJob(#4/#5)
- *     后续邮件/短信/IM 渠道(微信/飞书/钉钉/企微,2026-09-04 拍板后续做)从 pushAllUsers 出口处扩展,本期不提前抽象
+ *     渠道扩展拍板(2026-09-04"不提前抽象")落地:Webhook 群机器人(钉钉/飞书/企微)V1 已挂本出口——
+ *     pushAllUsers 发布 NotifyPushedEvent,WebhookPushService AFTER_COMMIT 消费外推(2026-09-08);
+ *     邮件/短信后续同款各挂监听,不做渠道接口抽象
  */
 @Service
 @RequiredArgsConstructor
@@ -41,20 +45,23 @@ public class SysNotificationService {
 
     private final SysNotificationMapper sysNotificationMapper;
     private final SysUserService sysUserService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 系统告警唯一写入口:扇出到全部启用用户(V1 全员广播,当前用户量级小逐条直插;
-     * 后续邮件/短信/IM 渠道在此出口处扩展)。返回写入条数
+     * 后续邮件/短信/IM 渠道在此出口处扩展)。返回写入条数。
+     * 出口事件:NotifyPushedEvent 供 Webhook 等外部渠道消费(AFTER_COMMIT 提交后才外推);
+     * 站内零用户也发布——告警事件本身为源,外推不随站内收件人数量增减
      */
     @Transactional(rollbackFor = Exception.class)
     public int pushAllUsers(String notifyType, String title, String content, String bizType, Long bizId) {
         List<Long> userIds = sysUserService.listEnabledUserIds();
-        if (CollUtil.isEmpty(userIds)) {
-            return 0;
+        if (CollUtil.isNotEmpty(userIds)) {
+            for (Long userId : userIds) {
+                sysNotificationMapper.insert(build(userId, notifyType, title, content, bizType, bizId));
+            }
         }
-        for (Long userId : userIds) {
-            sysNotificationMapper.insert(build(userId, notifyType, title, content, bizType, bizId));
-        }
+        eventPublisher.publishEvent(new NotifyPushedEvent(notifyType, title, content));
         return userIds.size();
     }
 

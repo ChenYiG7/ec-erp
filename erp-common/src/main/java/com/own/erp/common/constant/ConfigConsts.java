@@ -38,6 +38,12 @@ public final class ConfigConsts {
     /** 补货:最小建议量下限,int */
     public static final String KEY_REPLENISH_MIN_SUGGEST_QTY = "erp.ai.replenish.min-suggest-qty";
 
+    /** 补货:采购提前期(天,V2 补货点 = 提前期需求 + 安全库存),int */
+    public static final String KEY_REPLENISH_LEAD_TIME_DAYS = "erp.ai.replenish.lead-time-days";
+
+    /** 补货:服务水平(0~1,V2 安全库存 = z×σ×√提前期,z 按档位最近邻映射),decimal 文本 */
+    public static final String KEY_REPLENISH_SERVICE_LEVEL = "erp.ai.replenish.service-level";
+
     /** 异常检测:大额订单阈值(本位币),decimal 文本 */
     public static final String KEY_ANOMALY_BIG_ORDER_AMOUNT = "erp.ai.anomaly.big-order-amount";
 
@@ -107,6 +113,7 @@ public final class ConfigConsts {
     public static final Set<String> AI_KEYS = Set.of(
             KEY_REPLENISH_LOW_STOCK_THRESHOLD, KEY_REPLENISH_COVERAGE_DAYS,
             KEY_REPLENISH_SALES_WINDOW_DAYS, KEY_REPLENISH_MIN_SUGGEST_QTY,
+            KEY_REPLENISH_LEAD_TIME_DAYS, KEY_REPLENISH_SERVICE_LEVEL,
             KEY_ANOMALY_BIG_ORDER_AMOUNT, KEY_ANOMALY_UNPAID_HOURS,
             KEY_ANOMALY_HIGH_DISCOUNT_RATIO, KEY_ANOMALY_LLM_MAX_ITEMS,
             KEY_PURCHASE_LLM_MAX_ITEMS, KEY_COPY_LLM_MAX_ITEMS,

@@ -6,10 +6,18 @@
 
 <template>
   <div class="table-box">
-    <ProTable ref="proTableRef" page-id="/system/notifications" title="通知中心" :columns="columns" :request-api="NotificationApi.page">
+    <ProTable
+      ref="proTableRef"
+      page-id="/system/notifications"
+      title="通知中心"
+      :columns="columns"
+      :request-api="NotificationApi.page"
+    >
       <!-- 工具栏左:全部已读(个人操作,无权限位;未读为 0 时禁用) -->
       <template #toolbarLeft>
-        <el-button type="primary" :icon="CircleCheck" :disabled="!notificationStore.unreadCount" @click="onReadAll">全部已读</el-button>
+        <el-button type="primary" :icon="CircleCheck" :disabled="!notificationStore.unreadCount" @click="onReadAll"
+          >全部已读</el-button
+        >
       </template>
       <template #operation="scope">
         <el-button v-if="scope.row.readStatus === 0" type="primary" link @click="onRead(scope.row)">标记已读</el-button>
@@ -39,11 +47,27 @@ const columns: ColumnProps<SysNotificationResponse>[] = [
   { type: 'index', label: '#', width: 55 },
   { prop: 'title', label: '标题', minWidth: 200 },
   { prop: 'content', label: '内容', minWidth: 280, showOverflowTooltip: true },
-  { prop: 'notifyType', label: '类型', width: 130, tag: true, enum: [{ label: '拉单失败告警', value: "PULL_FAIL", tagType: 'danger' }] },
-  { prop: 'readStatus', label: '状态', width: 90, tag: true, enum: [{ label: '未读', value: 0, tagType: 'warning' }, { label: '已读', value: 1, tagType: 'info' }], search: { el: 'select' } },
+  {
+    prop: 'notifyType',
+    label: '类型',
+    width: 130,
+    tag: true,
+    enum: [{ label: '拉单失败告警', value: 'PULL_FAIL', tagType: 'danger' }],
+  },
+  {
+    prop: 'readStatus',
+    label: '状态',
+    width: 90,
+    tag: true,
+    enum: [
+      { label: '未读', value: 0, tagType: 'warning' },
+      { label: '已读', value: 1, tagType: 'info' },
+    ],
+    search: { el: 'select' },
+  },
   { prop: 'readAt', label: '已读时间', width: 170 },
   { prop: 'createdAt', label: '时间', width: 170 },
-  { prop: 'operation', label: '操作', fixed: 'right', width: 100 }
+  { prop: 'operation', label: '操作', fixed: 'right', width: 100 },
 ]
 
 // 标记已读:本人已读状态,后端归属校验;回刷表格取服务端 readAt,同步铃铛徽标

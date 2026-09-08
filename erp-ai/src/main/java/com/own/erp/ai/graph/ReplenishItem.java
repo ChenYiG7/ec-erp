@@ -6,8 +6,10 @@ import lombok.Builder;
  * @author : chenyi
  * @Date : 2026/9/6
  * @Description : 补货建议工作流的 SKU 聚合行(#6 SAA Graph):跨仓合并口径(ai_suggestion 无仓库列),
- *     同 skuId 的可用/在途多仓求和;collect 节点产原始行(suggestQty=0),calculate 节点回填建议量,
- *     summarize 节点回填自然语言摘要(persist 落 ai_suggestion)
+ *     同 skuId 的可用/在途多仓求和;collect 节点产原始行(suggestQty=0),calculate 节点回填建议量
+ *     与算法明细, summarize 节点回填自然语言摘要(persist 落 ai_suggestion);
+ *     calcJson = V2 (s,S) 策略计算明细 JSON(μ/σ/安全库存/补货点/目标库存,persist 侧透传
+ *     payloadJson 供人工判读与前端展示,旧三字段键兼容包含)
  */
 @Builder(toBuilder = true)
 public record ReplenishItem(
@@ -25,6 +27,9 @@ public record ReplenishItem(
         int suggestQty,
 
         /** 摘要(summarize 节点回填:LLM 文案或降级模板) */
-        String summary
+        String summary,
+
+        /** V2 算法明细 JSON(calculate 节点回填;空串 = 未计算) */
+        String calcJson
 ) {
 }

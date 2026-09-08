@@ -5,6 +5,7 @@ import com.own.erp.order.service.OrderSalesDailyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Map;
 
@@ -23,5 +24,10 @@ public class SalesQueryApiImpl implements SalesQueryApi {
     @Override
     public Map<Long, Integer> sumQtyBySku(Collection<Long> skuIds, int trailingDays) {
         return orderSalesDailyService.sumQtyBySku(skuIds, trailingDays);
+    }
+
+    @Override
+    public Map<Long, Map<LocalDate, Integer>> listDailyQtyBySku(Collection<Long> skuIds, int trailingDays) {
+        return orderSalesDailyService.listDailyQtyBySku(skuIds, trailingDays);
     }
 }

@@ -54,13 +54,14 @@ class ReplenishCalculateNodeTest {
     @Test
     @SuppressWarnings("unchecked")
     void delegatesToCalculatorWithRuntimeParams() throws Exception {
-        when(calculator.calculate(any(), anyInt(), anyInt(), anyInt()))
+        when(calculator.calculate(any(), anyInt(), anyInt(), anyInt(), anyInt(), any()))
                 .thenReturn(List.of(item(1L, 0, 0)));
 
         Map<String, Object> result = node.apply(stateOf(item(1L, 5, 5)));
 
-        // 默认配置:window=30/coverage=14/min=10
-        verify(calculator).calculate(List.of(item(1L, 5, 5)), 30, 14, 10);
+        // 默认配置:window=30/coverage=14/min=10/leadTime=7/serviceLevel=0.95
+        verify(calculator).calculate(List.of(item(1L, 5, 5)), 30, 14, 10, 7,
+                new java.math.BigDecimal("0.95"));
         List<ReplenishItem> items = (List<ReplenishItem>) result.get(ReplenishStateKeys.KEY_ITEMS);
         assertEquals(1, items.size());
         assertEquals(0, items.get(0).qtyAvailable());
@@ -69,7 +70,8 @@ class ReplenishCalculateNodeTest {
     @Test
     @SuppressWarnings("unchecked")
     void missingItemsKeyYieldsEmptyResult() throws Exception {
-        when(calculator.calculate(any(), anyInt(), anyInt(), anyInt())).thenReturn(List.of());
+        when(calculator.calculate(any(), anyInt(), anyInt(), anyInt(), anyInt(), any()))
+                .thenReturn(List.of());
 
         Map<String, Object> result = node.apply(new OverAllState());
 

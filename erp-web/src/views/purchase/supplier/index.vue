@@ -6,16 +6,38 @@
 
 <template>
   <div class="table-box">
-    <ProTable ref="proTableRef" page-id="/purchase/suppliers" title="供应商管理" :columns="columns" :request-api="supplierApi.page">
+    <ProTable
+      ref="proTableRef"
+      page-id="/purchase/suppliers"
+      title="供应商管理"
+      :columns="columns"
+      :request-api="supplierApi.page"
+    >
       <!-- 工具栏左:新增(按钮权限收口在页面侧 v-auth;toolbarLeft prop 的 auth 属性无效,禁用) -->
       <template #toolbarLeft>
-        <el-button v-auth="'purchase:supplier:add'" type="primary" :icon="CirclePlus" @click="openForm('add')">新增供应商管理</el-button>
+        <el-button v-auth="'purchase:supplier:add'" type="primary" :icon="CirclePlus" @click="openForm('add')"
+          >新增供应商管理</el-button
+        >
       </template>
 
       <!-- 操作列(ProTable v2:type:'operation' 列必须提供本插槽) -->
       <template #operation="scope">
-        <el-button v-auth="'purchase:supplier:edit'" type="primary" link :icon="EditPen" @click="openForm('edit', scope.row)">编辑</el-button>
-        <el-button v-auth="'purchase:supplier:remove'" type="danger" link :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
+        <el-button
+          v-auth="'purchase:supplier:edit'"
+          type="primary"
+          link
+          :icon="EditPen"
+          @click="openForm('edit', scope.row)"
+          >编辑</el-button
+        >
+        <el-button
+          v-auth="'purchase:supplier:remove'"
+          type="danger"
+          link
+          :icon="Delete"
+          @click="handleDelete(scope.row)"
+          >删除</el-button
+        >
       </template>
     </ProTable>
     <SupplierForm ref="formRef" @saved="refreshTable" />
@@ -44,9 +66,17 @@ const columns: ColumnProps<SupplierResponse>[] = [
   { prop: 'contact', label: '联系人', width: 110 },
   { prop: 'phone', label: '联系电话', width: 140 },
   { prop: 'settleType', label: '结算方式', width: 110 },
-  { prop: 'status', label: '状态', width: 90, enum: [{ label: '启用', value: 1, tagType: 'success' }, { label: '停用', value: 0, tagType: 'danger' }] },
+  {
+    prop: 'status',
+    label: '状态',
+    width: 90,
+    enum: [
+      { label: '启用', value: 1, tagType: 'success' },
+      { label: '停用', value: 0, tagType: 'danger' },
+    ],
+  },
   { prop: 'createdAt', label: '创建时间', width: 170 },
-  { prop: 'operation', label: '操作', fixed: 'right', width: 140 }
+  { prop: 'operation', label: '操作', fixed: 'right', width: 140 },
 ]
 
 const openForm = (mode: 'add' | 'edit', row?: SupplierResponse) => {

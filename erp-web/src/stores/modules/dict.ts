@@ -10,7 +10,7 @@ import { DICT_CACHE_TIME } from '@/constants'
  */
 export const useDictStore = defineStore('erp-dict', () => {
   const dict = useStorage<Record<string, { list: DictItem[]; __cache_time: number }>>('erp-dict', {}, localStorage, {
-    mergeDefaults: true
+    mergeDefaults: true,
   })
 
   const getDict = (code: string) => {

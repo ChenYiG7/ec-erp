@@ -42,4 +42,20 @@
         </foreach>
         GROUP BY sku_id
     </select>
+
+    <!-- 近 N 天各 SKU 逐日销量序列(#6 补货算法 V2,需求波动 σ 数据面);
+         WHERE sku_id IN + stat_date range 走 uk_sku_date(sku_id, stat_date) 前缀索引;
+         只回有记录的 skuId×statDate,窗口内零销日由调用方按 0 补齐 -->
+    <select id="listQtySince" resultType="java.util.HashMap">
+        SELECT sku_id    AS skuId,
+               stat_date AS statDate,
+               qty_sold  AS qtySold
+        FROM order_sales_daily
+        WHERE stat_date &gt;= #{startDate}
+          AND sku_id IN
+        <foreach collection="skuIds" item="skuId" open="(" separator="," close=")">
+            #{skuId}
+        </foreach>
+        ORDER BY sku_id, stat_date
+    </select>
 </mapper>

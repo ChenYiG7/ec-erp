@@ -30,9 +30,15 @@
           <span class="summary-value" :class="profitClass">{{ summary?.profitCny ?? '-' }}</span>
         </div>
         <div class="summary-item summary-gaps">
-          <el-tag v-if="(summary?.missingRateCount ?? 0) > 0" type="warning" size="small">缺汇率 {{ summary!.missingRateCount }}</el-tag>
-          <el-tag v-if="(summary?.costMissingCount ?? 0) > 0" type="info" size="small">未出库 {{ summary!.costMissingCount }}</el-tag>
-          <el-tag v-if="(summary?.commissionMissingCount ?? 0) > 0" type="info" size="small">待结算 {{ summary!.commissionMissingCount }}</el-tag>
+          <el-tag v-if="(summary?.missingRateCount ?? 0) > 0" type="warning" size="small"
+            >缺汇率 {{ summary!.missingRateCount }}</el-tag
+          >
+          <el-tag v-if="(summary?.costMissingCount ?? 0) > 0" type="info" size="small"
+            >未出库 {{ summary!.costMissingCount }}</el-tag
+          >
+          <el-tag v-if="(summary?.commissionMissingCount ?? 0) > 0" type="info" size="small"
+            >待结算 {{ summary!.commissionMissingCount }}</el-tag
+          >
         </div>
       </div>
     </el-card>
@@ -68,7 +74,14 @@
         </el-form-item>
       </el-form>
     </el-card>
-    <ProTable ref="proTableRef" page-id="/finance/profit" title="实时销售利润" :columns="columns" :request-api="pageWithSku" :init-param="initParam">
+    <ProTable
+      ref="proTableRef"
+      page-id="/finance/profit"
+      title="实时销售利润"
+      :columns="columns"
+      :request-api="pageWithSku"
+      :init-param="initParam"
+    >
       <template #skuId="{ row }">{{ skuLabel(row.skuId) }}</template>
       <template #rate="{ row }">{{ row.rate ?? '缺汇率' }}</template>
       <template #costCny="{ row }">
@@ -143,7 +156,16 @@ const resetFilter = () => {
 const columns: ColumnProps<OrderProfitRow>[] = [
   { type: 'index', label: '#', width: 55 },
   { prop: 'platformOrderId', label: '平台单号', width: 190 },
-  { prop: 'platform', label: '平台', width: 100, tag: true, enum: () => useDictStore().getDict('shop_platform').then(list => list.map(item => ({ label: item.dictLabel, value: item.dictValue }))) },
+  {
+    prop: 'platform',
+    label: '平台',
+    width: 100,
+    tag: true,
+    enum: () =>
+      useDictStore()
+        .getDict('shop_platform')
+        .then(list => list.map(item => ({ label: item.dictLabel, value: item.dictValue }))),
+  },
   { prop: 'orderTime', label: '下单时间', width: 165 },
   { prop: 'skuId', label: '内部SKU', width: 150 },
   { prop: 'quantity', label: '数量', width: 70 },
@@ -164,7 +186,6 @@ const pageWithSku = (params: Parameters<typeof profitApi.page>[0]) =>
   })
 
 const refreshTable = () => proTableRef.value?.getTableList()
-
 </script>
 <style scoped lang="scss">
 .summary-card {

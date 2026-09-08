@@ -6,7 +6,13 @@
 
 <template>
   <div class="table-box">
-    <ProTable ref="proTableRef" page-id="/inventory/inventories" title="库存查询" :columns="columns" :request-api="pageWithSku">
+    <ProTable
+      ref="proTableRef"
+      page-id="/inventory/inventories"
+      title="库存查询"
+      :columns="columns"
+      :request-api="pageWithSku"
+    >
       <!-- 内部SKU 列翻译(#7 专条):渲染读 options 模块缓存,预取在 pageWithSku -->
       <template #skuId="{ row }">{{ skuLabel(row.skuId) }}</template>
     </ProTable>

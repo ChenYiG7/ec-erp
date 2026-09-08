@@ -9,7 +9,9 @@ import type { SysRoleResponse, SysRoleSaveRequest } from '@/api/interface/system
 export const sysRoleApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: PageQuery) =>
-    http.get<PageResult<SysRoleResponse>>('/api/system/roles', params).then(page => ({ list: page.records, total: page.total })),
+    http
+      .get<PageResult<SysRoleResponse>>('/api/system/roles', params)
+      .then(page => ({ list: page.records, total: page.total })),
   /** 新增(后端返回主键) */
   create: (data: SysRoleSaveRequest) => http.post<number>(`/api/system/roles`, data),
   /** 修改 */

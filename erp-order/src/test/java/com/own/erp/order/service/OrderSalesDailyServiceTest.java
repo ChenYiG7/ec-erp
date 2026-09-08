@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -66,6 +67,59 @@ class OrderSalesDailyServiceTest {
         assertEquals(Map.of(), service.sumQtyBySku(null, 30));
         assertEquals(Map.of(), service.sumQtyBySku(List.of(), 30));
         assertEquals(Map.of(), service.sumQtyBySku(List.of(1L), 0));
+
+        verifyNoInteractions(orderSalesDailyMapper);
+    }
+
+    @Test
+    void listDailyQtyBySkuMapsRowsBySkuAndDate() {
+        // DATE 列经 HashMap 返回 java.sql.Date(MyBatis 默认),防御性兼容 LocalDate 直传
+        java.util.Map<String, Object> day1 = new java.util.HashMap<>();
+        day1.put("skuId", 1L);
+        day1.put("statDate", java.sql.Date.valueOf(TODAY.minusDays(1)));
+        day1.put("qtySold", 3);
+        java.util.Map<String, Object> day2 = new java.util.HashMap<>();
+        day2.put("skuId", 1L);
+        day2.put("statDate", TODAY);
+        day2.put("qtySold", 5L);
+        java.util.Map<String, Object> localDateRow = new java.util.HashMap<>();
+        localDateRow.put("skuId", 2L);
+        localDateRow.put("statDate", TODAY);
+        localDateRow.put("qtySold", 7);
+        when(orderSalesDailyMapper.listQtySince(TODAY.minusDays(29), List.of(1L, 2L)))
+                .thenReturn(List.of(day1, day2, localDateRow));
+
+        Map<Long, Map<LocalDate, Integer>> result = service.listDailyQtyBySku(List.of(1L, 2L), 30);
+
+        assertEquals(2, result.size());
+        assertEquals(Map.of(TODAY.minusDays(1), 3, TODAY, 5), result.get(1L));
+        assertEquals(Map.of(TODAY, 7), result.get(2L));
+        verify(orderSalesDailyMapper).listQtySince(TODAY.minusDays(29), List.of(1L, 2L));
+    }
+
+    @Test
+    void listDailyQtyBySkuSkipsRowsWithBadDateOrTypes() {
+        java.util.Map<String, Object> badDate = new java.util.HashMap<>();
+        badDate.put("skuId", 1L);
+        badDate.put("statDate", "not-a-date");
+        badDate.put("qtySold", 3);
+        java.util.Map<String, Object> badQty = new java.util.HashMap<>();
+        badQty.put("skuId", 1L);
+        badQty.put("statDate", java.sql.Date.valueOf(TODAY));
+        badQty.put("qtySold", "junk");
+        when(orderSalesDailyMapper.listQtySince(TODAY.minusDays(1), List.of(1L)))
+                .thenReturn(List.of(badDate, badQty));
+
+        Map<Long, Map<LocalDate, Integer>> result = service.listDailyQtyBySku(List.of(1L), 2);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void listDailyQtyBySkuShortCircuitsOnEmptyOrInvalidInput() {
+        assertEquals(Map.of(), service.listDailyQtyBySku(null, 30));
+        assertEquals(Map.of(), service.listDailyQtyBySku(List.of(), 30));
+        assertEquals(Map.of(), service.listDailyQtyBySku(List.of(1L), 0));
 
         verifyNoInteractions(orderSalesDailyMapper);
     }

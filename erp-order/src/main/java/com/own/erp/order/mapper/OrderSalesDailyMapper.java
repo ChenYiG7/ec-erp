@@ -25,4 +25,9 @@ public interface OrderSalesDailyMapper extends BaseMapper<OrderSalesDaily> {
     /** 近 N 天(含 startDate 起)各 SKU 销量合计:只返回有统计记录的 skuId,未记录的按 0 由调用方兜底 */
     List<Map<String, Object>> sumQtySince(@Param("startDate") LocalDate startDate,
                                           @Param("skuIds") List<Long> skuIds);
+
+    /** 近 N 天(含 startDate 起)各 SKU 逐日销量序列(#6 补货算法 V2 需求波动 σ 数据面):
+     *  只返回有统计记录的 skuId×statDate,窗口内零销日由调用方按 0 补齐 */
+    List<Map<String, Object>> listQtySince(@Param("startDate") LocalDate startDate,
+                                           @Param("skuIds") List<Long> skuIds);
 }

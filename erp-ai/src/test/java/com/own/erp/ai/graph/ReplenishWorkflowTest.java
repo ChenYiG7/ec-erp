@@ -14,6 +14,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -32,7 +33,7 @@ import static org.mockito.Mockito.when;
  * @Date : 2026/9/6
  * @Description : ReplenishWorkflow 冒烟测试(#6,AIR:真实组装 SAA graph(不启 Spring 上下文),
  *     节点依赖手工注入 mock):空库存走条件边直达 END 零落库;有低库存走全链路落库;
- *     无 apiKey 时摘要降级 degraded=true。销量契约按动销口径桩定(sku1 窗口 60 件)
+ *     无 apiKey 时摘要降级 degraded=true。销量契约按 V2 逐日序列桩定(sku1 30 天均匀 2 件/天)
  */
 class ReplenishWorkflowTest {
 
@@ -47,7 +48,12 @@ class ReplenishWorkflowTest {
     void setUp() {
         inventoryQueryApi = mock(InventoryQueryApi.class);
         salesQueryApi = mock(SalesQueryApi.class);
-        when(salesQueryApi.sumQtyBySku(any(), anyInt())).thenReturn(Map.of(1L, 60));
+        // V2 逐日序列桩:sku1 窗口 30 天均匀 2 件/天(σ=0 退化纯均值口径,期望值可手算)
+        Map<LocalDate, Integer> series = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < 30; i++) {
+            series.put(LocalDate.of(2026, 8, 10).plusDays(i), 2);
+        }
+        when(salesQueryApi.listDailyQtyBySku(any(), anyInt())).thenReturn(Map.of(1L, series));
         aiSuggestionService = mock(AiSuggestionService.class);
         when(aiSuggestionService.save(any())).thenReturn(1L);
         props = new ErpAiProperties();
@@ -110,9 +116,10 @@ class ReplenishWorkflowTest {
         AiSuggestion saved = captor.getValue();
         assertEquals(AiConsts.TYPE_REPLENISH, saved.getSuggestionType());
         assertEquals(1L, saved.getSkuId());
-        // calculate: max(10, 14*2-3-0)=25
-        assertTrue(saved.getSummary().contains("建议补货 25"));
-        assertTrue(saved.getPayloadJson().contains("25"));
+        // V2 均匀动销:SS=0,ROP=14≥IP=3 触发,S=ceil(2×21)=42 → 建议 42−3=39
+        assertTrue(saved.getSummary().contains("建议补货 39"));
+        assertTrue(saved.getPayloadJson().contains("39"));
+        assertTrue(saved.getPayloadJson().contains("REORDER_POINT_V2"));
         assertEquals(AiConsts.RISK_MID, saved.getRiskLevel());
     }
 }

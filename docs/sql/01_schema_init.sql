@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS sys_user (
     status      TINYINT      NOT NULL DEFAULT 1 COMMENT '1启用0禁用',
     created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    UNIQUE KEY uk_username (username)
+    deleted     BIGINT       NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
+    UNIQUE KEY uk_username (username, deleted)
 ) COMMENT '系统用户';
 
 CREATE TABLE IF NOT EXISTS sys_role (
@@ -31,7 +32,8 @@ CREATE TABLE IF NOT EXISTS sys_role (
     remark     VARCHAR(255) NULL COMMENT '备注',
     created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    UNIQUE KEY uk_role_key (role_key)
+    deleted    BIGINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
+    UNIQUE KEY uk_role_key (role_key, deleted)
 ) COMMENT '角色';
 
 -- RBAC:菜单 / 角色-菜单 / 用户-角色(TODO#1 已落地;时间戳两列 2026-09-03 补齐,规约见 docs/07 §6.1)
@@ -49,6 +51,7 @@ CREATE TABLE IF NOT EXISTS sys_menu (
     status     TINYINT      NOT NULL DEFAULT 1 COMMENT '1启用 0禁用',
     created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted    BIGINT       NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
     KEY idx_parent (parent_id)
 ) COMMENT '菜单/权限';
 
@@ -245,6 +248,7 @@ CREATE TABLE IF NOT EXISTS sys_dict (
     remark     VARCHAR(255) NULL COMMENT '备注',
     created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted    BIGINT       NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
     KEY idx_dict_type (dict_type)
 ) COMMENT '数据字典';
 
@@ -319,6 +323,8 @@ INSERT IGNORE INTO sys_config (config_group, config_key, config_value, remark) V
 ('AI', 'erp.ai.replenish.coverage-days', '14', '补货:目标覆盖天数(建议量使库存可支撑 N 天)'),
 ('AI', 'erp.ai.replenish.sales-window-days', '30', '补货:动销统计窗口(天,日均销量=窗口销量/窗口天数;窗口内零动销 SKU 不硬补)'),
 ('AI', 'erp.ai.replenish.min-suggest-qty', '10', '补货:最小建议量下限(仅对有动销 SKU 起下限作用)'),
+('AI', 'erp.ai.replenish.lead-time-days', '7', '补货:采购提前期(天,V2 补货点=提前期需求+安全库存)'),
+('AI', 'erp.ai.replenish.service-level', '0.95', '补货:服务水平(0~1,V2 安全库存=z×σ×√提前期,z 按 0.90/0.95/0.98/0.99 档位最近邻映射)'),
 ('AI', 'erp.ai.replenish.summary-prompt', '你是电商 ERP 的补货分析助手。根据给定的库存与建议补货量,为每个 SKU 写一句简短中文摘要,说明补货理由(如缺货风险/覆盖天数)。只输出 JSON 数组,不输出任何其他文字。', '补货摘要节点 system 提示词'),
 ('AI', 'erp.ai.anomaly.big-order-amount', '10000', '异常检测:大额订单阈值(本位币,下单金额×汇率 ≥ 此值命中)'),
 ('AI', 'erp.ai.anomaly.unpaid-hours', '48', '异常检测:未支付超时(小时,待支付超 N 小时命中)'),
@@ -361,8 +367,9 @@ CREATE TABLE IF NOT EXISTS shop (
     status         TINYINT     NOT NULL DEFAULT 1 COMMENT '1启用0禁用',
     created_at     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted        BIGINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
     KEY idx_merchant_platform (merchant_id, platform),
-    UNIQUE KEY uk_platform_seller (platform, seller_id)
+    UNIQUE KEY uk_platform_seller (platform, seller_id, deleted)
 ) COMMENT '店铺(防重复建店;seller_id为NULL时不约束)';
 
 CREATE TABLE IF NOT EXISTS pull_log (
@@ -389,7 +396,8 @@ CREATE TABLE IF NOT EXISTS brand (
     remark     VARCHAR(255) NULL COMMENT '备注',
     status     TINYINT     NOT NULL DEFAULT 1 COMMENT '1启用0禁用',
     created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+    updated_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted    BIGINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7'
 ) COMMENT '品牌';
 
 CREATE TABLE IF NOT EXISTS product_category (
@@ -400,6 +408,7 @@ CREATE TABLE IF NOT EXISTS product_category (
     status     TINYINT     NOT NULL DEFAULT 1 COMMENT '1启用0禁用',
     created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted    BIGINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
     KEY idx_parent (parent_id)
 ) COMMENT '商品分类';
 
@@ -413,7 +422,8 @@ CREATE TABLE IF NOT EXISTS product (
     status     TINYINT      NOT NULL DEFAULT 1 COMMENT '1启用0禁用',
     created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    UNIQUE KEY uk_spu (spu_code)
+    deleted    BIGINT       NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
+    UNIQUE KEY uk_spu (spu_code, deleted)
 ) COMMENT '商品SPU';
 
 CREATE TABLE IF NOT EXISTS product_sku (
@@ -430,7 +440,8 @@ CREATE TABLE IF NOT EXISTS product_sku (
     status         TINYINT     NOT NULL DEFAULT 1 COMMENT '1启用0禁用',
     created_at     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    UNIQUE KEY uk_sku (sku_code),
+    deleted        BIGINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
+    UNIQUE KEY uk_sku (sku_code, deleted),
     KEY idx_product (product_id)
 ) COMMENT '商品SKU';
 
@@ -537,7 +548,8 @@ CREATE TABLE IF NOT EXISTS supplier (
     status      TINYINT NOT NULL DEFAULT 1 COMMENT '1启用0禁用',
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    UNIQUE KEY uk_name (name)
+    deleted     BIGINT  NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
+    UNIQUE KEY uk_name (name, deleted)
 ) COMMENT '供应商';
 
 CREATE TABLE IF NOT EXISTS purchase_order (
@@ -670,7 +682,8 @@ CREATE TABLE IF NOT EXISTS warehouse (
     address    VARCHAR(512) NULL COMMENT '仓库地址',
     status     TINYINT      NOT NULL DEFAULT 1 COMMENT '1启用0禁用',
     created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+    updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted    BIGINT       NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7'
 ) COMMENT '仓库';
 
 CREATE TABLE IF NOT EXISTS inventory (

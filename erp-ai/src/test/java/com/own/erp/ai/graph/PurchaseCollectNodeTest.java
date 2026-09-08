@@ -47,16 +47,18 @@ class PurchaseCollectNodeTest {
                 .thenReturn(new LowStockScanner.ScanResult(
                         List.of(ReplenishItem.builder().skuId(1L).qtyAvailable(3).qtyTransit(0)
                                 .suggestQty(0).summary("").build()), 5));
-        when(calculator.calculate(any(), anyInt(), anyInt(), anyInt()))
+        when(calculator.calculate(any(), anyInt(), anyInt(), anyInt(), anyInt(), any()))
                 .thenReturn(List.of(ReplenishItem.builder().skuId(1L).qtyAvailable(3).qtyTransit(0)
-                        .suggestQty(18).summary("").build()));
+                        .suggestQty(18).summary("").calcJson("").build()));
 
         Map<String, Object> result = node.apply(null);
 
-        // 阈值/窗口/覆盖/下限 = 补货同源键;护栏 = purchase 段
+        // 阈值/窗口/覆盖/下限/提前期/服务水平 = 补货同源键;护栏 = purchase 段
         verify(scanner).scan(10, props.getPurchase().getScanPageSize(), props.getPurchase().getScanMaxRows());
         verify(calculator).calculate(any(), org.mockito.ArgumentMatchers.eq(30),
-                org.mockito.ArgumentMatchers.eq(14), org.mockito.ArgumentMatchers.eq(10));
+                org.mockito.ArgumentMatchers.eq(14), org.mockito.ArgumentMatchers.eq(10),
+                org.mockito.ArgumentMatchers.eq(7),
+                org.mockito.ArgumentMatchers.eq(new java.math.BigDecimal("0.95")));
         assertEquals(5, result.get(PurchaseStateKeys.KEY_SCANNED));
         List<ReplenishItem> items = (List<ReplenishItem>) result.get(PurchaseStateKeys.KEY_ITEMS);
         assertEquals(1, items.size());

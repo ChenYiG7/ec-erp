@@ -86,7 +86,7 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
-  ElMessageBox
+  ElMessageBox,
 } from 'element-plus'
 import { Delete, DocumentAdd, RefreshRight, Upload, View } from '@element-plus/icons-vue'
 import ProTable from '@/components/ProTable/index.vue'
@@ -107,8 +107,8 @@ const columns: ColumnProps<AiKbDocumentResponse>[] = [
     width: 90,
     enum: [
       { label: '文件上传', value: 'UPLOAD', tagType: 'primary' },
-      { label: '粘贴文本', value: 'TEXT', tagType: 'info' }
-    ]
+      { label: '粘贴文本', value: 'TEXT', tagType: 'info' },
+    ],
   },
   {
     prop: 'status',
@@ -118,13 +118,13 @@ const columns: ColumnProps<AiKbDocumentResponse>[] = [
     search: { el: 'select' },
     enum: [
       { label: '可检索', value: 'READY', tagType: 'success' },
-      { label: '向量化失败', value: 'FAILED', tagType: 'danger' }
-    ]
+      { label: '向量化失败', value: 'FAILED', tagType: 'danger' },
+    ],
   },
   { prop: 'charCount', label: '字符数', width: 100 },
   { prop: 'chunkCount', label: '分块数', width: 90 },
   { prop: 'createdAt', label: '接入时间', width: 170 },
-  { prop: 'operation', label: '操作', fixed: 'right', width: 170 }
+  { prop: 'operation', label: '操作', fixed: 'right', width: 170 },
 ]
 
 const refreshTable = () => proTableRef.value?.getTableList()

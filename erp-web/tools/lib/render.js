@@ -26,7 +26,7 @@ const FILE_HEADER = () =>
     ' * 默认存在即跳过:人工改动不会被 --force 之外的任何方式覆盖;重新生成前先 diff 人工改动',
     ' * 框架代码禁手改;业务槽位一律 TODO(编号),编号已登记 TODO.md',
     ' */',
-    ''
+    '',
   ].join('\n')
 
 /** Vue SFC 用 HTML 注释头部(裸 JSDoc 在 <template> 外有解析风险) */
@@ -37,7 +37,7 @@ const VUE_FILE_HEADER = () =>
     '  默认存在即跳过:人工改动不会被 --force 之外的任何方式覆盖;重新生成前先 diff 人工改动',
     '  框架代码禁手改;业务槽位一律 TODO(编号),编号已登记 TODO.md',
     '-->',
-    ''
+    '',
   ].join('\n')
 
 /**
@@ -66,7 +66,7 @@ export function buildContext({ spec, endpoints, doc, baseSeg, warnings = [] }) {
     todos: spec.todos || [],
     nested: new Map(),
     skipNested: new Set([`${spec.entity}Response`, `${spec.entity}SaveRequest`, `${spec.entity}Query`]),
-    warnings
+    warnings,
   }
   ctx.responseName = `${spec.entity}Response`
   ctx.saveRequestName = `${spec.entity}SaveRequest`
@@ -74,7 +74,9 @@ export function buildContext({ spec, endpoints, doc, baseSeg, warnings = [] }) {
   // Response schema:分页域取 Page 记录行;非分页取 detail(或 GET 根路径)的解包 data
   ctx.responseSchema = resolveResponseSchema(doc, endpoints)
   ctx.requestSchema =
-    !ctx.readonly && (endpoints.create || endpoints.update) ? unwrapBody(endpoints.create || endpoints.update, doc) : null
+    !ctx.readonly && (endpoints.create || endpoints.update)
+      ? unwrapBody(endpoints.create || endpoints.update, doc)
+      : null
   ctx.queryFields = endpoints.page ? queryParameters(endpoints.page.op, doc) : []
   // 动作端点:任意方法的 /{id}/<verb>(状态机动作 + GET auth-url 这类扩展动作);extra 升格的端点补 verb
   const extraAsActions = endpoints.extra
@@ -116,8 +118,9 @@ function resolveResponseSchema(doc, endpoints) {
 
 /** 解包 Result -> data schema(200 响应) */
 function unwrapData(op, doc) {
-  const schema = op?.responses?.['200']?.content?.['*/*']?.schema ?? op?.responses?.['200']?.content?.['application/json']?.schema
-  const resolved = schema ? resolveRef(doc, schema.$ref) ?? schema : null
+  const schema =
+    op?.responses?.['200']?.content?.['*/*']?.schema ?? op?.responses?.['200']?.content?.['application/json']?.schema
+  const resolved = schema ? (resolveRef(doc, schema.$ref) ?? schema) : null
   if (resolved?.properties && 'code' in resolved.properties && 'data' in resolved.properties) {
     const data = resolved.properties.data
     return resolveRef(doc, data.$ref) ?? data
@@ -153,7 +156,7 @@ function enrichField(f, ctx) {
     ts: meta.ts,
     comment: meta.comment,
     numeric: Boolean(isNumeric),
-    known: Boolean(propSchema)
+    known: Boolean(propSchema),
   }
 }
 
@@ -175,7 +178,10 @@ function fieldType(schema, ctx, money) {
   try {
     return schemaToTs(schema, ctx.doc, { money: Boolean(money) })
   } catch (e) {
-    return { ts: 'unknown', comment: `// TODO(#${ctx.todoId}) 未知 schema 形态人工核对: ${String(e.message).slice(0, 80)}` }
+    return {
+      ts: 'unknown',
+      comment: `// TODO(#${ctx.todoId}) 未知 schema 形态人工核对: ${String(e.message).slice(0, 80)}`,
+    }
   }
 }
 
@@ -223,11 +229,7 @@ function simpleNestedType(sub, ctx) {
 /* ------------------------------- ① interface ------------------------------- */
 
 export function renderTypes(ctx) {
-  const out = [
-    FILE_HEADER(),
-    `/** ${ctx.nameZh}接口类型(gen:page 从 openapi 快照生成;对齐后端契约,禁手抄字段) */`,
-    ''
-  ]
+  const out = [FILE_HEADER(), `/** ${ctx.nameZh}接口类型(gen:page 从 openapi 快照生成;对齐后端契约,禁手抄字段) */`, '']
 
   // Response
   if (ctx.responseSchema?.properties) {
@@ -286,7 +288,13 @@ export function renderTypes(ctx) {
   }
   // 嵌套 interface(引用型子结构,如子表明细行)
   for (const nested of ctx.nested.values()) {
-    out.push(`/** 嵌套结构(引用自 openapi schema ${nested.name}) */`, `export interface ${nested.name} {`, nested.body, '}', '')
+    out.push(
+      `/** 嵌套结构(引用自 openapi schema ${nested.name}) */`,
+      `export interface ${nested.name} {`,
+      nested.body,
+      '}',
+      ''
+    )
   }
   return out.join('\n')
 }
@@ -564,7 +572,9 @@ function elImportsFor(formFields) {
   const usesSelect = formFields.some(f => f.enumMap)
   const usesSwitch = formFields.some(f => !f.dict && !f.enumMap && f.ts === 'boolean')
   const usesInputNumber = formFields.some(f => !f.dict && !f.enumMap && f.ts === 'number' && !f.money)
-  const usesInput = formFields.some(f => !f.dict && !f.enumMap && f.ts !== 'boolean' && !(f.ts === 'number' && !f.money))
+  const usesInput = formFields.some(
+    f => !f.dict && !f.enumMap && f.ts !== 'boolean' && !(f.ts === 'number' && !f.money)
+  )
   return [
     'ElButton',
     'ElDialog',
@@ -575,7 +585,7 @@ function elImportsFor(formFields) {
     'ElMessage',
     usesSelect && 'ElOption',
     usesSelect && 'ElSelect',
-    usesSwitch && 'ElSwitch'
+    usesSwitch && 'ElSwitch',
   ]
     .filter(Boolean)
     .sort()
@@ -603,8 +613,15 @@ export function renderForm(ctx) {
       control = `<Dict v-model="formData.${f.name}" code="${f.dict}" type="select" />`
     } else if (f.enumMap) {
       // string 值产单引号字面量(':value="'SELF'"'),JSON.stringify 的双引号会与属性引号嵌套出错(2026-09-06 warehouse 域抓获)
-      const opts = f.enumMap.map(e => `          <el-option label="${e.label}" :value="${typeof e.value === 'string' ? `'${e.value}'` : JSON.stringify(e.value)}" />`)
-      control = [`<el-select v-model="formData.${f.name}" clearable ${placeholder}>`, ...opts, `        </el-select>`].join('\n')
+      const opts = f.enumMap.map(
+        e =>
+          `          <el-option label="${e.label}" :value="${typeof e.value === 'string' ? `'${e.value}'` : JSON.stringify(e.value)}" />`
+      )
+      control = [
+        `<el-select v-model="formData.${f.name}" clearable ${placeholder}>`,
+        ...opts,
+        `        </el-select>`,
+      ].join('\n')
     } else if (f.ts === 'boolean') {
       control = `<el-switch v-model="formData.${f.name}" />`
     } else if (f.ts === 'number' && !f.money) {
@@ -631,7 +648,7 @@ export function renderForm(ctx) {
     `      <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>`,
     `    </template>`,
     `  </el-dialog>`,
-    `</template>`
+    `</template>`,
   ]
 
   const scr = [
@@ -644,7 +661,9 @@ export function renderForm(ctx) {
     `import { ${ctx.entityCamel}Api } from '@/api/apis/${ctx.module}/${ctx.domain}'`,
     ...(() => {
       const names = [...(needSaveType ? [saveName] : []), ...(ctx.responseSchema ? [ctx.responseName] : [])]
-      return names.length ? [`import type { ${names.join(', ')} } from '@/api/interface/${ctx.module}/${ctx.domain}'`] : []
+      return names.length
+        ? [`import type { ${names.join(', ')} } from '@/api/interface/${ctx.module}/${ctx.domain}'`]
+        : []
     })(),
     ``,
     `defineOptions({ name: '${ctx.entity}Form' })`,
@@ -701,7 +720,7 @@ export function renderForm(ctx) {
     ``,
     `defineExpose({ open })`,
     `</script>`,
-    ''
+    '',
   ]
   return [FILE_HEADER(), ...tpl, ...scr].join('\n')
 }
@@ -717,7 +736,7 @@ export function renderMenuSql(ctx) {
     : [
         { perm: 'add', name: `新增${ctx.nameZh}`, sort: 1 },
         { perm: 'edit', name: `编辑${ctx.nameZh}`, sort: 2 },
-        { perm: 'remove', name: `删除${ctx.nameZh}`, sort: 3 }
+        { perm: 'remove', name: `删除${ctx.nameZh}`, sort: 3 },
       ]
   const values = rows =>
     rows
@@ -740,7 +759,7 @@ export function renderMenuSql(ctx) {
     path: ctx.path,
     comp: ctx.component,
     icon: ctx.icon,
-    sort: ctx.menuSort ? Number(ctx.menuSort) : 1
+    sort: ctx.menuSort ? Number(ctx.menuSort) : 1,
   })
   const btnRow = (menuId, b) => ({
     id: menuId * 100 + b.sort,
@@ -751,20 +770,27 @@ export function renderMenuSql(ctx) {
     path: null,
     comp: null,
     icon: null,
-    sort: b.sort
+    sort: b.sort,
   })
 
   if (ctx.menuId) {
     const menuId = Number(ctx.menuId)
-    const blocks = [`-- ${ctx.nameZh} 菜单(gen:page 生成;menuId=${menuId},人工核对 id 未占用后执行,并回写 docs/sql/01_schema_init.sql)`, insert([menuRow(menuId)])]
+    const blocks = [
+      `-- ${ctx.nameZh} 菜单(gen:page 生成;menuId=${menuId},人工核对 id 未占用后执行,并回写 docs/sql/01_schema_init.sql)`,
+      insert([menuRow(menuId)]),
+    ]
     if (buttonRows.length) {
-      blocks.push('', `-- 按钮权限(menuType=3),id 段 = menuId*100+n,如冲突人工调整`, insert(buttonRows.map(b => btnRow(menuId, b))))
+      blocks.push(
+        '',
+        `-- 按钮权限(menuType=3),id 段 = menuId*100+n,如冲突人工调整`,
+        insert(buttonRows.map(b => btnRow(menuId, b)))
+      )
     }
     return blocks.join('\n')
   }
   const tpl = [
     `-- ${ctx.nameZh} 菜单模板(gen:page 生成;spec 未声明 menuId=,人工分配未占用 id 后执行,并回写 docs/sql/01_schema_init.sql)`,
-    `-- ${insert([menuRow('<menuId>')])}`
+    `-- ${insert([menuRow('<menuId>')])}`,
   ]
   for (const b of buttonRows) {
     tpl.push(
@@ -802,14 +828,19 @@ export function buildChatContext({ spec, warnings = [] }) {
     menuId: spec.menuId || null,
     menuSort: spec.menuSort || null,
     icon: spec.icon || null,
-    warnings
+    warnings,
   }
 }
 
 /** 接口类型:角色词表(仅角色模式)+ 契约类型复用再导出(单一来源,禁重复手抄) */
 export function renderChatTypes(ctx) {
   const lines = [FILE_HEADER()]
-  lines.push('/**', ` * ${ctx.nameZh}类型(chat 模板,#${ctx.todoId}):契约类型单一来源复用 @/api/interface/${ctx.typesFrom}`, ' */', '')
+  lines.push(
+    '/**',
+    ` * ${ctx.nameZh}类型(chat 模板,#${ctx.todoId}):契约类型单一来源复用 @/api/interface/${ctx.typesFrom}`,
+    ' */',
+    ''
+  )
   if (ctx.roles.length) {
     lines.push(
       '/** 会话页角色词表(role 不落会话——会话不绑角色,同一会话可跨角色续聊) */',
@@ -836,7 +867,7 @@ export function renderChatApi(ctx) {
   const baseDecl = hasRoles
     ? [
         '/** 端点前缀(spec chatBase,{role} 按当前角色替换) */',
-        `const base = (role: ${roleType}) => \`${ctx.chatBase.replace('{role}', () => '${role}')}\``
+        `const base = (role: ${roleType}) => \`${ctx.chatBase.replace('{role}', () => '${role}')}\``,
       ]
     : ['/** 端点前缀(spec chatBase) */', `const base = '${ctx.chatBase}'`]
   return [
@@ -868,7 +899,7 @@ export function renderChatApi(ctx) {
     `  chatStream: (${arg}sessionId: number, message: string, onChunk: (text: string) => void): Promise<void> =>`,
     `    postSse(\`\${${base}}/sessions/\${sessionId}/chat\`, { message }, onChunk)`,
     '}',
-    ''
+    '',
   ].join('\n')
 }
 
@@ -879,10 +910,7 @@ export function renderChatIndex(ctx) {
   const apiName = `${ctx.entityCamel}Api`
   const routeName = ctx.component.replace(/\//g, '-')
   const arg = hasRoles ? 'role.value, ' : ''
-  const esc = s =>
-    String(s)
-      .replace(/\\/g, '\\\\')
-      .replace(/'/g, "\\'")
+  const esc = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 
   // ---- 文案/角色块(角色模式词表收口;无角色模式文案常量) ----
   let hintBlock
@@ -898,13 +926,13 @@ export function renderChatIndex(ctx) {
       '',
       `const role = ref<${roleType}>('${ctx.roles[0].enum}')`,
       'const emptyHint = computed(() => ROLE_HINTS[role.value].empty)',
-      'const placeholder = computed(() => ROLE_HINTS[role.value].placeholder)'
+      'const placeholder = computed(() => ROLE_HINTS[role.value].placeholder)',
     ]
   } else {
     hintBlock = [
       '/** 空态/输入提示文案(spec emptyText=/placeholder=,未声明回落公共组件默认) */',
       `const emptyHint = '${esc(ctx.emptyText || '向 AI 提问,支持查询订单 / 库存 / 商品 / 售后数据')}'`,
-      `const placeholder = '${esc(ctx.placeholder || '问问订单、库存、商品、售后…(Enter 发送 / Shift+Enter 换行)')}'`
+      `const placeholder = '${esc(ctx.placeholder || '问问订单、库存、商品、售后…(Enter 发送 / Shift+Enter 换行)')}'`,
     ]
   }
   const roleSwitch = hasRoles
@@ -912,7 +940,7 @@ export function renderChatIndex(ctx) {
         '      <el-radio-group v-model="role" class="role-switch" size="small" :disabled="sending">',
         '        <el-radio-button v-for="r in ROLES" :key="r.value" :value="r.value">{{ r.label }}</el-radio-button>',
         '      </el-radio-group>',
-        ''
+        '',
       ]
     : []
   const roleSwitchStyle = hasRoles
@@ -926,10 +954,12 @@ export function renderChatIndex(ctx) {
         '        }',
         '      }',
         '    }',
-        ''
+        '',
       ]
     : []
-  const vueImports = hasRoles ? "import { computed, onMounted, ref } from 'vue'" : "import { onMounted, ref } from 'vue'"
+  const vueImports = hasRoles
+    ? "import { computed, onMounted, ref } from 'vue'"
+    : "import { onMounted, ref } from 'vue'"
   const scriptClose = '</' + 'script>'
 
   return [
@@ -1124,6 +1154,6 @@ export function renderChatIndex(ctx) {
     '  }',
     '}',
     '</style>',
-    ''
+    '',
   ].join('\n')
 }

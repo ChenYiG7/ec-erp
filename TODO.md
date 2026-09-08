@@ -242,12 +242,13 @@
       条件边(无可补项直达 END)→summarize→persist→END,图构造器装配 compile 一次持有可重复 invoke;
       **拍板偏离 TODO 原文"取数LLM"**:程序取数+程序计算、LLM 只写报告——公式确定性强/零 token
       (铁律 8 判断归 AI、执行归程序)。collect 分页扫 inventory(可用≤阈值)按 skuId 跨仓合并(可用/在途求和);
-      calculate 纯公式 max(最小建议量,覆盖天数×日均销量估计−可用−在途),V1 简化口径——
-      TODO(#6): 待销量数据面落地后按近期动销重估公式;summarize 单次 LLM 调用产逐 SKU 摘要,
+      calculate 纯公式:日均销量 = 动销窗口真实销量合计/窗口天数——✅ 2026-09-07 动销重估收口
+      (旧固定 assumedDailySales 估计口径已弃,详见下方「销量数据面」条目);summarize 单次 LLM 调用产逐 SKU 摘要,
       **三重降级**(apiKey 空/调用失败/解析失败,含 ``` 围栏容错)统一落模板串 degraded=true 照跑照落库——
       模型故障不阻断建议产出;persist 经 AiSuggestionService.save 唯一入口落 ai_suggestion(type=REPLENISH,
       风险分级:可用≤0 即缺货 HIGH 否则 MID;payloadJson 存 三数量,不碰业务单据);
-      触发 = POST /api/ai/replenishment/run(登录即可);TODO(#6): 定时接线(每日低峰,参考 AlertJob 模式)待拍板间隔后接;
+      触发 = POST /api/ai/replenishment/run(登录即可);定时接线 ✅ 2026-09-07 落地
+      (ReplenishJob 每日 02:00 低峰,见下方「两工作流定时接线」条目);
       单测 12 个(Collect 扫描护栏+跨仓合并/Calculate 公式/Summarize 三重降级+解析/Persist 落库字段/Workflow 条件边);
       ⚠️ **victools 仲裁钉版**(根 pom,T1 当场炸出):spring-ai 2.0.1 JsonSchemaGenerator 静态引
       jsonschema-module-jackson 的 JacksonSchemaModule(仅 5.0.0 有,4.38.0 已更名),agentscope 2.0.2
@@ -312,9 +313,8 @@
       余量:更多角色
 - [x] 库存预警规则引擎 ✅ 2026-09-06 落地(alert/ + erp-api AlertJob,V1 三规则:
       低库存(可用≤阈值聚一条,明细 topN)/ 发货超时(WAIT_SHIP 且下单超 N 小时)/
-      退款异常(窗口内按店铺聚合 REFUNDED 单数达阈值);滞销/积压依赖销量统计面(现无销量表/视图)——
-      TODO(#6): 待销量数据面落地后补规则(口径 docs/02"规则引擎先筛"两段式;qihang 同款销售额为零等规则
-      一并纳入,见 #17 落位表)。取数只走只读查询契约(铁律 2/7);分页扫全量,
+      退款异常(窗口内按店铺聚合 REFUNDED 单数达阈值);滞销/积压两规则 ✅ 2026-09-07 随销量数据面
+      补齐(V1 三规则→五规则,详见下方「销量数据面」条目)。取数只走只读查询契约(铁律 2/7);分页扫全量,
       scanPageSize/scanMaxRows 护栏钳制防大表拖死;单规则失败隔离只记日志不殃及本轮其余规则;
       出口仅产 AlertEvent,推送/静默去重收口 **erp-api AlertJob**(erp-ai 不依赖 erp-system,
       模式同 OrderPullJob:每小时 fixedDelay 开关→抢锁(LockService alert:scan 效率锁,漏扫一轮无损失)→
@@ -338,9 +338,11 @@
       逐单漏回/词表外 riskLevel → 规则定级+模板 summary+degraded=true 照跑照落库;
       prompt 集中 ErpAiProperties.Anomaly.scorePrompt(docs/07 §9)。落库经 AiSuggestionService.save 唯一入口
       (type=ANOMALY/refType=SHOP_ORDER/refId=orderId/payloadJson={hitRules,ruleRisk,金额汇率,时间,llmScored});
-      重复 run 产生新一批 = 已接受语义(同补货),**接定时前必须先拍去重语义 → TODO(#6)**;
+      重复 run 产生新一批 = 已接受语义(同补货),去重语义 ✅ 2026-09-07 拍板(同键存在待确认建议即跳过,
+      见下方「两工作流定时接线」条目);
       触发 = POST /api/ai/anomaly/run(登录即可),返回 {scannedCount,suspiciousCount,persistedCount,llmScoredCount,degraded};
-      定时接线与补货同张 TODO 一并拍板;HIGH 推通知随实际告警量评估 → TODO(#6);「同买家批量下单」
+      定时接线 ✅ 2026-09-07 随 ReplenishJob/AnomalyJob 落地(见下方条目);HIGH 推通知随实际告警量评估
+      → TODO(#6);「同买家批量下单」
       契约无 buyer 字段(PII 不出契约)随 V2 契约扩容再上 → TODO(#6);
       单测 19 个(Scan 9 规则命中边界/paidTime 守卫/汇率缺省/合并取 max/护栏/单态隔离 +
       Score 6 三重降级/围栏对齐/词表外回落/截断不算降级 + Persist 2 + Workflow 2);
@@ -389,6 +391,29 @@
       erp-api Impl 2:entity→record 逐字段映射/空透传 + erp-api Job 4:开关/锁被占/Clock 当日/异常不穿透);
       真库验证 7 项全绿(scripts/validate_mapper_sql.py:建表/upsert 两遍幂等+行数合计核对/
       listSeries 单仓+跨仓形态;9.7.2 真库验证全绿);前端报表页暂不接(数据面先行,AI/报表域取数用)
+- [x] 补货算法 V2((s,S) 策略+安全库存)✅ 2026-09-08 落地(#6 算法升级,面试深度样本定位——
+      V1.5 均值公式升级为经典连续复查 (s,S) 策略,公式单一来源仍收口 ReplenishCalculator,采购工作流自动受益):
+      相比 V1.5 两点本质升级——①**显式建模采购提前期**(lead-time-days,默认 7):补货点
+      ROP=ceil(μ×LT)+SS,库存位置(可用+在途)≤ROP 才触发——均值公式只看"覆盖天数够不够",
+      表达不了"提前期内会不会断货";②**需求波动进入公式**:安全库存 SS=ceil(z×σ×√LT),
+      σ=窗口逐日销量样本标准差(零销日补 0),z 按服务水平档位 {0.90,0.95,0.98,0.99} 最近邻映射
+      (运营只配服务水平,不暴露 z-score 概念);目标库存 S=ceil(μ×(LT+覆盖天数))+SS(覆盖天数语义不变:
+      提前期之外的额外覆盖),建议量=S−库存位置,<最小建议量提到下限;低均值高波动(闪购/漏单爆款)
+      场景 V1.5 会漏,V2 安全垫捕捉;零动销剔除语义保持(μ=0⇒σ=0⇒ROP=0 不触发,2026-09-07 拍板延续);
+      数据面 = SalesQueryApi 契约只加方法 listDailyQtyBySku(逐日序列 Map<skuId,Map<date,qty>>,
+      合计口径丢失波动信息;只回有记录 skuId,零销日调用方补零),实现链 OrderSalesDailyService
+      +OrderSalesDailyMapper XML listQtySince(sku_id IN + stat_date range 走 uk_sku_date 前缀索引,
+      空入参/非法窗口不触库,java.sql.Date/LocalDate 双形态防御);配置 2 键
+      erp.ai.replenish.lead-time-days/service-level(ConfigConsts+AI_KEYS+01_schema_init.sql 种子+
+      前端补货小节两键+幂等迁移 scripts/replenish_v2_migration.py,开发库 ALL GREEN;凭证红线不涉,
+      service-level 0~1 越界回落代码默认);算法明细(μ/σ/SS/ROP/S+旧三字段键向后兼容)回填
+      ReplenishItem 新增 calcJson 字段(calculate 回填,persist 透传 payloadJson 供人工判读/
+      详情抽屉),空串回落旧三字段形态;单测 新增 7/适配 10+(ReplenishCalculatorTest 重写 8:
+      稳定零 SS/波动安全垫/库存位置高于补货点剔除/零动销/下限兜底/单日窗口 σ 退化/z 最近邻映射/
+      空入参不触库 + OrderSalesDailyService 3 + Impl 委托 1 + persist calcJson 透传 1,
+      节点/工作流冒烟签名与期望值适配——均匀动销手算 25→39,采购预估金额 312.50→487.50),
+      erp-ai/erp-api/erp-order 全绿;真库验证 scripts/validate_replenish_v2_sql.py 5 项 ALL GREEN
+      (序列行集/零销日排除/同 SKU 日序/与 sumQtySince 合计交叉核对/真库业务行交叉核对)
 - [x] 前端聊天页/AI 建议页(✅ 2026-09-06 T4 收口:AI对话页手写(会话列表+SSE 流式+首条自动建会话,
       每轮结束服务端历史回读兜底;markdown 渲染/停止生成留余量,引库需拍板)+ AI建议页 gen:page
       (readonly + adopt/ignore 动作,payloadJson 详情抽屉,动作按钮不带 v-auth 同通知中心口径);
@@ -536,7 +561,16 @@
       label = "skuCode · SPU名称"(SkuSelector 同款);
       SkuSelector 仍走"商品keyword→SPU内SKU"两段式(批量端点按 id 翻译,不覆盖关键词搜索;全局搜索端点另议);
       单测 ProductServiceTest 14→18;api:sync 快照 71→72 路径
-- [ ] 逻辑删除:实体加 `@TableLogic` + 表加 `deleted` 列(当前为物理删除,先保持简单)
+- [x] 逻辑删除 ✅ 2026-09-08 收口(拍板与规约定版见 docs/07 §6.4):**范围=人工域 11 表**
+      (sys_user/sys_role/sys_menu/sys_dict/brand/product/product_category/product_sku/shop/warehouse/supplier,
+      实体加 `@TableLogic(value="0", delval="id")` + 表加 `deleted BIGINT`;**删时置主键 id 非 0/1**,
+      6 个业务唯一键重建含 deleted(uk_username/uk_role_key/uk_spu/uk_sku/uk_platform_seller/uk_name)→
+      删后同键可重建且可重复删);**排除保持物理删除**:sys_config(upsert 正本)/单据三主表+明细
+      (状态机守卫+改单先删后插,逻辑删堆积垃圾行)/平台同步正本/流水快照成本账/AI 域(删除=真删含向量编排)/settlement;
+      XML 自定义 SQL 不自动生效——拍板 join 不滤已删(历史单据显示已删供应商名,PurchaseOrderItemMapper 唯一相关点);
+      迁移 scripts/logical_delete_migration.py 幂等落开发库 ALL GREEN(复跑幂等验证过);
+      codegen 同步(entity 模板注 @TableLogic,Response/SaveRequest 剔 deleted);
+      单测 LogicalDeleteAnnotationTest 反射钉死注解口径(delval 漂移会静默破坏删后重建)
 - [x] 商品分类管理校验补齐(2026-09-04 收口,TODO(#7) 分类槽位消除):create/update 父分类存在性校验(非根防孤儿)+
       成环校验(沿父链上走,链上出现自身即拒=自己/自己子孙禁挂;visited 集合兼防存量脏数据环死循环)+
       删除前子分类/商品引用(category_id)拦截;ProductCategoryServiceTest 12 个
@@ -777,7 +811,9 @@
       ⚠️ **已知边界**:回传在 ship 请求线程内同步执行(AFTER_COMMIT 后、Controller 返回前),平台慢/超时会拖长
       "确认发货"响应——V1 接受(失败只记 pull_log 不影响正确性),真凭证联调实测耗时后再评估异步化
       (需独立 executor,禁复用 pullScheduler 单线程池)
-- [ ] 遗留:签收回传平台物流轨迹 /
+- [ ] 遗留:~~签收回传平台物流轨迹~~(✅ 2026-09-08 拍板**恒不做**:Amazon SP-API 无卖家侧轨迹/签收回传
+      API——承运商扫描由平台自拉,卖家义务止于运单号回传(uploadTracking 已落地,见上条);签收回传/轨迹
+      回传是国内平台结算侧概念,随首个国内 adapter 与电子面单取号 fetchWaybill 一并开题,不独立挂账)/
       ~~电子面单/运单号回传平台~~(✅ 2026-09-08 编排接线落地,见上条;电子面单取号 fetchWaybill 跨境平台恒不支持,
       国内平台随首个国内 adapter 落地)/
       ~~createdBy 接 SecurityContext~~(✅ 2026-09-06 已随 #10 同款收口:CurrentUserApi,发货单 save 服务端回填)/
@@ -891,7 +927,22 @@
       readStatus 搜索过滤 + 单条/全部已读(个人操作后端归属校验,无 permKey),操作后同步铃铛徽标 store;
       NotificationApi.page 统一 {list,total} 程式(铃铛消费点同步适配);手写页(gen:page 存在即跳过会撞
       P2 手工 api 文件,程式对齐生成页);⚠️ 顺手修种子漏配:sys_role_menu 缺 (1,21) 拉单日志授权行,已连同 (1,22) 补上
-- [ ] 后续渠道:邮件/短信/IM 推送(在 pushAllUsers 出口扩展,不提前抽象);通知铃铛+已读 ✅ 随 #16 落地
+- [x] Webhook 通知渠道 V1(2026-09-08,IM 群机器人先行):pushAllUsers 出口发布 NotifyPushedEvent
+      (erp-system 内事件,发布方监听方同模块不进 common),WebhookPushService @TransactionalEventListener
+      AFTER_COMMIT + fallbackExecution 消费——**事务提交后才外推**(同 #11 发货回传拍板),失败只记日志
+      不回滚站内通知不上抛;三渠道钉钉(markdown,加签)/飞书(text,加签)/企微(markdown,免签)签名口径
+      =官方文档(钉钉 sign 挂 URL base64 后 URL-encode、飞书 sign 挂报文体 key=ts+"\n"+secret data=空串官方特例、
+      企微免签),HmacSHA256 走 JDK 原生不引 hutool-crypto;HTTP=RestClient(同 LwaTokenClient 先例)
+      connect 3s/read 5s 防拖死告警 Job,响应码尽力校验(errcode/code 非零 warn,非 JSON 不判失败);
+      配置拍板:erp.notify.webhook 四键(enabled/type/url/secret)同域部署级**不进 sys_config**——
+      url/secret 凭证类(hook 地址内嵌 token,docs/07 §7 红线)走 local.properties/环境变量
+      (ERP_NOTIFY_WEBHOOK_URL/ERP_NOTIFY_WEBHOOK_SECRET,模板已登记),enabled 默认 false(外呼保护性默认关,
+      与 erp.alert 内呼默认开反向);企微内容截 1000 字符防超 4096 字节;站内零用户也发布事件(告警为源,
+      外推不随收件人数量增减);单测 +10(开关短路/三渠道报文/钉钉签名独立 Mac 交叉核对/飞书体签名自洽/
+      企微截断/失败吞掉/非零码仅告警/AFTER_COMMIT 相位注解),erp-system 83 全绿;邮件/短信后续同款挂监听
+- [ ] 后续渠道:邮件/短信推送(在 pushAllUsers 出口扩展,同 Webhook 各挂一个监听,不提前抽象)——
+      **2026-09-08 用户拍板:通知渠道后续迭代与邮件/短信整体排期放最后**,不插队当前主线;
+      通知铃铛+已读 ✅ 随 #16 落地
 
 ## #15 公开前治理与发布策略(2026-09-05 边界定稿;旧仓库 ChenYiG7/erp 已删库重建,现仓库 ChenYiG7/ec-erp 私有)
 
@@ -1139,7 +1190,9 @@ qihang 开源版/企业版双轨宣传,只取开源版功能面,企业版能力(
       测试桩 RuntimePropsStub(graph 测试包内,函数式 SystemConfigApi 桩:AiRuntimeProperties 全量回落 yml 默认);
       存量节点/Service/Job 测试构造器全量适配,语义不变
 - 验证:mvn 全 reactor 18 模块 test 全绿(erp-system 73 / erp-ai 102+ / erp-api 70+);前端 vue-tsc 0 错、
-  oxlint 0 错、新文件 oxfmt 通过(存量 95 文件 fmt 基线陈旧系 oxfmt 版本差异,非本次引入);
+  oxlint 0 错、新文件 oxfmt 通过(存量 95 文件 fmt 基线陈旧系 oxfmt 版本差异,非本次引入
+  ——✅ 2026-09-08 基线对齐收口:全仓 fmt 一次归一 103/288 文件(纯格式零语义),三件门禁复验全绿;
+  权威格式=oxfmt,openapi.json 等生成物导出后跑 fmt 归一);
   api:sync 契约快照 86→87 路径(+GET/PUT /api/system/configs/group/{group})
 
 ## #19 财务/结算域(三期 settlement 主线,2026-09-08 立项;求职作品集 L3 深度样本,利润核算的"准"=领星护城河位)

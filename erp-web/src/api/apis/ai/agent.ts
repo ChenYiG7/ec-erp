@@ -11,7 +11,12 @@
 import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import { postSse } from '@/utils/sse'
-import type { AgentRole, AiChatSessionQuery, AiChatSessionResponse, AiChatMessageResponse } from '@/api/interface/ai/agent'
+import type {
+  AgentRole,
+  AiChatSessionQuery,
+  AiChatSessionResponse,
+  AiChatMessageResponse,
+} from '@/api/interface/ai/agent'
 
 /** 端点前缀(spec chatBase,{role} 按当前角色替换) */
 const base = (role: AgentRole) => `/api/ai/agents/${role}`
@@ -19,7 +24,9 @@ const base = (role: AgentRole) => `/api/ai/agents/${role}`
 export const agentApi = {
   /** 我的会话分页(最近更新倒序,返回 {list,total}) */
   pageSessions: (role, params: AiChatSessionQuery & PageQuery) =>
-    http.get<PageResult<AiChatSessionResponse>>(`${base(role)}/sessions`, params).then(page => ({ list: page.records, total: page.total })),
+    http
+      .get<PageResult<AiChatSessionResponse>>(`${base(role)}/sessions`, params)
+      .then(page => ({ list: page.records, total: page.total })),
   /** 新建会话(标题可空,后端默认"新会话",首条消息后自动回填摘要) */
   createSession: (role, title?: string) => http.post<number>(`${base(role)}/sessions`, { title }),
   /** 会话历史消息(时间正序;越权/跨源/不存在统一报"会话不存在") */
@@ -30,5 +37,5 @@ export const agentApi = {
     http.post<string>(`${base(role)}/sessions/${sessionId}/chat-sync`, { message }),
   /** 流式对话(SSE):逐 TextBlock delta 回调;帧解析/鉴权/错误收口 utils/sse(postSse) */
   chatStream: (role, sessionId: number, message: string, onChunk: (text: string) => void): Promise<void> =>
-    postSse(`${base(role)}/sessions/${sessionId}/chat`, { message }, onChunk)
+    postSse(`${base(role)}/sessions/${sessionId}/chat`, { message }, onChunk),
 }

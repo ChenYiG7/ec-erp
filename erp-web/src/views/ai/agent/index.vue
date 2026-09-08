@@ -54,11 +54,17 @@ import type { AiChatSessionResponse, ChatUIMessage } from '@/api/interface/ai/ag
 /** 角色文案词表(spec 拍板收口,禁散落模板字面量) */
 const ROLES: { value: AgentRole; label: string }[] = [
   { value: 'SUPPORT', label: '客服助手' },
-  { value: 'OPS', label: '运营助手' }
+  { value: 'OPS', label: '运营助手' },
 ]
 const ROLE_HINTS: Record<AgentRole, { empty: string; placeholder: string }> = {
-  SUPPORT: { empty: '向客服助手提问,支持查询订单 / 库存 / 商品 / 售后数据', placeholder: '问问订单、库存、商品、售后…(Enter 发送 / Shift+Enter 换行)' },
-  OPS: { empty: '向运营助手提问,专注库存与商品盘面', placeholder: '查库存口径(在库/占用/在途/可用)、商品盘面…(Enter 发送 / Shift+Enter 换行)' }
+  SUPPORT: {
+    empty: '向客服助手提问,支持查询订单 / 库存 / 商品 / 售后数据',
+    placeholder: '问问订单、库存、商品、售后…(Enter 发送 / Shift+Enter 换行)',
+  },
+  OPS: {
+    empty: '向运营助手提问,专注库存与商品盘面',
+    placeholder: '查库存口径(在库/占用/在途/可用)、商品盘面…(Enter 发送 / Shift+Enter 换行)',
+  },
 }
 
 const role = ref<AgentRole>('SUPPORT')
@@ -118,7 +124,14 @@ const onSend = async (text: string) => {
     }
     const sessionId = activeSessionId.value!
     messages.value.push({ id: --localSeq, sessionId, role: 'USER', content: text, createdAt: '' })
-    const placeholder: ChatUIMessage = { id: --localSeq, sessionId, role: 'AI', content: '', createdAt: '', streaming: true }
+    const placeholder: ChatUIMessage = {
+      id: --localSeq,
+      sessionId,
+      role: 'AI',
+      content: '',
+      createdAt: '',
+      streaming: true,
+    }
     messages.value.push(placeholder)
     await agentApi.chatStream(role.value, sessionId, text, chunk => {
       placeholder.content += chunk

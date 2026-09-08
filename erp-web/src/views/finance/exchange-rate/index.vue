@@ -6,7 +6,13 @@
 
 <template>
   <div class="table-box">
-    <ProTable ref="proTableRef" page-id="/finance/exchange-rates" title="汇率快照" :columns="columns" :request-api="exchangeRateApi.page">
+    <ProTable
+      ref="proTableRef"
+      page-id="/finance/exchange-rates"
+      title="汇率快照"
+      :columns="columns"
+      :request-api="exchangeRateApi.page"
+    >
       <template #tableHeader>
         <el-button v-auth="'finance:rate:save'" type="primary" @click="openSave">录入快照</el-button>
       </template>
@@ -50,7 +56,16 @@ const columns: ColumnProps<ExchangeRateResponse>[] = [
   { prop: 'currency', label: '币种', width: 100 },
   { prop: 'rate', label: '汇率(→CNY)', width: 160 },
   { prop: 'quotedAt', label: '报价时间', width: 175 },
-  { prop: 'source', label: '来源', width: 100, tag: true, enum: [{ label: '手工录入', value: 'MANUAL', tagType: 'info' }, { label: '行情接口', value: 'API', tagType: 'success' }] },
+  {
+    prop: 'source',
+    label: '来源',
+    width: 100,
+    tag: true,
+    enum: [
+      { label: '手工录入', value: 'MANUAL', tagType: 'info' },
+      { label: '行情接口', value: 'API', tagType: 'success' },
+    ],
+  },
   { prop: 'createdAt', label: '创建时间', width: 175 },
 ]
 

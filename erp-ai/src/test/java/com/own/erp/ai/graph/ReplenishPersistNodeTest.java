@@ -67,4 +67,24 @@ class ReplenishPersistNodeTest {
         assertEquals(AiConsts.RISK_MID, rows.get(1).getRiskLevel());
         assertTrue(rows.get(1).getSummary().contains("补 18"));
     }
+
+    @Test
+    void calcJsonPreferredOverLegacyPayload() {
+        // V2:calculate 回填的算法明细优先透传 payloadJson(含 μ/σ/补货点/目标库存);
+        // 空串回落旧三字段形态(防御,正常不触发)
+        OverAllState state = new OverAllState();
+        state.registerKeyAndStrategy(ReplenishStateKeys.KEY_ITEMS, com.alibaba.cloud.ai.graph.KeyStrategy.REPLACE);
+        state.input(Map.of(ReplenishStateKeys.KEY_ITEMS, List.of(
+                ReplenishItem.builder().skuId(1L).qtyAvailable(0).qtyTransit(0).suggestQty(69)
+                        .summary("").calcJson("{\"algorithm\":\"REORDER_POINT_V2\",\"suggestQty\":69}").build(),
+                ReplenishItem.builder().skuId(2L).qtyAvailable(5).qtyTransit(2).suggestQty(18)
+                        .summary("").calcJson("").build())));
+
+        node.apply(state);
+
+        ArgumentCaptor<AiSuggestion> captor = ArgumentCaptor.forClass(AiSuggestion.class);
+        verify(aiSuggestionService, times(2)).save(captor.capture());
+        assertTrue(captor.getAllValues().get(0).getPayloadJson().contains("REORDER_POINT_V2"));
+        assertTrue(captor.getAllValues().get(1).getPayloadJson().contains("suggestQty"));
+    }
 }

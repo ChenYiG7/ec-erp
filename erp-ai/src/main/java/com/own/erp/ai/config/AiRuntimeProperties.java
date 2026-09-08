@@ -105,6 +105,22 @@ public class AiRuntimeProperties {
                 props.getReplenish().getMinSuggestQty(), 0);
     }
 
+    /** 采购提前期(天,int,≥0;V2 补货点 = 提前期需求 + 安全库存) */
+    public int replenishLeadTimeDays() {
+        return intOf(com.own.erp.common.constant.ConfigConsts.KEY_REPLENISH_LEAD_TIME_DAYS,
+                props.getReplenish().getLeadTimeDays(), 0);
+    }
+
+    /** 服务水平(0~1,V2 安全库存强度;越界回落代码默认) */
+    public java.math.BigDecimal replenishServiceLevel() {
+        return override(com.own.erp.common.constant.ConfigConsts.KEY_REPLENISH_SERVICE_LEVEL,
+                java.math.BigDecimal::new)
+                .map(sl -> (sl.compareTo(java.math.BigDecimal.ZERO) > 0
+                        && sl.compareTo(java.math.BigDecimal.ONE) < 0)
+                        ? sl : props.getReplenish().getServiceLevel())
+                .orElse(props.getReplenish().getServiceLevel());
+    }
+
     /** 摘要节点 system prompt */
     public String replenishSummaryPrompt() {
         return textOf(com.own.erp.common.constant.ConfigConsts.KEY_REPLENISH_SUMMARY_PROMPT,

@@ -178,6 +178,17 @@ erp:
     amazon:
       # SP-API 拉单保守默认;真值以响应头 x-amzn-RateLimit-Limit 为准,随 #3 SigV4 实调校准
       pull-interval-ms: 2000
+  notify:
+    webhook:
+      # Webhook 通知渠道(#14 后续渠道 V1,2026-09-08):站内通知 pushAllUsers 出口外推群机器人,
+      # 三渠道 钉钉(markdown,加签)/飞书(text,加签)/企微(markdown,免签);AFTER_COMMIT 相位
+      # (事务提交后才外推),失败只记日志不回滚站内通知。四键同域部署级配置不进 sys_config——
+      # url/secret 凭证类(hook 地址内嵌 token,docs/07 §7 红线)走 local.properties/环境变量:
+      # ERP_NOTIFY_WEBHOOK_URL / ERP_NOTIFY_WEBHOOK_SECRET;enabled 默认 false(外呼渠道保护性默认关)
+      enabled: false
+      # type: DINGTALK                # DINGTALK / FEISHU / WECOM(枚举,非法值启动即 fail-fast)
+      # url: ${ERP_NOTIFY_WEBHOOK_URL:}
+      # secret: ${ERP_NOTIFY_WEBHOOK_SECRET:}   # 钉钉(SEC 开头)/飞书 加签密钥;企微留空
 
 logging:
   pattern:

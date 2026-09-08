@@ -6,7 +6,13 @@
 
 <template>
   <div class="table-box">
-    <ProTable ref="proTableRef" page-id="/system/pull-logs" title="拉单日志" :columns="columns" :request-api="pullLogApi.page">
+    <ProTable
+      ref="proTableRef"
+      page-id="/system/pull-logs"
+      title="拉单日志"
+      :columns="columns"
+      :request-api="pullLogApi.page"
+    >
     </ProTable>
   </div>
 </template>
@@ -29,13 +35,41 @@ const columns: ColumnProps<PullLogResponse>[] = [
   { prop: 'shopId', label: '店铺', width: 130, enum: fetchShopOptions },
   // 人工接线(2026-09-08 #11):SHIPMENT = 发货回传平台记录(非拉取型,窗口退化为本次时刻、条数恒 1),
   // 与 ORDER/PRODUCT/REFUND 同表观测 —— 回传失败排障与拉单共用本页(docs/07 §3 排障第一入口)
-  { prop: 'dataType', label: '数据类型', width: 120, enum: [{ label: '订单拉取', value: "ORDER", tagType: 'primary' }, { label: '商品同步', value: "PRODUCT", tagType: 'success' }, { label: '售后同步', value: "REFUND", tagType: 'warning' }, { label: '发货回传', value: "SHIPMENT", tagType: 'danger' }] },
-  { prop: 'success', label: '结果', width: 90, tag: true, enum: [{ label: '成功', value: 1, tagType: 'success' }, { label: '失败', value: 0, tagType: 'danger' }] },
+  {
+    prop: 'dataType',
+    label: '数据类型',
+    width: 120,
+    enum: [
+      { label: '订单拉取', value: 'ORDER', tagType: 'primary' },
+      { label: '商品同步', value: 'PRODUCT', tagType: 'success' },
+      { label: '售后同步', value: 'REFUND', tagType: 'warning' },
+      { label: '发货回传', value: 'SHIPMENT', tagType: 'danger' },
+    ],
+  },
+  {
+    prop: 'success',
+    label: '结果',
+    width: 90,
+    tag: true,
+    enum: [
+      { label: '成功', value: 1, tagType: 'success' },
+      { label: '失败', value: 0, tagType: 'danger' },
+    ],
+  },
   { prop: 'windowStart', label: '窗口起点', width: 170 },
   { prop: 'windowEnd', label: '窗口终点', width: 170 },
   { prop: 'pulledCount', label: '拉取条数', width: 100 },
   { prop: 'durationMs', label: '耗时(ms)', width: 100 },
-  { prop: 'pullWay', label: '触发方式', width: 100, enum: [{ label: '定时', value: "JOB", tagType: 'info' }, { label: '手动', value: "MANUAL", tagType: 'primary' }, { label: '事件', value: "EVENT", tagType: 'warning' }] },
+  {
+    prop: 'pullWay',
+    label: '触发方式',
+    width: 100,
+    enum: [
+      { label: '定时', value: 'JOB', tagType: 'info' },
+      { label: '手动', value: 'MANUAL', tagType: 'primary' },
+      { label: '事件', value: 'EVENT', tagType: 'warning' },
+    ],
+  },
   { prop: 'errorMsg', label: '失败原因' },
   { prop: 'createdAt', label: '创建时间', width: 170 },
 ]

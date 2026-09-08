@@ -9,7 +9,9 @@ import type { PurchaseInboundResponse, PurchaseInboundSaveRequest } from '@/api/
 export const purchaseInboundApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: PageQuery) =>
-    http.get<PageResult<PurchaseInboundResponse>>('/api/purchase/inbounds', params).then(page => ({ list: page.records, total: page.total })),
+    http
+      .get<PageResult<PurchaseInboundResponse>>('/api/purchase/inbounds', params)
+      .then(page => ({ list: page.records, total: page.total })),
   /** 详情 */
   detail: (id: number) => http.get<PurchaseInboundResponse>(`/api/purchase/inbounds/${id}`),
   /** 新增(后端返回主键;status 服务端固定待入库,入库仓取采购单收货仓,#10 建单表单槽位) */

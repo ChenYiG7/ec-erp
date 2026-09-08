@@ -38,7 +38,8 @@ public class PurchaseCollectNode implements NodeAction {
                 props.getPurchase().getScanPageSize(), props.getPurchase().getScanMaxRows());
         List<ReplenishItem> calculated = calculator.calculate(scan.items(),
                 runtime.replenishSalesWindowDays(), runtime.replenishCoverageDays(),
-                runtime.replenishMinSuggestQty());
+                runtime.replenishMinSuggestQty(), runtime.replenishLeadTimeDays(),
+                runtime.replenishServiceLevel());
         log.info("采购建议取数完成:扫描 {} 行,补货建议 SKU {} 个(与补货工作流同口径)",
                 scan.scanned(), calculated.size());
         return Map.of(PurchaseStateKeys.KEY_ITEMS, calculated,

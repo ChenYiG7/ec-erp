@@ -31,10 +31,34 @@ class AiRuntimePropertiesTest {
         AiRuntimeProperties runtime = runtimeOf(Map.of());
         assertEquals(10, runtime.replenishLowStockThreshold());
         assertEquals(14, runtime.replenishCoverageDays());
+        assertEquals(7, runtime.replenishLeadTimeDays());
+        assertEquals(new BigDecimal("0.95"), runtime.replenishServiceLevel());
         assertEquals(new BigDecimal("10000"), runtime.anomalyBigOrderAmount());
         assertTrue(runtime.alertEnabled());
         assertEquals(24L, runtime.alertQuietHours());
         assertEquals("test-default", "test-default"); // 占位防空测试误删
+    }
+
+    @Test
+    void replenishV2KeysOverrideAndFallback() {
+        // V2 新键:DB 覆盖值优先
+        AiRuntimeProperties overridden = runtimeOf(Map.of(
+                ConfigConsts.KEY_REPLENISH_LEAD_TIME_DAYS, "14",
+                ConfigConsts.KEY_REPLENISH_SERVICE_LEVEL, "0.98"));
+        assertEquals(14, overridden.replenishLeadTimeDays());
+        assertEquals(new BigDecimal("0.98"), overridden.replenishServiceLevel());
+
+        // 解析失败/越界(0~1 外)回落代码默认,不抛错——配置错误不阻断业务
+        AiRuntimeProperties badValues = runtimeOf(Map.of(
+                ConfigConsts.KEY_REPLENISH_LEAD_TIME_DAYS, "abc",
+                ConfigConsts.KEY_REPLENISH_SERVICE_LEVEL, "1.5"));
+        assertEquals(7, badValues.replenishLeadTimeDays());
+        assertEquals(new BigDecimal("0.95"), badValues.replenishServiceLevel());
+
+        // 提前期下限钳 0(负值不炸公式:√max(LT,0))
+        AiRuntimeProperties negative = runtimeOf(Map.of(
+                ConfigConsts.KEY_REPLENISH_LEAD_TIME_DAYS, "-3"));
+        assertEquals(0, negative.replenishLeadTimeDays());
     }
 
     @Test

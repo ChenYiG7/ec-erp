@@ -37,4 +37,15 @@ class SalesQueryApiImplTest {
         assertEquals(Map.of(1L, 60), result);
         verify(orderSalesDailyService).sumQtyBySku(List.of(1L, 2L), 30);
     }
+
+    @Test
+    void delegatesDailySeriesToDomainService() {
+        // #6 补货算法 V2:逐日序列委托透传
+        Map<Long, Map<java.time.LocalDate, Integer>> series =
+                Map.of(1L, Map.of(java.time.LocalDate.of(2026, 9, 8), 5));
+        when(orderSalesDailyService.listDailyQtyBySku(List.of(1L), 30)).thenReturn(series);
+
+        assertEquals(series, impl.listDailyQtyBySku(List.of(1L), 30));
+        verify(orderSalesDailyService).listDailyQtyBySku(List.of(1L), 30);
+    }
 }

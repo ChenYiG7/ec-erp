@@ -3,11 +3,13 @@ package com.own.erp.system.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.exception.BusinessException;
 import com.own.erp.system.entity.SysNotification;
+import com.own.erp.system.event.NotifyPushedEvent;
 import com.own.erp.system.mapper.SysNotificationMapper;
 import com.own.erp.system.request.query.SysNotificationQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,13 +37,15 @@ class SysNotificationServiceTest {
 
     private SysNotificationMapper notificationMapper;
     private SysUserService sysUserService;
+    private ApplicationEventPublisher eventPublisher;
     private SysNotificationService service;
 
     @BeforeEach
     void setUp() {
         notificationMapper = mock(SysNotificationMapper.class);
         sysUserService = mock(SysUserService.class);
-        service = new SysNotificationService(notificationMapper, sysUserService);
+        eventPublisher = mock(ApplicationEventPublisher.class);
+        service = new SysNotificationService(notificationMapper, sysUserService, eventPublisher);
     }
 
     @Test
@@ -62,6 +66,8 @@ class SysNotificationServiceTest {
         assertEquals(9L, first.getBizId());
         assertEquals(0, first.getReadStatus());
         assertNull(first.getReadAt());
+        // Webhook 出口事件(#14 V1):扇出同时发布 NotifyPushedEvent,AFTER_COMMIT 消费在监听方单测覆盖
+        verify(eventPublisher).publishEvent(any(NotifyPushedEvent.class));
     }
 
     @Test
@@ -83,6 +89,8 @@ class SysNotificationServiceTest {
         assertEquals(0, service.pushAllUsers(SysNotificationService.TYPE_PULL_FAIL, "标题", null, null, null));
 
         verify(notificationMapper, never()).insert(any(SysNotification.class));
+        // 零站内用户仍发布出口事件:告警事件为源,Webhook 外推不随收件人数量增减
+        verify(eventPublisher).publishEvent(any(NotifyPushedEvent.class));
     }
 
     @Test

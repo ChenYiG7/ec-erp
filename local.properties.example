@@ -30,3 +30,7 @@ AMAZON_SPAPI_ROLE_ARN=
 AI_API_KEY=
 # 知识库 RAG 向量化模型(可选,缺省 text-embedding-v3;DeepSeek 无 embeddings 端点,接知识库须切通义等兼容服务)
 AI_EMBEDDING_MODEL=
+
+# Webhook 通知渠道(#14,群机器人 hook 地址与加签密钥;凭证类禁入 sys_config,配合 erp.notify.webhook.enabled/type 使用)
+ERP_NOTIFY_WEBHOOK_URL=
+ERP_NOTIFY_WEBHOOK_SECRET=

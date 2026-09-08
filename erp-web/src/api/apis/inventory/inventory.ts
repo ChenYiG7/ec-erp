@@ -9,7 +9,9 @@ import type { InventoryResponse, InventoryQuery } from '@/api/interface/inventor
 export const inventoryApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: InventoryQuery & PageQuery) =>
-    http.get<PageResult<InventoryResponse>>('/api/inventory/inventories', params).then(page => ({ list: page.records, total: page.total })),
+    http
+      .get<PageResult<InventoryResponse>>('/api/inventory/inventories', params)
+      .then(page => ({ list: page.records, total: page.total })),
   /** 详情 */
   detail: (id: number) => http.get<InventoryResponse>(`/api/inventory/inventories/${id}`),
 }

@@ -2,6 +2,7 @@ package com.own.erp.system.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -62,4 +63,8 @@ public class SysDict {
 
     /** 更新时间 */
     private LocalDateTime updatedAt;
+
+    /** 逻辑删除:0=正常,非0=已删(值=被删行id);delval=id 配合唯一键含 deleted,删后同键可重建(TODO#7) */
+    @TableLogic(value = "0", delval = "id")
+    private Long deleted;
 }

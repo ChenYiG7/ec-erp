@@ -6,18 +6,59 @@
 
 <template>
   <div class="table-box">
-    <ProTable ref="proTableRef" page-id="/aftersale/orders" title="售后单" :columns="columns" :request-api="aftersaleOrderApi.page">
+    <ProTable
+      ref="proTableRef"
+      page-id="/aftersale/orders"
+      title="售后单"
+      :columns="columns"
+      :request-api="aftersaleOrderApi.page"
+    >
       <!-- 退货明细展开行(懒加载详情 returnItems,见 AftersaleReturnItems) -->
       <template #expand="scope">
         <AftersaleReturnItems :row="scope.row" />
       </template>
       <!-- 操作列(ProTable v2:type:'operation' 列必须提供本插槽;按钮按状态机裁剪,越权拦截在后端) -->
       <template #operation="scope">
-        <el-button v-if="scope.row.status === 'PENDING'" v-auth="'aftersale:order:agree'" type="primary" link @click="onAgree(scope.row)">同意</el-button>
-        <el-button v-if="scope.row.status === 'PENDING'" v-auth="'aftersale:order:reject'" type="danger" link @click="onReject(scope.row)">拒绝</el-button>
-        <el-button v-if="scope.row.status === 'RETURNING'" v-auth="'aftersale:order:receive-return'" type="primary" link @click="onReceiveReturn(scope.row)">收退件</el-button>
-        <el-button v-if="['APPROVED', 'RETURN_RECEIVED'].includes(scope.row.status)" v-auth="'aftersale:order:refund'" type="warning" link @click="onRefund(scope.row)">退款</el-button>
-        <el-button v-if="scope.row.status === 'REFUNDED'" v-auth="'aftersale:order:complete'" type="success" link @click="onComplete(scope.row)">完成</el-button>
+        <el-button
+          v-if="scope.row.status === 'PENDING'"
+          v-auth="'aftersale:order:agree'"
+          type="primary"
+          link
+          @click="onAgree(scope.row)"
+          >同意</el-button
+        >
+        <el-button
+          v-if="scope.row.status === 'PENDING'"
+          v-auth="'aftersale:order:reject'"
+          type="danger"
+          link
+          @click="onReject(scope.row)"
+          >拒绝</el-button
+        >
+        <el-button
+          v-if="scope.row.status === 'RETURNING'"
+          v-auth="'aftersale:order:receive-return'"
+          type="primary"
+          link
+          @click="onReceiveReturn(scope.row)"
+          >收退件</el-button
+        >
+        <el-button
+          v-if="['APPROVED', 'RETURN_RECEIVED'].includes(scope.row.status)"
+          v-auth="'aftersale:order:refund'"
+          type="warning"
+          link
+          @click="onRefund(scope.row)"
+          >退款</el-button
+        >
+        <el-button
+          v-if="scope.row.status === 'REFUNDED'"
+          v-auth="'aftersale:order:complete'"
+          type="success"
+          link
+          @click="onComplete(scope.row)"
+          >完成</el-button
+        >
       </template>
     </ProTable>
     <ReceiveReturnForm ref="receiveReturnFormRef" @saved="refreshTable" />
@@ -47,14 +88,40 @@ const columns: ColumnProps<AftersaleOrderResponse>[] = [
   { prop: 'aftersaleNo', label: '售后单号', width: 180 },
   { prop: 'orderId', label: '订单ID', width: 110 },
   { prop: 'shopId', label: '店铺', width: 130, enum: fetchShopOptions },
-  { prop: 'type', label: '类型', width: 110, tag: true, enum: [{ label: '仅退款', value: "REFUND_ONLY", tagType: 'info' }, { label: '退货退款', value: "RETURN_REFUND", tagType: 'warning' }, { label: '换货', value: "EXCHANGE", tagType: 'primary' }, { label: '补发', value: "RESEND", tagType: 'success' }] },
-  { prop: 'status', label: '状态', width: 130, tag: true, enum: [{ label: '待处理', value: "PENDING", tagType: 'warning' }, { label: '已同意', value: "APPROVED", tagType: 'primary' }, { label: '待收退件', value: "RETURNING", tagType: 'warning' }, { label: '已收退件', value: "RETURN_RECEIVED", tagType: 'primary' }, { label: '已退款', value: "REFUNDED", tagType: 'success' }, { label: '已完成', value: "COMPLETED", tagType: 'success' }, { label: '已拒绝', value: "REJECTED", tagType: 'danger' }, { label: '已取消', value: "CANCELLED", tagType: 'info' }] },
+  {
+    prop: 'type',
+    label: '类型',
+    width: 110,
+    tag: true,
+    enum: [
+      { label: '仅退款', value: 'REFUND_ONLY', tagType: 'info' },
+      { label: '退货退款', value: 'RETURN_REFUND', tagType: 'warning' },
+      { label: '换货', value: 'EXCHANGE', tagType: 'primary' },
+      { label: '补发', value: 'RESEND', tagType: 'success' },
+    ],
+  },
+  {
+    prop: 'status',
+    label: '状态',
+    width: 130,
+    tag: true,
+    enum: [
+      { label: '待处理', value: 'PENDING', tagType: 'warning' },
+      { label: '已同意', value: 'APPROVED', tagType: 'primary' },
+      { label: '待收退件', value: 'RETURNING', tagType: 'warning' },
+      { label: '已收退件', value: 'RETURN_RECEIVED', tagType: 'primary' },
+      { label: '已退款', value: 'REFUNDED', tagType: 'success' },
+      { label: '已完成', value: 'COMPLETED', tagType: 'success' },
+      { label: '已拒绝', value: 'REJECTED', tagType: 'danger' },
+      { label: '已取消', value: 'CANCELLED', tagType: 'info' },
+    ],
+  },
   { prop: 'refundAmount', label: '退款金额', width: 120 },
   { prop: 'currency', label: '币种', width: 80 },
   { prop: 'reason', label: '售后原因' },
   { prop: 'result', label: '处理结果' },
   { prop: 'createdAt', label: '创建时间', width: 170 },
-  { prop: 'operation', label: '操作', fixed: 'right', width: 150 }
+  { prop: 'operation', label: '操作', fixed: 'right', width: 150 },
 ]
 
 // 同意:PENDING→APPROVED|RETURNING(后端按 type 分流:仅退款/补发→已同意,退货退款/换货→待收退件)
@@ -69,7 +136,7 @@ const onAgree = async (row: AftersaleOrderResponse) => {
 const onReject = async (row: AftersaleOrderResponse) => {
   const { value } = await ElMessageBox.prompt(`请输入售后单 ${row.aftersaleNo} 的拒绝原因(必填):`, '拒绝售后', {
     type: 'warning',
-    inputValidator: (v: string) => (v && v.trim() ? true : '拒绝原因必填')
+    inputValidator: (v: string) => (v && v.trim() ? true : '拒绝原因必填'),
   })
   await aftersaleOrderApi.reject(row.id, { result: value.trim() })
   ElMessage.success('已拒绝')

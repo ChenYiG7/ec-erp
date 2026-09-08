@@ -9,7 +9,9 @@ import type { BrandResponse, BrandSaveRequest } from '@/api/interface/goods/bran
 export const brandApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: PageQuery) =>
-    http.get<PageResult<BrandResponse>>('/api/goods/brands', params).then(page => ({ list: page.records, total: page.total })),
+    http
+      .get<PageResult<BrandResponse>>('/api/goods/brands', params)
+      .then(page => ({ list: page.records, total: page.total })),
   /** 新增(后端返回主键) */
   create: (data: BrandSaveRequest) => http.post<number>(`/api/goods/brands`, data),
   /** 修改 */

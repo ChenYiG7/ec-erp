@@ -9,14 +9,22 @@
     <ProTable ref="proTableRef" page-id="/shop" title="店铺管理" :columns="columns" :request-api="shopApi.page">
       <!-- 工具栏左:新增(按钮权限收口在页面侧 v-auth;toolbarLeft prop 的 auth 属性无效,禁用) -->
       <template #toolbarLeft>
-        <el-button v-auth="'shop:add'" type="primary" :icon="CirclePlus" @click="openForm('add')">新增店铺管理</el-button>
+        <el-button v-auth="'shop:add'" type="primary" :icon="CirclePlus" @click="openForm('add')"
+          >新增店铺管理</el-button
+        >
       </template>
 
       <!-- 操作列(ProTable v2:type:'operation' 列必须提供本插槽) -->
       <template #operation="scope">
-        <el-button v-auth="'shop:edit'" type="primary" link :icon="EditPen" @click="openForm('edit', scope.row)">编辑</el-button>
-        <el-button v-auth="'shop:remove'" type="danger" link :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
-        <el-button v-auth="'shop:auth-url'" type="warning" link :icon="Link" @click="onAuthUrl(scope.row)">平台授权</el-button>
+        <el-button v-auth="'shop:edit'" type="primary" link :icon="EditPen" @click="openForm('edit', scope.row)"
+          >编辑</el-button
+        >
+        <el-button v-auth="'shop:remove'" type="danger" link :icon="Delete" @click="handleDelete(scope.row)"
+          >删除</el-button
+        >
+        <el-button v-auth="'shop:auth-url'" type="warning" link :icon="Link" @click="onAuthUrl(scope.row)"
+          >平台授权</el-button
+        >
         <!-- TODO(#16) 动作按钮:auth-url(api 已生成 authUrl()) -->
         <!-- <el-button v-auth="'shop:auth-url'" type="warning" link @click="onAuthUrl(scope.row)">生成平台授权跳转地址</el-button> -->
       </template>
@@ -44,14 +52,30 @@ const formRef = ref<InstanceType<typeof ShopForm>>()
 // 列配置(gen:page 按 spec role=column/all 产出;enum/dict 选项同时供搜索下拉)
 const columns: ColumnProps<ShopResponse>[] = [
   { type: 'index', label: '#', width: 55 },
-  { prop: 'platform', label: '平台', width: 120, enum: () => useDictStore().getDict('shop_platform').then(list => list.map(item => ({ label: item.dictLabel, value: item.dictValue }))) },
+  {
+    prop: 'platform',
+    label: '平台',
+    width: 120,
+    enum: () =>
+      useDictStore()
+        .getDict('shop_platform')
+        .then(list => list.map(item => ({ label: item.dictLabel, value: item.dictValue }))),
+  },
   { prop: 'shopName', label: '店铺名称', width: 200 },
   { prop: 'sellerId', label: '卖家ID', width: 150 },
   { prop: 'accessToken', label: '授权凭证', width: 160 },
   { prop: 'tokenExpireAt', label: '令牌过期时间', width: 170 },
-  { prop: 'status', label: '状态', width: 90, enum: [{ label: '启用', value: 1, tagType: 'success' }, { label: '停用', value: 0, tagType: 'danger' }] },
+  {
+    prop: 'status',
+    label: '状态',
+    width: 90,
+    enum: [
+      { label: '启用', value: 1, tagType: 'success' },
+      { label: '停用', value: 0, tagType: 'danger' },
+    ],
+  },
   { prop: 'createdAt', label: '创建时间', width: 170 },
-  { prop: 'operation', label: '操作', fixed: 'right', width: 210 }
+  { prop: 'operation', label: '操作', fixed: 'right', width: 210 },
 ]
 
 const openForm = (mode: 'add' | 'edit', row?: ShopResponse) => {

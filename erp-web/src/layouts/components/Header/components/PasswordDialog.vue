@@ -22,9 +22,18 @@
 
 <script setup lang="ts">
 defineOptions({
-  name: 'PasswordDialog'
+  name: 'PasswordDialog',
 })
-import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import {
+  ElButton,
+  ElDialog,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElMessage,
+  type FormInstance,
+  type FormRules,
+} from 'element-plus'
 import { reactive, ref } from 'vue'
 import { UserApi } from '@/api/apis/system/user'
 import { useUserStore } from '@/stores/modules/user'
@@ -39,7 +48,7 @@ const formRef = ref<FormInstance>()
 const form = reactive({
   oldPassword: '',
   newPassword: '',
-  confirmPassword: ''
+  confirmPassword: '',
 })
 // TODO(#16) 密码强度规则待与后端约定后收口(当前仅后端校验非空)
 const rules: FormRules = {
@@ -55,9 +64,9 @@ const rules: FormRules = {
           callback()
         }
       },
-      trigger: 'blur'
-    }
-  ]
+      trigger: 'blur',
+    },
+  ],
 }
 
 const openDialog = () => {

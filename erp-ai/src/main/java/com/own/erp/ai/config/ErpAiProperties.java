@@ -113,8 +113,9 @@ public class ErpAiProperties {
     }
 
     /**
-     * 补货工作流参数组:V1 无销量统计面,日均销量用固定估计值(assumedDailySales),
-     * TODO(#6): 销量数据面落地后按近期动销重估;扫描护栏语义同 erp.alert
+     * 补货工作流参数组(#6 销量数据面落地后日均销量按真实动销重估;算法 V2 = (s,S) 策略 + 安全库存:
+     * 补货点 = 提前期需求 + z×σ×√提前期,目标库存 = 提前期+覆盖期需求 + 安全库存;
+     * 扫描护栏语义同 erp.alert)
      */
     @Getter
     @Setter
@@ -126,15 +127,21 @@ public class ErpAiProperties {
         /** 低库存阈值:inventory.qty_available ≤ 此值参与补货建议 */
         private int lowStockThreshold = 10;
 
-        /** 目标覆盖天数:建议量使库存可支撑 N 天 */
+        /** 目标覆盖天数:V2 语义 = 提前期之外的额外覆盖天数(建议量补到目标库存 = 提前期+覆盖期需求+安全库存) */
         private int coverageDays = 14;
 
-        /** 动销统计窗口(天,含今日,#6 2026-09-07 真实动销落地):日均销量 = 窗口内销量合计/窗口天数
-         *  (SalesQueryApi 读 order_sales_daily);窗口内零动销的 SKU 不再硬补(死 SKU 免每日建议) */
+        /** 动销统计窗口(天,含今日,#6 2026-09-07 真实动销落地):日均销量 μ = 窗口内销量合计/窗口天数;
+         *  需求波动 σ = 窗口逐日销量样本标准差(零销日补 0);窗口内零动销的 SKU 不再硬补(死 SKU 免每日建议) */
         private int salesWindowDays = 30;
 
         /** 最小建议量下限(仅对有动销的 SKU 起下限作用,建议量低于此值按此值) */
         private int minSuggestQty = 10;
+
+        /** 采购提前期(天,V2):补货点 = 提前期需求 + 安全库存,库存位置 ≤ 补货点才触发建议 */
+        private int leadTimeDays = 7;
+
+        /** 服务水平(V2,0~1):安全库存 = z×σ×√提前期,z 按档位 {0.90,0.95,0.98,0.99} 最近邻映射 */
+        private BigDecimal serviceLevel = new BigDecimal("0.95");
 
         /** 单页扫描量(契约钳制 ≤100) */
         private int scanPageSize = 100;

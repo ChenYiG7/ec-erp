@@ -58,4 +58,41 @@ public class OrderSalesDailyService {
         }
         return result;
     }
+
+    /**
+     * 近 N 天(含今日)各 SKU 逐日销量序列(#6 补货算法 V2 需求波动 σ 数据面):
+     * 只返回有统计记录的 skuId;窗口内零销日不出现,由调用方按 0 补齐窗口天数;
+     * 空入参/非法窗口直接空 map 不触库
+     */
+    public Map<Long, Map<LocalDate, Integer>> listDailyQtyBySku(Collection<Long> skuIds, int trailingDays) {
+        if (skuIds == null || skuIds.isEmpty() || trailingDays < 1) {
+            return Map.of();
+        }
+        LocalDate startDate = LocalDate.now(pullClock).minusDays(trailingDays - 1L);
+        List<Map<String, Object>> rows = orderSalesDailyMapper.listQtySince(startDate, List.copyOf(skuIds));
+        Map<Long, Map<LocalDate, Integer>> result = new HashMap<>();
+        for (Map<String, Object> row : rows) {
+            if (!(row.get("skuId") instanceof Number sku) || !(row.get("qtySold") instanceof Number qty)) {
+                continue;
+            }
+            LocalDate statDate = toLocalDate(row.get("statDate"));
+            if (statDate == null) {
+                continue;
+            }
+            result.computeIfAbsent(sku.longValue(), k -> new HashMap<>())
+                    .put(statDate, qty.intValue());
+        }
+        return result;
+    }
+
+    /** DATE 列经 HashMap 返回 java.sql.Date(MyBatis 默认),防御性兼容 LocalDate 直传 */
+    private LocalDate toLocalDate(Object raw) {
+        if (raw instanceof java.sql.Date d) {
+            return d.toLocalDate();
+        }
+        if (raw instanceof LocalDate ld) {
+            return ld;
+        }
+        return null;
+    }
 }

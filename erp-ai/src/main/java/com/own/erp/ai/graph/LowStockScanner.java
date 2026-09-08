@@ -62,6 +62,7 @@ public class LowStockScanner {
                                 .qtyTransit(row.qtyTransit() == null ? 0 : row.qtyTransit())
                                 .suggestQty(0)
                                 .summary("")
+                                .calcJson("")
                                 .build(),
                         (a, b) -> ReplenishItem.builder()
                                 .skuId(a.skuId())
@@ -69,6 +70,7 @@ public class LowStockScanner {
                                 .qtyTransit(a.qtyTransit() + b.qtyTransit())
                                 .suggestQty(0)
                                 .summary("")
+                                .calcJson("")
                                 .build());
             }
             scanned += rows.size();
