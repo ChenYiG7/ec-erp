@@ -35,10 +35,10 @@ export const useUserStore = defineStore(
       setToken,
       setUserInfo,
       clearUserInfo,
-      getUserToken,
+      getUserToken
     }
   },
   {
-    persist: piniaPersistConfig(STORE_NAME),
+    persist: piniaPersistConfig(STORE_NAME)
   }
 )

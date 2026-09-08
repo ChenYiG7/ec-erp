@@ -61,19 +61,7 @@
 </template>
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import {
-  ElButton,
-  ElDialog,
-  ElForm,
-  ElFormItem,
-  ElInput,
-  ElInputNumber,
-  ElMessage,
-  ElRadio,
-  ElRadioButton,
-  ElRadioGroup,
-  ElTreeSelect,
-} from 'element-plus'
+import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElRadio, ElRadioButton, ElRadioGroup, ElTreeSelect } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import SelectIcon from '@/components/SelectIcon/index.vue'
 import { sysMenuApi } from '@/api/apis/system/menu'
@@ -95,7 +83,7 @@ const formData = ref<SysMenuSaveRequest>({} as SysMenuSaveRequest)
 const rules: FormRules = {
   parentId: [{ required: true, message: '请选择上级菜单', trigger: 'change' }],
   menuType: [{ required: true, message: '请选择菜单类型', trigger: 'change' }],
-  menuName: [{ required: true, message: '请输入菜单名称', trigger: 'blur' }],
+  menuName: [{ required: true, message: '请输入菜单名称', trigger: 'blur' }]
 }
 
 const title = computed(() => (mode.value === 'add' ? '新增菜单' : '编辑菜单'))
@@ -127,16 +115,14 @@ const parentOptions = computed(() => {
     }
   }
   const walk = (nodes: SysMenuResponse[]): SysMenuResponse[] =>
-    nodes
-      .filter(n => n.menuType !== 3 && !exclude.has(n.id))
-      .map(n => ({ ...n, children: n.children?.length ? walk(n.children) : [] }))
+    nodes.filter(n => n.menuType !== 3 && !exclude.has(n.id)).map(n => ({ ...n, children: n.children?.length ? walk(n.children) : [] }))
   const root: SysMenuResponse = {
     id: 0,
     parentId: -1,
     menuName: '根节点',
     menuType: 1,
     sort: 0,
-    children: walk(treeData.value),
+    children: walk(treeData.value)
   }
   return [root]
 })

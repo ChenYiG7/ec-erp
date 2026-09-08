@@ -6,17 +6,17 @@ EC-ERP(自研电商 ERP)前端工程,基于 [Geeker-Admin v2](https://github.com
 
 ## 技术栈(2026-09-05 定版)
 
-| 依赖           | 版本                      | 说明                                                 |
-| -------------- | ------------------------- | ---------------------------------------------------- |
-| Vue            | 3.5.x                     | Composition API + `<script setup>`                   |
-| Vite           | 8.0.x(Rolldown)           | 落地即锁 pnpm-lock,禁追大版本                        |
-| TypeScript     | 6.0.x                     | `pnpm type:check` 门禁                               |
-| Element Plus   | 2.14.x                    | 锁 2.x 线,禁升 major                                 |
-| Pinia          | 3.0.x(+persistedstate)    | token/user/dict/notification                         |
-| vue-router     | 5.1.x                     | hash 模式;动态路由数据源 `GET /api/auth/me` menus 树 |
-| UnoCSS         | 66.x(preset-wind4)        | 原子类                                               |
-| oxlint + oxfmt | —                         | 替代 eslint/prettier                                 |
-| pnpm           | 11.8(packageManager 锁定) | node ≥ 22.12                                         |
+| 依赖 | 版本 | 说明 |
+|---|---|---|
+| Vue | 3.5.x | Composition API + `<script setup>` |
+| Vite | 8.0.x(Rolldown) | 落地即锁 pnpm-lock,禁追大版本 |
+| TypeScript | 6.0.x | `pnpm type:check` 门禁 |
+| Element Plus | 2.14.x | 锁 2.x 线,禁升 major |
+| Pinia | 3.0.x(+persistedstate) | token/user/dict/notification |
+| vue-router | 5.1.x | hash 模式;动态路由数据源 `GET /api/auth/me` menus 树 |
+| UnoCSS | 66.x(preset-wind4) | 原子类 |
+| oxlint + oxfmt | — | 替代 eslint/prettier |
+| pnpm | 11.8(packageManager 锁定) | node ≥ 22.12 |
 
 ## 常用命令
 

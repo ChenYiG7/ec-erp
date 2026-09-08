@@ -17,6 +17,5 @@ export const sysMenuApi = {
   /** 角色已授权菜单 id 列表(GET /api/system/menus/roles/{roleId}) */
   getRoleMenuIds: (roleId: number) => http.get<number[]>(`/api/system/menus/roles/${roleId}`),
   /** 保存角色菜单授权(PUT /api/system/menus/roles/{roleId};需含半选父 id) */
-  assignRoleMenus: (roleId: number, data: RoleMenuAssignRequest) =>
-    http.put<void>(`/api/system/menus/roles/${roleId}`, data),
+  assignRoleMenus: (roleId: number, data: RoleMenuAssignRequest) => http.put<void>(`/api/system/menus/roles/${roleId}`, data),
 }

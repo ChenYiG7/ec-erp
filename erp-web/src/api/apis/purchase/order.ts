@@ -9,9 +9,7 @@ import type { PurchaseOrderResponse, PurchaseOrderSaveRequest } from '@/api/inte
 export const purchaseOrderApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: PageQuery) =>
-    http
-      .get<PageResult<PurchaseOrderResponse>>('/api/purchase/orders', params)
-      .then(page => ({ list: page.records, total: page.total })),
+    http.get<PageResult<PurchaseOrderResponse>>('/api/purchase/orders', params).then(page => ({ list: page.records, total: page.total })),
   /** 详情 */
   detail: (id: number) => http.get<PurchaseOrderResponse>(`/api/purchase/orders/${id}`),
   /** 新增(后端返回主键) */

@@ -5,14 +5,7 @@
   <el-dialog v-model="visible" title="新建入库单" width="760px" :close-on-click-modal="false" append-to-body>
     <el-form label-width="90px">
       <el-form-item label="采购单" required>
-        <el-select
-          v-model="poId"
-          placeholder="请选择已审核/部分入库的采购单"
-          filterable
-          :loading="poLoading"
-          class="inbound-form__po"
-          @change="onPoChange"
-        >
+        <el-select v-model="poId" placeholder="请选择已审核/部分入库的采购单" filterable :loading="poLoading" class="inbound-form__po" @change="onPoChange">
           <el-option v-for="po in poOptions" :key="po.value" :label="po.label" :value="po.value" />
         </el-select>
         <span class="inbound-form__tip">仅列最近 100 单中的可收采购单;入库仓随采购单收货仓(服务端回填)</span>
@@ -21,12 +14,7 @@
         <span>{{ warehouseLabel }}</span>
       </el-form-item>
       <el-form-item label="入库单号" required>
-        <el-input
-          v-model="inboundNo"
-          maxlength="64"
-          placeholder="手工录入,重复单号后端唯一键拦截"
-          class="inbound-form__no"
-        />
+        <el-input v-model="inboundNo" maxlength="64" placeholder="手工录入,重复单号后端唯一键拦截" class="inbound-form__no" />
       </el-form-item>
       <el-form-item label="收货明细" required>
         <el-table v-loading="loading" :data="lines" size="small" border max-height="320">
@@ -38,13 +26,7 @@
           <el-table-column prop="remaining" label="剩余" width="90" />
           <el-table-column label="本次入库" width="150">
             <template #default="{ row: line }">
-              <el-input-number
-                v-model="line.inboundQty"
-                :min="0"
-                :max="line.remaining"
-                :controls="false"
-                class="inbound-form__qty"
-              />
+              <el-input-number v-model="line.inboundQty" :min="0" :max="line.remaining" :controls="false" class="inbound-form__qty" />
             </template>
           </el-table-column>
         </el-table>
@@ -64,19 +46,7 @@
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'purchase-inbound-create-form' })
 import { ref } from 'vue'
-import {
-  ElButton,
-  ElDialog,
-  ElForm,
-  ElFormItem,
-  ElInput,
-  ElInputNumber,
-  ElMessage,
-  ElOption,
-  ElSelect,
-  ElTable,
-  ElTableColumn,
-} from 'element-plus'
+import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElOption, ElSelect, ElTable, ElTableColumn } from 'element-plus'
 import { purchaseInboundApi } from '@/api/apis/purchase/inbound'
 import { purchaseOrderApi } from '@/api/apis/purchase/order'
 import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
@@ -139,14 +109,7 @@ const onPoChange = async (id: number) => {
     lines.value = (po.items ?? [])
       .map(item => {
         const remaining = (item.quantity ?? 0) - (item.arrivedQty ?? 0)
-        return {
-          poItemId: item.id!,
-          skuId: item.skuId!,
-          quantity: item.quantity ?? 0,
-          arrivedQty: item.arrivedQty ?? 0,
-          remaining,
-          inboundQty: remaining,
-        }
+        return { poItemId: item.id!, skuId: item.skuId!, quantity: item.quantity ?? 0, arrivedQty: item.arrivedQty ?? 0, remaining, inboundQty: remaining }
       })
       .filter(line => line.remaining > 0)
     if (!lines.value.length) {
@@ -177,12 +140,7 @@ const submit = async () => {
   }
   submitting.value = true
   try {
-    await purchaseInboundApi.create({
-      inboundNo: inboundNo.value.trim(),
-      poId: poId.value,
-      remark: remark.value.trim() || undefined,
-      items,
-    })
+    await purchaseInboundApi.create({ inboundNo: inboundNo.value.trim(), poId: poId.value, remark: remark.value.trim() || undefined, items })
     ElMessage.success('入库单已创建(待入库),确认入库后写库存')
     visible.value = false
     emit('saved')

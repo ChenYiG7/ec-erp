@@ -70,7 +70,7 @@ const open = async (row: SysRoleResponse) => {
 const handleSubmit = async () => {
   const menuIds: number[] = [
     ...(treeRef.value?.getCheckedKeys() ?? []),
-    ...(treeRef.value?.getHalfCheckedKeys() ?? []),
+    ...(treeRef.value?.getHalfCheckedKeys() ?? [])
   ].map(Number)
   const data: RoleMenuAssignRequest = { menuIds }
   submitting.value = true

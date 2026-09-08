@@ -9,9 +9,7 @@ import type { PullLogResponse, PullLogQuery } from '@/api/interface/shop/pull-lo
 export const pullLogApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: PullLogQuery & PageQuery) =>
-    http
-      .get<PageResult<PullLogResponse>>('/api/pull-logs', params)
-      .then(page => ({ list: page.records, total: page.total })),
+    http.get<PageResult<PullLogResponse>>('/api/pull-logs', params).then(page => ({ list: page.records, total: page.total })),
   /** 详情 */
   detail: (id: number) => http.get<PullLogResponse>(`/api/pull-logs/${id}`),
 }

@@ -15,13 +15,11 @@ export interface NotificationQuery extends PageQuery {
  */
 export const NotificationApi = {
   page: (params: NotificationQuery) =>
-    http
-      .get<PageResult<SysNotificationResponse>>('/api/system/notifications', params)
-      .then(page => ({ list: page.records, total: page.total })),
+    http.get<PageResult<SysNotificationResponse>>('/api/system/notifications', params).then(page => ({ list: page.records, total: page.total })),
   /** 未读数(铃铛红点,99 封顶在组件侧处理) */
   unreadCount: () => http.get<number>('/api/system/notifications/unread-count'),
   /** 单条标记已读 */
   read: (id: number) => http.put<void>(`/api/system/notifications/${id}/read`),
   /** 全部标记已读 */
-  readAll: () => http.put<void>('/api/system/notifications/read-all'),
+  readAll: () => http.put<void>('/api/system/notifications/read-all')
 }

@@ -127,11 +127,7 @@ const CONFIG_ITEMS: Record<string, { label: string; desc?: string; def?: string 
     desc: 'OPS 角色的 system 提示词(库存/商品盘面)',
   },
   // —— AI 组 · 补货建议 ——
-  'erp.ai.replenish.low-stock-threshold': {
-    label: '低库存阈值',
-    desc: '库存可用 ≤ 此值的 SKU 参与补货建议',
-    def: '10',
-  },
+  'erp.ai.replenish.low-stock-threshold': { label: '低库存阈值', desc: '库存可用 ≤ 此值的 SKU 参与补货建议', def: '10' },
   'erp.ai.replenish.coverage-days': {
     label: '目标覆盖天数',
     desc: '建议补货量使库存可支撑的天数',
@@ -244,7 +240,9 @@ const sectionOf = (key?: string | null) => {
 }
 /** 当前应渲染的行:AI 组按小节过滤,其余组整组平铺 */
 const visibleRows = computed(() =>
-  activeGroup.value === 'AI' ? rows.value.filter(row => sectionOf(row.configKey) === activeSection.value) : rows.value
+  activeGroup.value === 'AI'
+    ? rows.value.filter(row => sectionOf(row.configKey) === activeSection.value)
+    : rows.value
 )
 
 const canSave = computed(() => true) // 权限由 v-auth 收口按钮;输入态不按权限禁用(仅展示)
@@ -252,7 +250,8 @@ const canSave = computed(() => true) // 权限由 v-auth 收口按钮;输入态�
 const isBoolKey = (key?: string | null) => !!key && BOOL_KEYS.has(key)
 const isPromptKey = (key?: string | null) => !!key && PROMPT_KEYS.has(key)
 /** 说明文字:后端 remark 优先,为空回落词表 desc,再兜底"(无说明)" */
-const remarkOf = (row: SysConfig) => row.remark || (row.configKey && CONFIG_ITEMS[row.configKey]?.desc) || '(无说明)'
+const remarkOf = (row: SysConfig) =>
+  row.remark || (row.configKey && CONFIG_ITEMS[row.configKey]?.desc) || '(无说明)'
 /** 表单标签中文优先:词表 → 后端 remark → 原键兜底(未登记键不至于空白) */
 const labelOf = (row: SysConfig) =>
   (row.configKey && CONFIG_ITEMS[row.configKey]?.label) || row.remark || row.configKey || ''

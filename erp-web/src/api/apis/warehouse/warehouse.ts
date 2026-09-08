@@ -9,9 +9,7 @@ import type { WarehouseResponse, WarehouseSaveRequest } from '@/api/interface/wa
 export const warehouseApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: PageQuery) =>
-    http
-      .get<PageResult<WarehouseResponse>>('/api/warehouse/warehouses', params)
-      .then(page => ({ list: page.records, total: page.total })),
+    http.get<PageResult<WarehouseResponse>>('/api/warehouse/warehouses', params).then(page => ({ list: page.records, total: page.total })),
   /** 详情 */
   detail: (id: number) => http.get<WarehouseResponse>(`/api/warehouse/warehouses/${id}`),
   /** 新增(后端返回主键) */

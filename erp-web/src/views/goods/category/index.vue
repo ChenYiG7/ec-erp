@@ -6,9 +6,7 @@
 <template>
   <div class="table-box">
     <div class="toolbar">
-      <el-button v-auth="'goods:category:add'" type="primary" :icon="CirclePlus" @click="openForm('add')"
-        >新增分类</el-button
-      >
+      <el-button v-auth="'goods:category:add'" type="primary" :icon="CirclePlus" @click="openForm('add')">新增分类</el-button>
       <el-button :icon="Refresh" @click="loadTree">刷新</el-button>
     </div>
     <el-table :data="treeData" row-key="id" :tree-props="{ children: 'children' }" default-expand-all>
@@ -16,30 +14,14 @@
       <el-table-column prop="sort" label="排序" width="90" />
       <el-table-column label="状态" width="90">
         <template #default="scope">
-          <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'">{{
-            scope.row.status === 1 ? '启用' : '停用'
-          }}</el-tag>
+          <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'">{{ scope.row.status === 1 ? '启用' : '停用' }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="220" fixed="right">
         <template #default="scope">
-          <el-button
-            v-auth="'goods:category:add'"
-            type="primary"
-            link
-            @click="openForm('add', scope.row as CategoryNode)"
-            >新增子级</el-button
-          >
-          <el-button
-            v-auth="'goods:category:edit'"
-            type="primary"
-            link
-            @click="openForm('edit', scope.row as CategoryNode)"
-            >编辑</el-button
-          >
-          <el-button v-auth="'goods:category:remove'" type="danger" link @click="onRemove(scope.row as CategoryNode)"
-            >删除</el-button
-          >
+          <el-button v-auth="'goods:category:add'" type="primary" link @click="openForm('add', scope.row as CategoryNode)">新增子级</el-button>
+          <el-button v-auth="'goods:category:edit'" type="primary" link @click="openForm('edit', scope.row as CategoryNode)">编辑</el-button>
+          <el-button v-auth="'goods:category:remove'" type="danger" link @click="onRemove(scope.row as CategoryNode)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>

@@ -1,5 +1,8 @@
-/** * 本文件由 pnpm gen:page 生成(spec 行式拍板 + tools/openapi.json 快照) * 默认存在即跳过:人工改动不会被 --force
-之外的任何方式覆盖;重新生成前先 diff 人工改动 * 框架代码禁手改;业务槽位一律 TODO(编号),编号已登记 TODO.md */
+/**
+ * 本文件由 pnpm gen:page 生成(spec 行式拍板 + tools/openapi.json 快照)
+ * 默认存在即跳过:人工改动不会被 --force 之外的任何方式覆盖;重新生成前先 diff 人工改动
+ * 框架代码禁手改;业务槽位一律 TODO(编号),编号已登记 TODO.md
+ */
 
 <template>
   <el-dialog v-model="visible" :title="title" width="560px" :close-on-click-modal="false" destroy-on-close>
@@ -34,17 +37,7 @@
 </template>
 <script setup lang="ts">
 import { ref } from 'vue'
-import {
-  ElButton,
-  ElDialog,
-  ElForm,
-  ElFormItem,
-  ElInput,
-  ElInputNumber,
-  ElMessage,
-  ElOption,
-  ElSelect,
-} from 'element-plus'
+import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElOption, ElSelect } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { sysDictApi } from '@/api/apis/system/dict'
 import type { SysDictSaveRequest, SysDictResponse } from '@/api/interface/system/dict'
@@ -64,7 +57,7 @@ const formData = ref<SysDictSaveRequest>({} as SysDictSaveRequest)
 const rules: FormRules = {
   dictType: [{ required: true, message: '请输入字典类型', trigger: 'blur' }],
   dictLabel: [{ required: true, message: '请输入字典标签', trigger: 'blur' }],
-  dictValue: [{ required: true, message: '请输入字典值', trigger: 'blur' }],
+  dictValue: [{ required: true, message: '请输入字典值', trigger: 'blur' }]
 }
 
 const title = ref('字典管理')

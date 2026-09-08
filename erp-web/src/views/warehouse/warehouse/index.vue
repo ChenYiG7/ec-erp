@@ -6,28 +6,16 @@
 
 <template>
   <div class="table-box">
-    <ProTable
-      ref="proTableRef"
-      page-id="/inventory/warehouses"
-      title="仓库管理"
-      :columns="columns"
-      :request-api="warehouseApi.page"
-    >
+    <ProTable ref="proTableRef" page-id="/inventory/warehouses" title="仓库管理" :columns="columns" :request-api="warehouseApi.page">
       <!-- 工具栏左:新增(按钮权限收口在页面侧 v-auth;toolbarLeft prop 的 auth 属性无效,禁用) -->
       <template #toolbarLeft>
-        <el-button v-auth="'warehouse:add'" type="primary" :icon="CirclePlus" @click="openForm('add')"
-          >新增仓库管理</el-button
-        >
+        <el-button v-auth="'warehouse:add'" type="primary" :icon="CirclePlus" @click="openForm('add')">新增仓库管理</el-button>
       </template>
 
       <!-- 操作列(ProTable v2:type:'operation' 列必须提供本插槽) -->
       <template #operation="scope">
-        <el-button v-auth="'warehouse:edit'" type="primary" link :icon="EditPen" @click="openForm('edit', scope.row)"
-          >编辑</el-button
-        >
-        <el-button v-auth="'warehouse:remove'" type="danger" link :icon="Delete" @click="handleDelete(scope.row)"
-          >删除</el-button
-        >
+        <el-button v-auth="'warehouse:edit'" type="primary" link :icon="EditPen" @click="openForm('edit', scope.row)">编辑</el-button>
+        <el-button v-auth="'warehouse:remove'" type="danger" link :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
       </template>
     </ProTable>
     <WarehouseForm ref="formRef" @saved="refreshTable" />
@@ -53,30 +41,12 @@ const formRef = ref<InstanceType<typeof WarehouseForm>>()
 const columns: ColumnProps<WarehouseResponse>[] = [
   { type: 'index', label: '#', width: 55 },
   { prop: 'whName', label: '仓库名称', width: 200 },
-  {
-    prop: 'whType',
-    label: '仓库类型',
-    width: 110,
-    enum: [
-      { label: '自仓', value: 'SELF' },
-      { label: 'FBA', value: 'FBA' },
-      { label: '海外仓', value: 'OVERSEAS' },
-      { label: '虚拟仓', value: 'VIRTUAL' },
-    ],
-  },
+  { prop: 'whType', label: '仓库类型', width: 110, enum: [{ label: '自仓', value: "SELF" }, { label: 'FBA', value: "FBA" }, { label: '海外仓', value: "OVERSEAS" }, { label: '虚拟仓', value: "VIRTUAL" }] },
   { prop: 'country', label: '国家', width: 90 },
   { prop: 'address', label: '仓库地址' },
-  {
-    prop: 'status',
-    label: '状态',
-    width: 90,
-    enum: [
-      { label: '启用', value: 1, tagType: 'success' },
-      { label: '禁用', value: 0, tagType: 'danger' },
-    ],
-  },
+  { prop: 'status', label: '状态', width: 90, enum: [{ label: '启用', value: 1, tagType: 'success' }, { label: '禁用', value: 0, tagType: 'danger' }] },
   { prop: 'createdAt', label: '创建时间', width: 170 },
-  { prop: 'operation', label: '操作', fixed: 'right', width: 140 },
+  { prop: 'operation', label: '操作', fixed: 'right', width: 140 }
 ]
 
 const openForm = (mode: 'add' | 'edit', row?: WarehouseResponse) => {

@@ -242,13 +242,12 @@
       条件边(无可补项直达 END)→summarize→persist→END,图构造器装配 compile 一次持有可重复 invoke;
       **拍板偏离 TODO 原文"取数LLM"**:程序取数+程序计算、LLM 只写报告——公式确定性强/零 token
       (铁律 8 判断归 AI、执行归程序)。collect 分页扫 inventory(可用≤阈值)按 skuId 跨仓合并(可用/在途求和);
-      calculate 纯公式:日均销量 = 动销窗口真实销量合计/窗口天数——✅ 2026-09-07 动销重估收口
-      (旧固定 assumedDailySales 估计口径已弃,详见下方「销量数据面」条目);summarize 单次 LLM 调用产逐 SKU 摘要,
+      calculate 纯公式 max(最小建议量,覆盖天数×日均销量估计−可用−在途),V1 简化口径——
+      TODO(#6): 待销量数据面落地后按近期动销重估公式;summarize 单次 LLM 调用产逐 SKU 摘要,
       **三重降级**(apiKey 空/调用失败/解析失败,含 ``` 围栏容错)统一落模板串 degraded=true 照跑照落库——
       模型故障不阻断建议产出;persist 经 AiSuggestionService.save 唯一入口落 ai_suggestion(type=REPLENISH,
       风险分级:可用≤0 即缺货 HIGH 否则 MID;payloadJson 存 三数量,不碰业务单据);
-      触发 = POST /api/ai/replenishment/run(登录即可);定时接线 ✅ 2026-09-07 落地
-      (ReplenishJob 每日 02:00 低峰,见下方「两工作流定时接线」条目);
+      触发 = POST /api/ai/replenishment/run(登录即可);TODO(#6): 定时接线(每日低峰,参考 AlertJob 模式)待拍板间隔后接;
       单测 12 个(Collect 扫描护栏+跨仓合并/Calculate 公式/Summarize 三重降级+解析/Persist 落库字段/Workflow 条件边);
       ⚠️ **victools 仲裁钉版**(根 pom,T1 当场炸出):spring-ai 2.0.1 JsonSchemaGenerator 静态引
       jsonschema-module-jackson 的 JacksonSchemaModule(仅 5.0.0 有,4.38.0 已更名),agentscope 2.0.2
@@ -313,8 +312,9 @@
       余量:更多角色
 - [x] 库存预警规则引擎 ✅ 2026-09-06 落地(alert/ + erp-api AlertJob,V1 三规则:
       低库存(可用≤阈值聚一条,明细 topN)/ 发货超时(WAIT_SHIP 且下单超 N 小时)/
-      退款异常(窗口内按店铺聚合 REFUNDED 单数达阈值);滞销/积压两规则 ✅ 2026-09-07 随销量数据面
-      补齐(V1 三规则→五规则,详见下方「销量数据面」条目)。取数只走只读查询契约(铁律 2/7);分页扫全量,
+      退款异常(窗口内按店铺聚合 REFUNDED 单数达阈值);滞销/积压依赖销量统计面(现无销量表/视图)——
+      TODO(#6): 待销量数据面落地后补规则(口径 docs/02"规则引擎先筛"两段式;qihang 同款销售额为零等规则
+      一并纳入,见 #17 落位表)。取数只走只读查询契约(铁律 2/7);分页扫全量,
       scanPageSize/scanMaxRows 护栏钳制防大表拖死;单规则失败隔离只记日志不殃及本轮其余规则;
       出口仅产 AlertEvent,推送/静默去重收口 **erp-api AlertJob**(erp-ai 不依赖 erp-system,
       模式同 OrderPullJob:每小时 fixedDelay 开关→抢锁(LockService alert:scan 效率锁,漏扫一轮无损失)→
@@ -338,11 +338,9 @@
       逐单漏回/词表外 riskLevel → 规则定级+模板 summary+degraded=true 照跑照落库;
       prompt 集中 ErpAiProperties.Anomaly.scorePrompt(docs/07 §9)。落库经 AiSuggestionService.save 唯一入口
       (type=ANOMALY/refType=SHOP_ORDER/refId=orderId/payloadJson={hitRules,ruleRisk,金额汇率,时间,llmScored});
-      重复 run 产生新一批 = 已接受语义(同补货),去重语义 ✅ 2026-09-07 拍板(同键存在待确认建议即跳过,
-      见下方「两工作流定时接线」条目);
+      重复 run 产生新一批 = 已接受语义(同补货),**接定时前必须先拍去重语义 → TODO(#6)**;
       触发 = POST /api/ai/anomaly/run(登录即可),返回 {scannedCount,suspiciousCount,persistedCount,llmScoredCount,degraded};
-      定时接线 ✅ 2026-09-07 随 ReplenishJob/AnomalyJob 落地(见下方条目);HIGH 推通知随实际告警量评估
-      → TODO(#6);「同买家批量下单」
+      定时接线与补货同张 TODO 一并拍板;HIGH 推通知随实际告警量评估 → TODO(#6);「同买家批量下单」
       契约无 buyer 字段(PII 不出契约)随 V2 契约扩容再上 → TODO(#6);
       单测 19 个(Scan 9 规则命中边界/paidTime 守卫/汇率缺省/合并取 max/护栏/单态隔离 +
       Score 6 三重降级/围栏对齐/词表外回落/截断不算降级 + Persist 2 + Workflow 2);
@@ -1141,9 +1139,7 @@ qihang 开源版/企业版双轨宣传,只取开源版功能面,企业版能力(
       测试桩 RuntimePropsStub(graph 测试包内,函数式 SystemConfigApi 桩:AiRuntimeProperties 全量回落 yml 默认);
       存量节点/Service/Job 测试构造器全量适配,语义不变
 - 验证:mvn 全 reactor 18 模块 test 全绿(erp-system 73 / erp-ai 102+ / erp-api 70+);前端 vue-tsc 0 错、
-  oxlint 0 错、新文件 oxfmt 通过(存量 95 文件 fmt 基线陈旧系 oxfmt 版本差异,非本次引入
-  ——✅ 2026-09-08 基线对齐收口:全仓 fmt 一次归一 103/288 文件(纯格式零语义),三件门禁复验全绿;
-  权威格式=oxfmt,openapi.json 等生成物导出后跑 fmt 归一);
+  oxlint 0 错、新文件 oxfmt 通过(存量 95 文件 fmt 基线陈旧系 oxfmt 版本差异,非本次引入);
   api:sync 契约快照 86→87 路径(+GET/PUT /api/system/configs/group/{group})
 
 ## #19 财务/结算域(三期 settlement 主线,2026-09-08 立项;求职作品集 L3 深度样本,利润核算的"准"=领星护城河位)

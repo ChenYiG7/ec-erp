@@ -27,9 +27,7 @@ const transformMenus = (menus: SysMenuResponse[]): MenuOptions[] => {
     .sort((a, b) => a.sort - b.sort)
     .map(item => {
       const children = item.children?.length ? transformMenus(item.children) : undefined
-      const name = item.component
-        ? routeNameFromComponent(item.component)
-        : routeNameFromPath(item.path || `menu-${item.id}`)
+      const name = item.component ? routeNameFromComponent(item.component) : routeNameFromPath(item.path || `menu-${item.id}`)
       return {
         path: item.path || '',
         name,
@@ -41,9 +39,9 @@ const transformMenus = (menus: SysMenuResponse[]): MenuOptions[] => {
           isHide: item.visible === 0,
           isFull: false,
           isAffix: false,
-          isKeepAlive: true,
+          isKeepAlive: true
         },
-        ...(children?.length ? { children } : {}),
+        ...(children?.length ? { children } : {})
       }
     })
 }
@@ -55,7 +53,7 @@ export const useAuthStore = defineStore('erp-auth', () => {
     // 菜单权限列表
     authMenuList: [],
     // 当前页面的 router name，用来做按钮权限筛选
-    routeName: '',
+    routeName: ''
   })
 
   const showMenuListGet = computed(() => getShowMenuList(state.authMenuList))
@@ -76,7 +74,7 @@ export const useAuthStore = defineStore('erp-auth', () => {
         username: data.username,
         name: data.nickname || data.username,
         roles: data.roles,
-        isLoggedIn: true,
+        isLoggedIn: true
       })
       state.perms = data.perms || []
       state.authMenuList = transformMenus(data.menus || [])
@@ -92,7 +90,7 @@ export const useAuthStore = defineStore('erp-auth', () => {
       state.perms = []
       state.authMenuList = []
       state.routeName = ''
-    },
+    }
   }
 
   return {
@@ -101,6 +99,6 @@ export const useAuthStore = defineStore('erp-auth', () => {
     flatMenuListGet,
     breadcrumbListGet,
     authMenuListGet,
-    ...actions,
+    ...actions
   }
 })

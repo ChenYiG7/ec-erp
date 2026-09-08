@@ -19,14 +19,7 @@
       <template #skuId="{ row }">{{ skuLabel(row.skuId) }}</template>
       <!-- 操作列(ProTable v2:type:'operation' 列必须提供本插槽;越权拦截在后端) -->
       <template #operation="scope">
-        <el-button
-          v-if="scope.row.matchStatus === 0"
-          v-auth="'shop:product-sku:bind'"
-          type="primary"
-          link
-          @click="onBind(scope.row)"
-          >人工绑定</el-button
-        >
+        <el-button v-if="scope.row.matchStatus === 0" v-auth="'shop:product-sku:bind'" type="primary" link @click="onBind(scope.row)">人工绑定</el-button>
       </template>
     </ProTable>
     <!-- 人工绑定弹窗(#16 收口裸 ID 手填:prompt 录 ID → SKU 搜索选择器) -->
@@ -56,22 +49,12 @@ const columns: ColumnProps<ShopProductSkuResponse>[] = [
   { prop: 'sellerSku', label: '卖家SKU', width: 180 },
   { prop: 'shopProductId', label: '平台商品ID', width: 130 },
   { prop: 'skuId', label: '内部SKU', width: 170 },
-  {
-    prop: 'matchStatus',
-    label: '匹配状态',
-    width: 110,
-    tag: true,
-    enum: [
-      { label: '待匹配', value: 0, tagType: 'warning' },
-      { label: '自动匹配', value: 1, tagType: 'success' },
-      { label: '人工绑定', value: 2, tagType: 'primary' },
-    ],
-  },
+  { prop: 'matchStatus', label: '匹配状态', width: 110, tag: true, enum: [{ label: '待匹配', value: 0, tagType: 'warning' }, { label: '自动匹配', value: 1, tagType: 'success' }, { label: '人工绑定', value: 2, tagType: 'primary' }] },
   { prop: 'quantity', label: '可售数量', width: 100 },
   { prop: 'price', label: '平台售价', width: 110 },
   { prop: 'currency', label: '币种', width: 80 },
   { prop: 'createdAt', label: '创建时间', width: 170 },
-  { prop: 'operation', label: '操作', fixed: 'right', width: 120 },
+  { prop: 'operation', label: '操作', fixed: 'right', width: 120 }
 ]
 
 // skuId 列翻译预取(#7 专条):页数据加载后按行去重批量取,查询无全量端点(SKU 随业务增长)

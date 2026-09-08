@@ -5,35 +5,19 @@
   <el-dialog v-model="visible" title="新建发货单" width="760px" :close-on-click-modal="false" append-to-body>
     <el-form label-width="90px">
       <el-form-item label="订单" required>
-        <el-select
-          v-model="orderId"
-          placeholder="请选择待发货订单"
-          filterable
-          :loading="orderLoading"
-          class="delivery-form__order"
-          @change="onOrderChange"
-        >
+        <el-select v-model="orderId" placeholder="请选择待发货订单" filterable :loading="orderLoading" class="delivery-form__order" @change="onOrderChange">
           <el-option v-for="o in orderOptions" :key="o.value" :label="o.label" :value="o.value" />
         </el-select>
-        <span class="delivery-form__tip"
-          >仅列最近 100 单中的 WAIT_SHIP 订单,自发货(SELF_FULFILL)可建;FBA/海外仓平台履约不产生系统发货单</span
-        >
+        <span class="delivery-form__tip">仅列最近 100 单中的 WAIT_SHIP 订单,自发货(SELF_FULFILL)可建;FBA/海外仓平台履约不产生系统发货单</span>
       </el-form-item>
       <el-form-item label="出库仓" required>
         <el-select v-model="warehouseId" placeholder="请选择出库仓" filterable class="delivery-form__wh">
           <el-option v-for="w in warehouseOptions" :key="w.value" :label="w.label" :value="w.value" />
         </el-select>
-        <span class="delivery-form__tip"
-          >建单即从该仓占用库存(可用减少,缺货建单即拦);确认发货核销出库,取消/删除自动释放</span
-        >
+        <span class="delivery-form__tip">建单即从该仓占用库存(可用减少,缺货建单即拦);确认发货核销出库,取消/删除自动释放</span>
       </el-form-item>
       <el-form-item label="发货单号" required>
-        <el-input
-          v-model="deliveryNo"
-          maxlength="64"
-          placeholder="手工录入,重复单号后端唯一键拦截"
-          class="delivery-form__no"
-        />
+        <el-input v-model="deliveryNo" maxlength="64" placeholder="手工录入,重复单号后端唯一键拦截" class="delivery-form__no" />
       </el-form-item>
       <el-form-item label="发货明细" required>
         <el-table v-loading="loading" :data="lines" size="small" border max-height="320">
@@ -43,19 +27,11 @@
           <el-table-column prop="quantity" label="订单数量" width="100" />
           <el-table-column label="本次发货" width="150">
             <template #default="{ row: line }">
-              <el-input-number
-                v-model="line.shipQty"
-                :min="0"
-                :max="line.quantity"
-                :controls="false"
-                class="delivery-form__qty"
-              />
+              <el-input-number v-model="line.shipQty" :min="0" :max="line.quantity" :controls="false" class="delivery-form__qty" />
             </template>
           </el-table-column>
         </el-table>
-        <span class="delivery-form__tip"
-          >仅列出 sku_id 已绑定的订单行(未绑定行不参与发货与发足判定);发货数量 0 的行不提交;历史累计超发由后端拦截</span
-        >
+        <span class="delivery-form__tip">仅列出 sku_id 已绑定的订单行(未绑定行不参与发货与发足判定);发货数量 0 的行不提交;历史累计超发由后端拦截</span>
       </el-form-item>
       <el-form-item label="物流公司">
         <el-input v-model="logisticsCompany" maxlength="64" placeholder="选填,可发货时后补" class="delivery-form__no" />
@@ -74,19 +50,7 @@
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'fulfill-delivery-create-form' })
 import { ref } from 'vue'
-import {
-  ElButton,
-  ElDialog,
-  ElForm,
-  ElFormItem,
-  ElInput,
-  ElInputNumber,
-  ElMessage,
-  ElOption,
-  ElSelect,
-  ElTable,
-  ElTableColumn,
-} from 'element-plus'
+import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElOption, ElSelect, ElTable, ElTableColumn } from 'element-plus'
 import { deliveryOrderApi } from '@/api/apis/fulfill/delivery'
 import { shopOrderApi } from '@/api/apis/order/order'
 import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
@@ -130,7 +94,7 @@ const open = async () => {
   try {
     const [whOptions, orders] = await Promise.all([
       fetchWarehouseOptions(),
-      shopOrderApi.page({ pageNo: 1, pageSize: 100, orderStatus: 'WAIT_SHIP' }),
+      shopOrderApi.page({ pageNo: 1, pageSize: 100, orderStatus: 'WAIT_SHIP' })
     ])
     warehouseOptions.value = whOptions
     orderOptions.value = orders.list
@@ -150,12 +114,7 @@ const onOrderChange = async (id: number) => {
     const order = await shopOrderApi.detail(id)
     lines.value = (order.items ?? [])
       .filter(item => item.skuId != null)
-      .map(item => ({
-        orderItemId: item.id!,
-        skuId: item.skuId!,
-        quantity: item.quantity ?? 0,
-        shipQty: item.quantity ?? 0,
-      }))
+      .map(item => ({ orderItemId: item.id!, skuId: item.skuId!, quantity: item.quantity ?? 0, shipQty: item.quantity ?? 0 }))
     if (!lines.value.length) {
       ElMessage.warning('该订单无 sku_id 已绑定的明细行,不可发货(补绑 SKU 后再试)')
     }
@@ -195,7 +154,7 @@ const submit = async () => {
       type: 'SELF_FULFILL',
       logisticsCompany: logisticsCompany.value.trim() || undefined,
       trackingNo: trackingNo.value.trim() || undefined,
-      items,
+      items
     })
     ElMessage.success('发货单已创建(待发货),库存已占用;确认发货核销出库,取消/删除自动释放')
     visible.value = false

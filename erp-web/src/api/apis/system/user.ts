@@ -1,12 +1,6 @@
 import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
-import type {
-  SysUserResponse,
-  SysUserSaveRequest,
-  SysUserQuery,
-  SysUserRolesRequest,
-  SysUserPasswordRequest,
-} from '@/api/interface/system/user'
+import type { SysUserResponse, SysUserSaveRequest, SysUserQuery, SysUserRolesRequest, SysUserPasswordRequest } from '@/api/interface/system/user'
 
 /**
  * 用户接口(/api/system/users)
@@ -16,9 +10,7 @@ import type {
 export const sysUserApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: SysUserQuery & PageQuery) =>
-    http
-      .get<PageResult<SysUserResponse>>('/api/system/users', params)
-      .then(page => ({ list: page.records, total: page.total })),
+    http.get<PageResult<SysUserResponse>>('/api/system/users', params).then(page => ({ list: page.records, total: page.total })),
   /** 详情 */
   detail: (id: number) => http.get<SysUserResponse>(`/api/system/users/${id}`),
   /** 新增(后端返回主键) */
@@ -38,5 +30,5 @@ export const sysUserApi = {
 /** 本人改密(校验原密码后覆盖;改密成功需重新登录;Header PasswordDialog 在用) */
 export const UserApi = {
   changePassword: (params: { oldPassword: string; newPassword: string }) =>
-    http.put<void>('/api/system/users/password', params),
+    http.put<void>('/api/system/users/password', params)
 }

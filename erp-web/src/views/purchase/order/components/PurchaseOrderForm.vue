@@ -1,5 +1,8 @@
-/** * 本文件由 pnpm gen:page 生成(spec 行式拍板 + tools/openapi.json 快照) * 默认存在即跳过:人工改动不会被 --force
-之外的任何方式覆盖;重新生成前先 diff 人工改动 * 框架代码禁手改;业务槽位一律 TODO(编号),编号已登记 TODO.md */
+/**
+ * 本文件由 pnpm gen:page 生成(spec 行式拍板 + tools/openapi.json 快照)
+ * 默认存在即跳过:人工改动不会被 --force 之外的任何方式覆盖;重新生成前先 diff 人工改动
+ * 框架代码禁手改;业务槽位一律 TODO(编号),编号已登记 TODO.md
+ */
 
 <template>
   <el-dialog v-model="visible" :title="title" width="720px" :close-on-click-modal="false" destroy-on-close>
@@ -23,20 +26,11 @@
           <div v-for="(item, index) in formData.items" :key="index" class="po-items__row">
             <!-- SKU 搜索选择器(#16 收口裸 ID 手填):商品 keyword 搜索 → SPU 内 SKU,选中即 skuId;存在性校验在后端 -->
             <SkuSelector v-model="item.skuId" placeholder="搜商品名/SKU编码" class="po-items__sku" />
-            <el-input-number
-              v-model="item.quantity"
-              :min="1"
-              :precision="0"
-              controls-position="right"
-              class="po-items__qty"
-              placeholder="数量"
-            />
+            <el-input-number v-model="item.quantity" :min="1" :precision="0" controls-position="right" class="po-items__qty" placeholder="数量" />
             <el-input v-model="item.purchasePrice" placeholder="单价(选填)" clearable class="po-items__price" />
             <el-button type="danger" link :icon="Delete" @click="formData.items.splice(index, 1)" />
           </div>
-          <el-button type="primary" link :icon="CirclePlus" @click="formData.items.push({ quantity: undefined })"
-            >添加明细行</el-button
-          >
+          <el-button type="primary" link :icon="CirclePlus" @click="formData.items.push({ quantity: undefined })">添加明细行</el-button>
         </div>
       </el-form-item>
       <el-form-item label="备注" prop="remark">
@@ -51,17 +45,7 @@
 </template>
 <script setup lang="ts">
 import { ref } from 'vue'
-import {
-  ElButton,
-  ElDialog,
-  ElForm,
-  ElFormItem,
-  ElInput,
-  ElInputNumber,
-  ElMessage,
-  ElOption,
-  ElSelect,
-} from 'element-plus'
+import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElOption, ElSelect } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { CirclePlus, Delete } from '@element-plus/icons-vue'
 import { purchaseOrderApi } from '@/api/apis/purchase/order'
@@ -92,13 +76,13 @@ const warehouseOptions = ref<Awaited<ReturnType<typeof fetchWarehouseOptions>>>(
 // 类型断言收敛在表单初始化(空表单起填,提交前 rules + 明细校验 + 后端兜底校验)
 const formData = ref<{ poNo: string; supplierId?: number; warehouseId?: number; remark?: string; items: ItemDraft[] }>({
   poNo: '',
-  items: [],
+  items: []
 })
 
 const rules: FormRules = {
   poNo: [{ required: true, message: '请输入采购单号', trigger: 'blur' }],
   supplierId: [{ required: true, message: '请选择供应商', trigger: 'change' }],
-  warehouseId: [{ required: true, message: '请选择收货仓库', trigger: 'change' }],
+  warehouseId: [{ required: true, message: '请选择收货仓库', trigger: 'change' }]
 }
 
 const title = ref('采购单')
@@ -118,11 +102,7 @@ const open = async (m: 'add' | 'edit', row?: PurchaseOrderResponse) => {
       warehouseId: detail.warehouseId,
       remark: detail.remark,
       // 单价 DECIMAL(12,4) 序列化为 string,直存直显禁浮点(docs/09 §6)
-      items: (detail.items ?? []).map(it => ({
-        skuId: it.skuId,
-        quantity: it.quantity,
-        purchasePrice: it.purchasePrice,
-      })),
+      items: (detail.items ?? []).map(it => ({ skuId: it.skuId, quantity: it.quantity, purchasePrice: it.purchasePrice }))
     }
   }
   supplierOptions.value = await fetchSupplierOptions()
@@ -142,11 +122,7 @@ const handleSubmit = async () => {
   }
   submitting.value = true
   try {
-    const items = formData.value.items.map(it => ({
-      skuId: it.skuId!,
-      quantity: it.quantity!,
-      purchasePrice: it.purchasePrice || undefined,
-    }))
+    const items = formData.value.items.map(it => ({ skuId: it.skuId!, quantity: it.quantity!, purchasePrice: it.purchasePrice || undefined }))
     // createdBy 后端接 SecurityContext 回填(CurrentUserApi),请求体不含该字段
     const payload = { ...formData.value, items } as PurchaseOrderSaveRequest
     if (mode.value === 'add') {

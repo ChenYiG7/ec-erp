@@ -9,9 +9,7 @@ import type { AiSuggestionResponse, AiSuggestionQuery } from '@/api/interface/ai
 export const aiSuggestionApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: AiSuggestionQuery & PageQuery) =>
-    http
-      .get<PageResult<AiSuggestionResponse>>('/api/ai/suggestions', params)
-      .then(page => ({ list: page.records, total: page.total })),
+    http.get<PageResult<AiSuggestionResponse>>('/api/ai/suggestions', params).then(page => ({ list: page.records, total: page.total })),
   /** 详情 */
   detail: (id: number) => http.get<AiSuggestionResponse>(`/api/ai/suggestions/${id}`),
   /** 忽略建议(POST /api/ai/suggestions/{id}/ignore) */

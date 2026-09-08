@@ -6,13 +6,7 @@
 
 <template>
   <div class="table-box">
-    <ProTable
-      ref="proTableRef"
-      page-id="/inventory/flows"
-      title="库存流水"
-      :columns="columns"
-      :request-api="pageWithSku"
-    >
+    <ProTable ref="proTableRef" page-id="/inventory/flows" title="库存流水" :columns="columns" :request-api="pageWithSku">
       <!-- 内部SKU 列翻译(#7 专条):渲染读 options 模块缓存,预取在 pageWithSku -->
       <template #skuId="{ row }">{{ skuLabel(row.skuId) }}</template>
     </ProTable>
@@ -37,22 +31,7 @@ const columns: ColumnProps<InventoryFlowResponse>[] = [
   { type: 'index', label: '#', width: 55 },
   { prop: 'skuId', label: '内部SKU', width: 170 },
   { prop: 'warehouseId', label: '仓库', width: 130, enum: fetchWarehouseOptions },
-  {
-    prop: 'flowType',
-    label: '流水类型',
-    width: 130,
-    tag: true,
-    enum: [
-      { label: '采购入库', value: 'IN_PURCHASE', tagType: 'success' },
-      { label: '发货出库', value: 'OUT_SHIP', tagType: 'primary' },
-      { label: '退货入库', value: 'IN_RETURN', tagType: 'warning' },
-      { label: '调整', value: 'ADJUST', tagType: 'info' },
-      { label: '调拨转出', value: 'TRANSFER_OUT', tagType: 'danger' },
-      { label: '调拨转入', value: 'TRANSFER_IN', tagType: 'success' },
-      { label: '采购在途', value: 'IN_TRANSIT', tagType: 'info' },
-      { label: '发货占用', value: 'LOCK_SHIP', tagType: 'primary' },
-    ],
-  },
+  { prop: 'flowType', label: '流水类型', width: 130, tag: true, enum: [{ label: '采购入库', value: "IN_PURCHASE", tagType: 'success' }, { label: '发货出库', value: "OUT_SHIP", tagType: 'primary' }, { label: '退货入库', value: "IN_RETURN", tagType: 'warning' }, { label: '调整', value: "ADJUST", tagType: 'info' }, { label: '调拨转出', value: "TRANSFER_OUT", tagType: 'danger' }, { label: '调拨转入', value: "TRANSFER_IN", tagType: 'success' }, { label: '采购在途', value: "IN_TRANSIT", tagType: 'info' }, { label: '发货占用', value: "LOCK_SHIP", tagType: 'primary' }] },
   { prop: 'quantity', label: '变更数量', width: 100 },
   { prop: 'beforeQty', label: '变更前', width: 100 },
   { prop: 'afterQty', label: '变更后', width: 100 },

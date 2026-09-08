@@ -131,7 +131,9 @@
   "paths": {
     "/api/warehouse/warehouses/{id}": {
       "get": {
-        "tags": ["仓库"],
+        "tags": [
+          "仓库"
+        ],
         "summary": "仓库详情",
         "description": "不存在返回 null data",
         "operationId": "get",
@@ -160,7 +162,9 @@
         }
       },
       "put": {
-        "tags": ["仓库"],
+        "tags": [
+          "仓库"
+        ],
         "summary": "更新仓库",
         "description": "MP updateById 忽略 null 字段,可部分更新;id 只认路径参数",
         "operationId": "update",
@@ -199,7 +203,9 @@
         }
       },
       "delete": {
-        "tags": ["仓库"],
+        "tags": [
+          "仓库"
+        ],
         "summary": "删除仓库",
         "description": "一期硬删",
         "operationId": "delete",
@@ -230,7 +236,9 @@
     },
     "/api/system/users/{id}": {
       "get": {
-        "tags": ["用户管理"],
+        "tags": [
+          "用户管理"
+        ],
         "summary": "用户详情",
         "description": "password 不回传;不存在返回 null data",
         "operationId": "get_1",
@@ -259,7 +267,9 @@
         }
       },
       "put": {
-        "tags": ["用户管理"],
+        "tags": [
+          "用户管理"
+        ],
         "summary": "更新用户",
         "description": "MP updateById 忽略 null 字段,可部分更新;password 不在写侧入参映射内,改密走专用接口",
         "operationId": "update_1",
@@ -298,7 +308,9 @@
         }
       },
       "delete": {
-        "tags": ["用户管理"],
+        "tags": [
+          "用户管理"
+        ],
         "summary": "删除用户",
         "description": "同事务清理用户-角色绑定,防孤儿关联",
         "operationId": "delete_1",
@@ -329,7 +341,9 @@
     },
     "/api/system/users/{id}/roles": {
       "get": {
-        "tags": ["用户管理"],
+        "tags": [
+          "用户管理"
+        ],
         "summary": "查看用户已绑定的角色ID",
         "operationId": "roles",
         "parameters": [
@@ -357,7 +371,9 @@
         }
       },
       "put": {
-        "tags": ["用户管理"],
+        "tags": [
+          "用户管理"
+        ],
         "summary": "用户-角色全量重绑",
         "description": "先删后插,同事务",
         "operationId": "assignRoles",
@@ -398,7 +414,9 @@
     },
     "/api/system/users/{id}/password": {
       "put": {
-        "tags": ["用户管理"],
+        "tags": [
+          "用户管理"
+        ],
         "summary": "重置密码",
         "description": "管理员对指定用户直接覆盖为新密码哈希",
         "operationId": "resetPassword",
@@ -439,7 +457,9 @@
     },
     "/api/system/users/password": {
       "put": {
-        "tags": ["用户管理"],
+        "tags": [
+          "用户管理"
+        ],
         "summary": "本人改密",
         "description": "校验原密码后覆盖;无需 admin 角色(方法级覆盖类级注解)",
         "operationId": "changePassword",
@@ -469,7 +489,9 @@
     },
     "/api/system/roles/{id}": {
       "put": {
-        "tags": ["角色管理"],
+        "tags": [
+          "角色管理"
+        ],
         "summary": "更新角色",
         "description": "MP updateById 忽略 null 字段,可部分更新",
         "operationId": "update_2",
@@ -508,7 +530,9 @@
         }
       },
       "delete": {
-        "tags": ["角色管理"],
+        "tags": [
+          "角色管理"
+        ],
         "summary": "删除角色",
         "description": "仍绑定用户则拒绝;同事务清理角色-菜单绑定",
         "operationId": "delete_2",
@@ -539,7 +563,9 @@
     },
     "/api/system/notifications/{id}/read": {
       "put": {
-        "tags": ["站内通知"],
+        "tags": [
+          "站内通知"
+        ],
         "summary": "标记单条已读",
         "description": "非本人/不存在/已读报业务错误",
         "operationId": "markRead",
@@ -570,7 +596,9 @@
     },
     "/api/system/notifications/read-all": {
       "put": {
-        "tags": ["站内通知"],
+        "tags": [
+          "站内通知"
+        ],
         "summary": "全部标记已读",
         "description": "返回本次标记条数,无未读返回 0",
         "operationId": "markAllRead",
@@ -590,7 +618,9 @@
     },
     "/api/system/menus/{id}": {
       "put": {
-        "tags": ["菜单管理"],
+        "tags": [
+          "菜单管理"
+        ],
         "summary": "更新菜单",
         "description": "MP updateById 忽略 null 字段,可部分更新;禁止把父级设成自身",
         "operationId": "update_3",
@@ -629,7 +659,9 @@
         }
       },
       "delete": {
-        "tags": ["菜单管理"],
+        "tags": [
+          "菜单管理"
+        ],
         "summary": "删除菜单",
         "description": "有子菜单则拒绝;同事务清理角色-菜单引用",
         "operationId": "delete_3",
@@ -660,7 +692,9 @@
     },
     "/api/system/menus/roles/{roleId}": {
       "get": {
-        "tags": ["菜单管理"],
+        "tags": [
+          "菜单管理"
+        ],
         "summary": "查看角色已绑定的菜单ID",
         "description": "角色-菜单绑定回显",
         "operationId": "roleMenus",
@@ -689,7 +723,9 @@
         }
       },
       "put": {
-        "tags": ["菜单管理"],
+        "tags": [
+          "菜单管理"
+        ],
         "summary": "角色-菜单全量重绑",
         "description": "先删后插,同事务",
         "operationId": "assignRoleMenus",
@@ -730,7 +766,9 @@
     },
     "/api/system/dicts/{id}": {
       "put": {
-        "tags": ["字典管理"],
+        "tags": [
+          "字典管理"
+        ],
         "summary": "更新字典项",
         "description": "MP updateById 忽略 null 字段,可部分更新(Default 组 @Size 对 null 放行,超长仍拦)",
         "operationId": "update_4",
@@ -769,7 +807,9 @@
         }
       },
       "delete": {
-        "tags": ["字典管理"],
+        "tags": [
+          "字典管理"
+        ],
         "summary": "删除字典项",
         "operationId": "delete_4",
         "parameters": [
@@ -799,7 +839,9 @@
     },
     "/api/system/configs/group/{group}": {
       "get": {
-        "tags": ["系统参数"],
+        "tags": [
+          "系统参数"
+        ],
         "summary": "按组取参数",
         "description": "返回该组合法键全量(合并代码默认占位 + DB 覆盖值),前端按行渲染表单",
         "operationId": "listByGroup",
@@ -827,7 +869,9 @@
         }
       },
       "put": {
-        "tags": ["系统参数"],
+        "tags": [
+          "系统参数"
+        ],
         "summary": "保存一组参数",
         "description": "upsert 覆盖值;空值=删覆盖行回落默认值;键必须在该组词表白名单内,类型校验失败拒存;限 admin",
         "operationId": "saveGroup",
@@ -870,7 +914,9 @@
     },
     "/api/shops/{id}": {
       "get": {
-        "tags": ["店铺管理"],
+        "tags": [
+          "店铺管理"
+        ],
         "summary": "店铺详情",
         "description": "凭证字段脱敏;不存在返回 null data",
         "operationId": "get_2",
@@ -899,7 +945,9 @@
         }
       },
       "put": {
-        "tags": ["店铺管理"],
+        "tags": [
+          "店铺管理"
+        ],
         "summary": "更新店铺",
         "description": "凭证三字段:null/空串=不改,掩码回传=忽略并记日志,真实新值才加密覆盖;MP 忽略 null 可部分更新",
         "operationId": "update_5",
@@ -938,7 +986,9 @@
         }
       },
       "delete": {
-        "tags": ["店铺管理"],
+        "tags": [
+          "店铺管理"
+        ],
         "summary": "删除店铺",
         "description": "一期硬删;TODO#3 后增加 listing/订单/pull_log 引用校验",
         "operationId": "delete_5",
@@ -969,7 +1019,9 @@
     },
     "/api/shop-product-skus/{id}/bind": {
       "put": {
-        "tags": ["SKU映射"],
+        "tags": [
+          "SKU映射"
+        ],
         "summary": "人工绑定内部SKU",
         "description": "回填 sku_id 并置 match_status=2;重复绑定同一SKU幂等",
         "operationId": "bind",
@@ -1010,7 +1062,9 @@
     },
     "/api/purchase/suppliers/{id}": {
       "get": {
-        "tags": ["供应商"],
+        "tags": [
+          "供应商"
+        ],
         "summary": "供应商详情",
         "description": "不存在返回 null data",
         "operationId": "get_3",
@@ -1039,7 +1093,9 @@
         }
       },
       "put": {
-        "tags": ["供应商"],
+        "tags": [
+          "供应商"
+        ],
         "summary": "更新供应商",
         "description": "MP updateById 忽略 null 字段,可部分更新;id 只认路径参数",
         "operationId": "update_6",
@@ -1078,7 +1134,9 @@
         }
       },
       "delete": {
-        "tags": ["供应商"],
+        "tags": [
+          "供应商"
+        ],
         "summary": "删除供应商",
         "description": "一期硬删",
         "operationId": "delete_6",
@@ -1109,7 +1167,9 @@
     },
     "/api/purchase/orders/{id}": {
       "get": {
-        "tags": ["采购单"],
+        "tags": [
+          "采购单"
+        ],
         "summary": "采购单详情",
         "description": "带采购明细;不存在返回 null data",
         "operationId": "get_4",
@@ -1138,7 +1198,9 @@
         }
       },
       "put": {
-        "tags": ["采购单"],
+        "tags": [
+          "采购单"
+        ],
         "summary": "更新采购单",
         "description": "仅草稿状态可修改,明细整体替换并重算金额;id 只认路径参数",
         "operationId": "update_7",
@@ -1177,7 +1239,9 @@
         }
       },
       "delete": {
-        "tags": ["采购单"],
+        "tags": [
+          "采购单"
+        ],
         "summary": "删除采购单",
         "description": "仅草稿且无入库记录可删;其余状态走关闭流程;一期硬删",
         "operationId": "delete_7",
@@ -1208,7 +1272,9 @@
     },
     "/api/purchase/inbounds/{id}": {
       "get": {
-        "tags": ["采购入库单"],
+        "tags": [
+          "采购入库单"
+        ],
         "summary": "采购入库单详情",
         "description": "带入库明细;不存在返回 null data",
         "operationId": "get_5",
@@ -1237,7 +1303,9 @@
         }
       },
       "put": {
-        "tags": ["采购入库单"],
+        "tags": [
+          "采购入库单"
+        ],
         "summary": "更新采购入库单",
         "description": "仅待入库状态可修改,明细整体替换;不允许变更关联采购单;id 只认路径参数",
         "operationId": "update_8",
@@ -1276,7 +1344,9 @@
         }
       },
       "delete": {
-        "tags": ["采购入库单"],
+        "tags": [
+          "采购入库单"
+        ],
         "summary": "删除采购入库单",
         "description": "已入库(库存已动账)禁删;一期硬删",
         "operationId": "delete_8",
@@ -1307,7 +1377,9 @@
     },
     "/api/goods/skus/{id}": {
       "put": {
-        "tags": ["商品SKU"],
+        "tags": [
+          "商品SKU"
+        ],
         "summary": "更新 SKU",
         "description": "MP updateById 忽略 null 字段,可部分更新",
         "operationId": "update_9",
@@ -1346,7 +1418,9 @@
         }
       },
       "delete": {
-        "tags": ["商品SKU"],
+        "tags": [
+          "商品SKU"
+        ],
         "summary": "删除 SKU",
         "description": "一期硬删;TODO#5 后校验 shop_product_sku 绑定与库存引用",
         "operationId": "delete_9",
@@ -1377,7 +1451,9 @@
     },
     "/api/goods/products/{id}": {
       "get": {
-        "tags": ["商品管理"],
+        "tags": [
+          "商品管理"
+        ],
         "summary": "商品详情",
         "description": "SPU 基础信息 + 全部 SKU 一次带回,结构 {product, skus}",
         "operationId": "detail",
@@ -1406,7 +1482,9 @@
         }
       },
       "put": {
-        "tags": ["商品管理"],
+        "tags": [
+          "商品管理"
+        ],
         "summary": "更新商品",
         "description": "MP updateById 忽略 null 字段,可部分更新",
         "operationId": "update_10",
@@ -1445,7 +1523,9 @@
         }
       },
       "delete": {
-        "tags": ["商品管理"],
+        "tags": [
+          "商品管理"
+        ],
         "summary": "删除商品",
         "description": "一期硬删;TODO#5 后增加 shop_product_sku/库存/订单引用校验",
         "operationId": "delete_10",
@@ -1476,7 +1556,9 @@
     },
     "/api/goods/categories/{id}": {
       "put": {
-        "tags": ["商品分类"],
+        "tags": [
+          "商品分类"
+        ],
         "summary": "更新分类",
         "description": "MP updateById 忽略 null 字段,可部分更新;TODO#7 成环校验待补",
         "operationId": "update_11",
@@ -1515,7 +1597,9 @@
         }
       },
       "delete": {
-        "tags": ["商品分类"],
+        "tags": [
+          "商品分类"
+        ],
         "summary": "删除分类",
         "description": "一期硬删;TODO#7 后有子分类/商品引用时拦截",
         "operationId": "delete_11",
@@ -1546,7 +1630,9 @@
     },
     "/api/goods/brands/{id}": {
       "put": {
-        "tags": ["品牌管理"],
+        "tags": [
+          "品牌管理"
+        ],
         "summary": "更新品牌",
         "description": "MP updateById 忽略 null 字段,可部分更新(Default 组 @Size 对 null 放行,超长仍拦)",
         "operationId": "update_12",
@@ -1585,7 +1671,9 @@
         }
       },
       "delete": {
-        "tags": ["品牌管理"],
+        "tags": [
+          "品牌管理"
+        ],
         "summary": "删除品牌",
         "operationId": "delete_12",
         "parameters": [
@@ -1615,7 +1703,9 @@
     },
     "/api/fulfill/delivery-orders/{id}": {
       "get": {
-        "tags": ["发货单"],
+        "tags": [
+          "发货单"
+        ],
         "summary": "发货单详情",
         "description": "不存在返回 null data",
         "operationId": "get_6",
@@ -1644,7 +1734,9 @@
         }
       },
       "put": {
-        "tags": ["发货单"],
+        "tags": [
+          "发货单"
+        ],
         "summary": "更新发货单",
         "description": "仅待发货状态可改;明细整体替换;不允许变更关联订单",
         "operationId": "update_13",
@@ -1683,7 +1775,9 @@
         }
       },
       "delete": {
-        "tags": ["发货单"],
+        "tags": [
+          "发货单"
+        ],
         "summary": "删除发货单",
         "description": "一期硬删;已发货/已签收禁删(库存已动账)",
         "operationId": "delete_13",
@@ -1714,7 +1808,9 @@
     },
     "/api/warehouse/warehouses": {
       "get": {
-        "tags": ["仓库"],
+        "tags": [
+          "仓库"
+        ],
         "summary": "分页查询仓库",
         "operationId": "page",
         "parameters": [
@@ -1741,7 +1837,9 @@
         }
       },
       "post": {
-        "tags": ["仓库"],
+        "tags": [
+          "仓库"
+        ],
         "summary": "新增仓库",
         "operationId": "create",
         "requestBody": {
@@ -1770,7 +1868,9 @@
     },
     "/api/system/users": {
       "get": {
-        "tags": ["用户管理"],
+        "tags": [
+          "用户管理"
+        ],
         "summary": "分页查询用户",
         "description": "username 模糊匹配(可选),status 精确过滤(可选);password 不回传",
         "operationId": "page_1",
@@ -1798,7 +1898,9 @@
         }
       },
       "post": {
-        "tags": ["用户管理"],
+        "tags": [
+          "用户管理"
+        ],
         "summary": "新增用户",
         "description": "用户名唯一;初始密码必填并 BCrypt 加密落库",
         "operationId": "create_1",
@@ -1828,7 +1930,9 @@
     },
     "/api/system/roles": {
       "get": {
-        "tags": ["角色管理"],
+        "tags": [
+          "角色管理"
+        ],
         "summary": "分页查询角色",
         "description": "无过滤条件,分页参数直接用 PageQuery(pageNo/pageSize 钳制)",
         "operationId": "page_2",
@@ -1856,7 +1960,9 @@
         }
       },
       "post": {
-        "tags": ["角色管理"],
+        "tags": [
+          "角色管理"
+        ],
         "summary": "新增角色",
         "operationId": "create_2",
         "requestBody": {
@@ -1885,7 +1991,9 @@
     },
     "/api/system/menus": {
       "post": {
-        "tags": ["菜单管理"],
+        "tags": [
+          "菜单管理"
+        ],
         "summary": "新增菜单",
         "operationId": "create_3",
         "requestBody": {
@@ -1914,7 +2022,9 @@
     },
     "/api/system/dicts": {
       "get": {
-        "tags": ["字典管理"],
+        "tags": [
+          "字典管理"
+        ],
         "summary": "分页查询字典",
         "description": "dictType 精确过滤(可选),按类型+sort 排序",
         "operationId": "page_3",
@@ -1950,7 +2060,9 @@
         }
       },
       "post": {
-        "tags": ["字典管理"],
+        "tags": [
+          "字典管理"
+        ],
         "summary": "新增字典项",
         "operationId": "create_4",
         "requestBody": {
@@ -1979,7 +2091,9 @@
     },
     "/api/shops": {
       "get": {
-        "tags": ["店铺管理"],
+        "tags": [
+          "店铺管理"
+        ],
         "summary": "分页查询店铺",
         "description": "platform/status 过滤(可选);accessToken 只回密文前 6 位掩码,appSecret/refreshToken 不在出参模型内",
         "operationId": "page_4",
@@ -2007,7 +2121,9 @@
         }
       },
       "post": {
-        "tags": ["店铺管理"],
+        "tags": [
+          "店铺管理"
+        ],
         "summary": "新增店铺",
         "description": "平台编码校验;appSecret/accessToken/refreshToken AES-GCM 加密落库",
         "operationId": "create_5",
@@ -2037,7 +2153,9 @@
     },
     "/api/purchase/suppliers": {
       "get": {
-        "tags": ["供应商"],
+        "tags": [
+          "供应商"
+        ],
         "summary": "分页查询供应商",
         "operationId": "page_5",
         "parameters": [
@@ -2064,7 +2182,9 @@
         }
       },
       "post": {
-        "tags": ["供应商"],
+        "tags": [
+          "供应商"
+        ],
         "summary": "新增供应商",
         "operationId": "create_6",
         "requestBody": {
@@ -2093,7 +2213,9 @@
     },
     "/api/purchase/orders": {
       "get": {
-        "tags": ["采购单"],
+        "tags": [
+          "采购单"
+        ],
         "summary": "分页查询采购单",
         "description": "列表不带明细",
         "operationId": "page_6",
@@ -2121,7 +2243,9 @@
         }
       },
       "post": {
-        "tags": ["采购单"],
+        "tags": [
+          "采购单"
+        ],
         "summary": "新增采购单",
         "description": "status 服务端固定草稿,totalAmount 按 Σ(数量×单价) 服务端计算",
         "operationId": "create_7",
@@ -2151,7 +2275,9 @@
     },
     "/api/purchase/orders/{id}/close": {
       "post": {
-        "tags": ["采购单"],
+        "tags": [
+          "采购单"
+        ],
         "summary": "关闭采购单",
         "description": "状态机:已审核/部分入库/已入库→已关闭,剩余未收量作废;草稿单请走删除",
         "operationId": "close",
@@ -2182,7 +2308,9 @@
     },
     "/api/purchase/orders/{id}/audit": {
       "post": {
-        "tags": ["采购单"],
+        "tags": [
+          "采购单"
+        ],
         "summary": "审核采购单",
         "description": "状态机:草稿→已审核,审核后可创建入库单",
         "operationId": "audit",
@@ -2213,7 +2341,9 @@
     },
     "/api/purchase/inbounds": {
       "get": {
-        "tags": ["采购入库单"],
+        "tags": [
+          "采购入库单"
+        ],
         "summary": "分页查询采购入库单",
         "description": "列表不带明细",
         "operationId": "page_7",
@@ -2241,7 +2371,9 @@
         }
       },
       "post": {
-        "tags": ["采购入库单"],
+        "tags": [
+          "采购入库单"
+        ],
         "summary": "新增采购入库单",
         "description": "status 服务端固定待入库,入库仓取采购单收货仓;明细须 ≤ 采购明细剩余未收量",
         "operationId": "create_8",
@@ -2271,7 +2403,9 @@
     },
     "/api/purchase/inbounds/{id}/confirm": {
       "post": {
-        "tags": ["采购入库单"],
+        "tags": [
+          "采购入库单"
+        ],
         "summary": "确认入库",
         "description": "核销:同事务完成 库存变更(flow_type=IN_PURCHASE)+ 采购明细 arrived_qty 回写 + 采购单状态推进",
         "operationId": "confirm",
@@ -2302,7 +2436,9 @@
     },
     "/api/purchase/inbounds/{id}/cancel": {
       "post": {
-        "tags": ["采购入库单"],
+        "tags": [
+          "采购入库单"
+        ],
         "summary": "取消入库单",
         "description": "仅待入库可取消,终态不可逆",
         "operationId": "cancel",
@@ -2333,7 +2469,9 @@
     },
     "/api/goods/skus": {
       "get": {
-        "tags": ["商品SKU"],
+        "tags": [
+          "商品SKU"
+        ],
         "summary": "查询 SPU 下的 SKU 列表",
         "operationId": "list",
         "parameters": [
@@ -2361,7 +2499,9 @@
         }
       },
       "post": {
-        "tags": ["商品SKU"],
+        "tags": [
+          "商品SKU"
+        ],
         "summary": "新增 SKU",
         "description": "TODO#5:skuCode 全局唯一校验待补",
         "operationId": "create_9",
@@ -2391,7 +2531,9 @@
     },
     "/api/goods/products": {
       "get": {
-        "tags": ["商品管理"],
+        "tags": [
+          "商品管理"
+        ],
         "summary": "分页查询商品",
         "description": "keyword 模糊匹配商品名(可选),categoryId 精确过滤(可选)",
         "operationId": "page_8",
@@ -2419,7 +2561,9 @@
         }
       },
       "post": {
-        "tags": ["商品管理"],
+        "tags": [
+          "商品管理"
+        ],
         "summary": "新增商品",
         "description": "SPU + SKU 列表同事务保存;spuCode 重复报错",
         "operationId": "create_10",
@@ -2449,7 +2593,9 @@
     },
     "/api/goods/categories": {
       "post": {
-        "tags": ["商品分类"],
+        "tags": [
+          "商品分类"
+        ],
         "summary": "新增分类",
         "description": "parentId 不传按根处理",
         "operationId": "create_11",
@@ -2479,7 +2625,9 @@
     },
     "/api/goods/brands": {
       "get": {
-        "tags": ["品牌管理"],
+        "tags": [
+          "品牌管理"
+        ],
         "summary": "分页查询品牌",
         "operationId": "page_9",
         "parameters": [
@@ -2506,7 +2654,9 @@
         }
       },
       "post": {
-        "tags": ["品牌管理"],
+        "tags": [
+          "品牌管理"
+        ],
         "summary": "新增品牌",
         "operationId": "create_12",
         "requestBody": {
@@ -2535,7 +2685,9 @@
     },
     "/api/fulfill/delivery-orders": {
       "get": {
-        "tags": ["发货单"],
+        "tags": [
+          "发货单"
+        ],
         "summary": "分页查询发货单",
         "operationId": "page_10",
         "parameters": [
@@ -2562,7 +2714,9 @@
         }
       },
       "post": {
-        "tags": ["发货单"],
+        "tags": [
+          "发货单"
+        ],
         "summary": "新增发货单",
         "description": "仅待发货(WAIT_SHIP)且卖家自履约订单可建;明细行须 sku_id 已绑定",
         "operationId": "create_13",
@@ -2592,7 +2746,9 @@
     },
     "/api/fulfill/delivery-orders/{id}/ship": {
       "post": {
-        "tags": ["发货单"],
+        "tags": [
+          "发货单"
+        ],
         "summary": "确认发货",
         "description": "PENDING→SHIPPED,同事务逐行出库扣减库存(OUT_SHIP),全部订单明细发足时推进订单 WAIT_SHIP→SHIPPED",
         "operationId": "ship",
@@ -2623,7 +2779,9 @@
     },
     "/api/fulfill/delivery-orders/{id}/deliver": {
       "post": {
-        "tags": ["发货单"],
+        "tags": [
+          "发货单"
+        ],
         "summary": "标记签收",
         "description": "SHIPPED→DELIVERED;一期人工签收,平台物流轨迹自动签收随 #3 adapter 评估",
         "operationId": "deliver",
@@ -2654,7 +2812,9 @@
     },
     "/api/fulfill/delivery-orders/{id}/cancel": {
       "post": {
-        "tags": ["发货单"],
+        "tags": [
+          "发货单"
+        ],
         "summary": "取消发货单",
         "description": "仅待发货状态可取消;已发货库存已动账走售后退货(#12)",
         "operationId": "cancel_1",
@@ -2685,7 +2845,9 @@
     },
     "/api/auth/login": {
       "post": {
-        "tags": ["认证"],
+        "tags": [
+          "认证"
+        ],
         "summary": "登录",
         "description": "SecurityConfig 唯一放行的写接口;签发 JWT,有效期 24h(erp.jwt.expire-hours)",
         "operationId": "login",
@@ -2715,7 +2877,9 @@
     },
     "/api/ai/suggestions/{id}/ignore": {
       "post": {
-        "tags": ["AI建议"],
+        "tags": [
+          "AI建议"
+        ],
         "summary": "忽略建议",
         "description": "0待确认→2已忽略,条件更新即守卫,与采纳终态互斥",
         "operationId": "ignore",
@@ -2746,7 +2910,9 @@
     },
     "/api/ai/suggestions/{id}/adopt": {
       "post": {
-        "tags": ["AI建议"],
+        "tags": [
+          "AI建议"
+        ],
         "summary": "采纳建议",
         "description": "0待确认→1已采纳,条件更新即守卫(cas 脱靶=已处理/不存在,报错);仅落确认状态,业务动作由人工走对应业务接口",
         "operationId": "adopt",
@@ -2777,7 +2943,9 @@
     },
     "/api/ai/replenishment/run": {
       "post": {
-        "tags": ["AI补货建议"],
+        "tags": [
+          "AI补货建议"
+        ],
         "summary": "触发补货建议工作流",
         "description": "扫描低库存 SKU 生成补货建议写入 AI 建议表,返回运行摘要;LLM 不可用时摘要自动降级为模板",
         "operationId": "run",
@@ -2797,7 +2965,9 @@
     },
     "/api/ai/chat/sessions": {
       "get": {
-        "tags": ["AI助手"],
+        "tags": [
+          "AI助手"
+        ],
         "summary": "我的会话分页",
         "description": "按最近更新倒序;仅本人会话(归属服务端强制)",
         "operationId": "sessions",
@@ -2825,7 +2995,9 @@
         }
       },
       "post": {
-        "tags": ["AI助手"],
+        "tags": [
+          "AI助手"
+        ],
         "summary": "新建会话",
         "description": "标题可空,默认'新会话',首条消息后自动回填为消息摘要",
         "operationId": "createSession",
@@ -2854,7 +3026,9 @@
     },
     "/api/ai/chat/sessions/{id}/chat": {
       "post": {
-        "tags": ["AI助手"],
+        "tags": [
+          "AI助手"
+        ],
         "summary": "流式对话(SSE)",
         "description": "text/event-stream,逐段返回 AI 回复;消息内容取 body.message",
         "operationId": "chat",
@@ -2898,7 +3072,9 @@
     },
     "/api/ai/chat/sessions/{id}/chat-sync": {
       "post": {
-        "tags": ["AI助手"],
+        "tags": [
+          "AI助手"
+        ],
         "summary": "同步对话",
         "description": "一次性返回完整回复(带工具查询,耗时高于流式首包)",
         "operationId": "chatSync",
@@ -2939,7 +3115,9 @@
     },
     "/api/ai/anomaly/run": {
       "post": {
-        "tags": ["AI订单异常检测"],
+        "tags": [
+          "AI订单异常检测"
+        ],
         "summary": "触发订单异常检测工作流",
         "description": "扫描 WAIT_PAY/WAIT_SHIP 订单按四规则筛可疑单,LLM 批量评分(不可用时规则回落)后写入 AI 建议表,返回运行摘要",
         "operationId": "run_1",
@@ -2959,7 +3137,9 @@
     },
     "/api/ai/agents/{role}/sessions": {
       "get": {
-        "tags": ["AI Agent"],
+        "tags": [
+          "AI Agent"
+        ],
         "summary": "我的 Agent 会话分页",
         "description": "仅 source=AGENT 会话(与智能对话列表隔离);按最近更新倒序",
         "operationId": "sessions_1",
@@ -2995,7 +3175,9 @@
         }
       },
       "post": {
-        "tags": ["AI Agent"],
+        "tags": [
+          "AI Agent"
+        ],
         "summary": "新建 Agent 会话",
         "description": "source=AGENT 隔离;标题可空,首条消息后自动回填摘要",
         "operationId": "createSession_1",
@@ -3034,7 +3216,9 @@
     },
     "/api/ai/agents/{role}/sessions/{sessionId}/chat": {
       "post": {
-        "tags": ["AI Agent"],
+        "tags": [
+          "AI Agent"
+        ],
         "summary": "Agent 对话(SSE 流式)",
         "description": "历史重放多轮上下文;ReAct 循环自动调只读工具,逐 TextBlock delta 推送,帧形态同智能对话",
         "operationId": "chat_1",
@@ -3086,7 +3270,9 @@
     },
     "/api/ai/agents/{role}/sessions/{sessionId}/chat-sync": {
       "post": {
-        "tags": ["AI Agent"],
+        "tags": [
+          "AI Agent"
+        ],
         "summary": "Agent 对话(同步)",
         "description": "聚合全部 delta 一次性返回;SSE 不可用时的降级通道",
         "operationId": "chatSync_1",
@@ -3135,7 +3321,9 @@
     },
     "/api/aftersale/orders/{id}/reject": {
       "post": {
-        "tags": ["售后单"],
+        "tags": [
+          "售后单"
+        ],
         "summary": "拒绝售后",
         "description": "PENDING→REJECTED(终态);result 必填(拒绝原因留痕)",
         "operationId": "reject",
@@ -3176,7 +3364,9 @@
     },
     "/api/aftersale/orders/{id}/refund": {
       "post": {
-        "tags": ["售后单"],
+        "tags": [
+          "售后单"
+        ],
         "summary": "退款",
         "description": "APPROVED(仅退款/补发)/ RETURN_RECEIVED(退货类,须已收退件)→REFUNDED;result 选填",
         "operationId": "refund",
@@ -3217,7 +3407,9 @@
     },
     "/api/aftersale/orders/{id}/receive-return": {
       "post": {
-        "tags": ["售后单"],
+        "tags": [
+          "售后单"
+        ],
         "summary": "收退件 + 退货入库",
         "description": "RETURNING→RETURN_RECEIVED,复合事务(#12):按实收明细逐行 IN_RETURN 动账入库并留痕;warehouseId/items 必填,result 选填(可记验件情况)",
         "operationId": "receiveReturn",
@@ -3258,7 +3450,9 @@
     },
     "/api/aftersale/orders/{id}/complete": {
       "post": {
-        "tags": ["售后单"],
+        "tags": [
+          "售后单"
+        ],
         "summary": "确认完成",
         "description": "REFUNDED→COMPLETED(终态收尾);result 选填",
         "operationId": "complete",
@@ -3299,7 +3493,9 @@
     },
     "/api/aftersale/orders/{id}/agree": {
       "post": {
-        "tags": ["售后单"],
+        "tags": [
+          "售后单"
+        ],
         "summary": "同意售后",
         "description": "PENDING→APPROVED(仅退款/补发)/ RETURNING(退货退款/换货,等买家寄回);result 选填",
         "operationId": "agree",
@@ -3340,7 +3536,9 @@
     },
     "/api/system/notifications": {
       "get": {
-        "tags": ["站内通知"],
+        "tags": [
+          "站内通知"
+        ],
         "summary": "我的通知分页",
         "description": "过滤参数:readStatus(0未读/1已读)、notifyType",
         "operationId": "page_11",
@@ -3370,7 +3568,9 @@
     },
     "/api/system/notifications/{id}": {
       "get": {
-        "tags": ["站内通知"],
+        "tags": [
+          "站内通知"
+        ],
         "summary": "我的通知详情",
         "description": "不存在或非本人通知返回 null data",
         "operationId": "get_7",
@@ -3401,7 +3601,9 @@
     },
     "/api/system/notifications/unread-count": {
       "get": {
-        "tags": ["站内通知"],
+        "tags": [
+          "站内通知"
+        ],
         "summary": "未读数",
         "description": "前端红点",
         "operationId": "unreadCount",
@@ -3421,7 +3623,9 @@
     },
     "/api/system/menus/tree": {
       "get": {
-        "tags": ["菜单管理"],
+        "tags": [
+          "菜单管理"
+        ],
         "summary": "全量菜单树",
         "description": "含禁用节点(管理端用);用户侧边栏走 /api/auth/me",
         "operationId": "tree",
@@ -3441,7 +3645,9 @@
     },
     "/api/system/dicts/type/{dictType}": {
       "get": {
-        "tags": ["字典管理"],
+        "tags": [
+          "字典管理"
+        ],
         "summary": "按类型取启用字典项",
         "description": "下拉框数据源;status=1",
         "operationId": "listByType",
@@ -3471,7 +3677,9 @@
     },
     "/api/shops/{id}/auth-url": {
       "get": {
-        "tags": ["店铺管理"],
+        "tags": [
+          "店铺管理"
+        ],
         "summary": "生成平台授权跳转地址",
         "description": "OAuth 授权入口:平台 adapter 签发跳转 URL,state 加密签发 10 分钟有效;需先配置店铺 appKey/appSecret",
         "operationId": "authUrl",
@@ -3511,7 +3719,9 @@
     },
     "/api/shops/oauth/callback": {
       "get": {
-        "tags": ["店铺管理"],
+        "tags": [
+          "店铺管理"
+        ],
         "summary": "平台授权回调(OAuth)",
         "description": "平台授权页重定向回本接口:state 校验 → 授权码换 Token →加密入库并记 tokenExpireAt;该路径免登录(加密 state 防伪造),仅平台重定向调用",
         "operationId": "oauthCallback",
@@ -3557,7 +3767,9 @@
     },
     "/api/shop-products": {
       "get": {
-        "tags": ["店铺商品"],
+        "tags": [
+          "店铺商品"
+        ],
         "summary": "分页查询店铺商品",
         "operationId": "page_12",
         "parameters": [
@@ -3586,7 +3798,9 @@
     },
     "/api/shop-products/{id}": {
       "get": {
-        "tags": ["店铺商品"],
+        "tags": [
+          "店铺商品"
+        ],
         "summary": "店铺商品详情",
         "description": "不存在返回 null data",
         "operationId": "get_8",
@@ -3617,7 +3831,9 @@
     },
     "/api/shop-product-skus": {
       "get": {
-        "tags": ["SKU映射"],
+        "tags": [
+          "SKU映射"
+        ],
         "summary": "分页查询SKU映射",
         "description": "match_status=0 即待匹配列表",
         "operationId": "page_13",
@@ -3647,7 +3863,9 @@
     },
     "/api/shop-product-skus/{id}": {
       "get": {
-        "tags": ["SKU映射"],
+        "tags": [
+          "SKU映射"
+        ],
         "summary": "SKU映射详情",
         "description": "不存在返回 null data",
         "operationId": "get_9",
@@ -3678,7 +3896,9 @@
     },
     "/api/pull-logs": {
       "get": {
-        "tags": ["拉取日志"],
+        "tags": [
+          "拉取日志"
+        ],
         "summary": "分页查询拉取日志",
         "operationId": "page_14",
         "parameters": [
@@ -3707,7 +3927,9 @@
     },
     "/api/pull-logs/{id}": {
       "get": {
-        "tags": ["拉取日志"],
+        "tags": [
+          "拉取日志"
+        ],
         "summary": "拉取日志详情",
         "description": "不存在返回 null data",
         "operationId": "get_10",
@@ -3738,7 +3960,9 @@
     },
     "/api/orders": {
       "get": {
-        "tags": ["平台订单"],
+        "tags": [
+          "平台订单"
+        ],
         "summary": "分页查询平台订单",
         "operationId": "page_15",
         "parameters": [
@@ -3767,7 +3991,9 @@
     },
     "/api/orders/{id}": {
       "get": {
-        "tags": ["平台订单"],
+        "tags": [
+          "平台订单"
+        ],
         "summary": "平台订单详情",
         "description": "不存在返回 null data",
         "operationId": "get_11",
@@ -3798,7 +4024,9 @@
     },
     "/api/inventory/inventories": {
       "get": {
-        "tags": ["库存"],
+        "tags": [
+          "库存"
+        ],
         "summary": "分页查询库存",
         "operationId": "page_16",
         "parameters": [
@@ -3827,7 +4055,9 @@
     },
     "/api/inventory/inventories/{id}": {
       "get": {
-        "tags": ["库存"],
+        "tags": [
+          "库存"
+        ],
         "summary": "库存详情",
         "description": "不存在返回 null data",
         "operationId": "get_12",
@@ -3858,7 +4088,9 @@
     },
     "/api/inventory/flows": {
       "get": {
-        "tags": ["库存流水"],
+        "tags": [
+          "库存流水"
+        ],
         "summary": "分页查询库存流水",
         "operationId": "page_17",
         "parameters": [
@@ -3887,7 +4119,9 @@
     },
     "/api/inventory/flows/{id}": {
       "get": {
-        "tags": ["库存流水"],
+        "tags": [
+          "库存流水"
+        ],
         "summary": "库存流水详情",
         "description": "不存在返回 null data",
         "operationId": "get_13",
@@ -3918,7 +4152,9 @@
     },
     "/api/goods/skus/batch": {
       "get": {
-        "tags": ["商品SKU"],
+        "tags": [
+          "商品SKU"
+        ],
         "summary": "批量按 ID 查 SKU",
         "description": "跨页 skuId 列翻译数据源(#7 专条):库存/采购/入库/发货/售后/订单明细行与 SKU 匹配页;查无的 ID 不在结果中,前端回落显示裸 ID",
         "operationId": "listBatch",
@@ -3952,7 +4188,9 @@
     },
     "/api/goods/categories/tree": {
       "get": {
-        "tags": ["商品分类"],
+        "tags": [
+          "商品分类"
+        ],
         "summary": "全量分类树",
         "description": "一次查全量内存组树,按 sort 升序,parent_id=0 为根",
         "operationId": "tree_1",
@@ -3972,7 +4210,9 @@
     },
     "/api/auth/me": {
       "get": {
-        "tags": ["认证"],
+        "tags": [
+          "认证"
+        ],
         "summary": "当前登录用户",
         "description": "角色/权限/菜单树(无 token 字段);请求头需 Authorization: Bearer <token>",
         "operationId": "me",
@@ -3992,7 +4232,9 @@
     },
     "/api/ai/suggestions": {
       "get": {
-        "tags": ["AI建议"],
+        "tags": [
+          "AI建议"
+        ],
         "summary": "分页查询AI建议",
         "operationId": "page_18",
         "parameters": [
@@ -4021,7 +4263,9 @@
     },
     "/api/ai/suggestions/{id}": {
       "get": {
-        "tags": ["AI建议"],
+        "tags": [
+          "AI建议"
+        ],
         "summary": "AI建议详情",
         "description": "不存在返回 null data",
         "operationId": "get_14",
@@ -4052,7 +4296,9 @@
     },
     "/api/ai/chat/sessions/{id}/messages": {
       "get": {
-        "tags": ["AI助手"],
+        "tags": [
+          "AI助手"
+        ],
         "summary": "会话历史消息",
         "description": "时间正序;仅本人会话可查,越权/不存在统一报'会话不存在'",
         "operationId": "messages",
@@ -4083,7 +4329,9 @@
     },
     "/api/ai/agents/{role}/sessions/{sessionId}/messages": {
       "get": {
-        "tags": ["AI Agent"],
+        "tags": [
+          "AI Agent"
+        ],
         "summary": "会话历史消息",
         "description": "时间正序;仅本人会话可查,越权/不存在统一报'会话不存在'",
         "operationId": "messages_1",
@@ -4122,7 +4370,9 @@
     },
     "/api/aftersale/orders": {
       "get": {
-        "tags": ["售后单"],
+        "tags": [
+          "售后单"
+        ],
         "summary": "分页查询售后单",
         "description": "支持 shopId/status/type/orderId 精确过滤",
         "operationId": "page_19",
@@ -4152,7 +4402,9 @@
     },
     "/api/aftersale/orders/{id}": {
       "get": {
-        "tags": ["售后单"],
+        "tags": [
+          "售后单"
+        ],
         "summary": "售后单详情",
         "description": "不存在返回 null data",
         "operationId": "get_15",
@@ -4242,7 +4494,9 @@
             "format": "int32"
           }
         },
-        "required": ["username"]
+        "required": [
+          "username"
+        ]
       },
       "UserRoleAssignRequest": {
         "type": "object",
@@ -4255,7 +4509,9 @@
             }
           }
         },
-        "required": ["roleIds"]
+        "required": [
+          "roleIds"
+        ]
       },
       "PasswordResetRequest": {
         "type": "object",
@@ -4265,7 +4521,9 @@
             "minLength": 1
           }
         },
-        "required": ["newPassword"]
+        "required": [
+          "newPassword"
+        ]
       },
       "PasswordChangeRequest": {
         "type": "object",
@@ -4279,7 +4537,10 @@
             "minLength": 1
           }
         },
-        "required": ["newPassword", "oldPassword"]
+        "required": [
+          "newPassword",
+          "oldPassword"
+        ]
       },
       "SysRoleSaveRequest": {
         "type": "object",
@@ -4300,7 +4561,10 @@
             "type": "string"
           }
         },
-        "required": ["roleKey", "roleName"]
+        "required": [
+          "roleKey",
+          "roleName"
+        ]
       },
       "ResultInteger": {
         "type": "object",
@@ -4358,7 +4622,11 @@
             "format": "int32"
           }
         },
-        "required": ["menuName", "menuType", "parentId"]
+        "required": [
+          "menuName",
+          "menuType",
+          "parentId"
+        ]
       },
       "RoleMenuAssignRequest": {
         "type": "object",
@@ -4371,7 +4639,9 @@
             }
           }
         },
-        "required": ["menuIds"]
+        "required": [
+          "menuIds"
+        ]
       },
       "SysDict": {
         "type": "object",
@@ -4452,7 +4722,9 @@
             "format": "int32"
           }
         },
-        "required": ["platform"]
+        "required": [
+          "platform"
+        ]
       },
       "SkuBindRequest": {
         "type": "object",
@@ -4462,7 +4734,9 @@
             "format": "int64"
           }
         },
-        "required": ["skuId"]
+        "required": [
+          "skuId"
+        ]
       },
       "SupplierSaveRequest": {
         "type": "object",
@@ -4505,7 +4779,10 @@
             "minimum": 0
           }
         },
-        "required": ["quantity", "skuId"]
+        "required": [
+          "quantity",
+          "skuId"
+        ]
       },
       "PurchaseOrderSaveRequest": {
         "type": "object",
@@ -4536,7 +4813,12 @@
             "minItems": 1
           }
         },
-        "required": ["items", "poNo", "supplierId", "warehouseId"]
+        "required": [
+          "items",
+          "poNo",
+          "supplierId",
+          "warehouseId"
+        ]
       },
       "PurchaseInboundItemSaveRequest": {
         "type": "object",
@@ -4551,7 +4833,10 @@
             "minimum": 0
           }
         },
-        "required": ["inboundQty", "poItemId"]
+        "required": [
+          "inboundQty",
+          "poItemId"
+        ]
       },
       "PurchaseInboundSaveRequest": {
         "type": "object",
@@ -4578,7 +4863,11 @@
             "minItems": 1
           }
         },
-        "required": ["inboundNo", "items", "poId"]
+        "required": [
+          "inboundNo",
+          "items",
+          "poId"
+        ]
       },
       "ProductSkuSaveRequest": {
         "type": "object",
@@ -4619,7 +4908,9 @@
             "format": "int32"
           }
         },
-        "required": ["skuCode"]
+        "required": [
+          "skuCode"
+        ]
       },
       "ProductSaveRequest": {
         "type": "object",
@@ -4647,7 +4938,9 @@
             "format": "int32"
           }
         },
-        "required": ["spuCode"]
+        "required": [
+          "spuCode"
+        ]
       },
       "ProductCategorySaveRequest": {
         "type": "object",
@@ -4669,7 +4962,9 @@
             "format": "int32"
           }
         },
-        "required": ["name"]
+        "required": [
+          "name"
+        ]
       },
       "Brand": {
         "type": "object",
@@ -4720,7 +5015,10 @@
             "minimum": 0
           }
         },
-        "required": ["orderItemId", "shipQty"]
+        "required": [
+          "orderItemId",
+          "shipQty"
+        ]
       },
       "DeliveryOrderSaveRequest": {
         "type": "object",
@@ -4768,7 +5066,12 @@
             "minItems": 1
           }
         },
-        "required": ["deliveryNo", "items", "orderId", "warehouseId"]
+        "required": [
+          "deliveryNo",
+          "items",
+          "orderId",
+          "warehouseId"
+        ]
       },
       "ResultLong": {
         "type": "object",
@@ -4812,7 +5115,10 @@
             "minLength": 1
           }
         },
-        "required": ["password", "username"]
+        "required": [
+          "password",
+          "username"
+        ]
       },
       "LoginResponse": {
         "type": "object",
@@ -4966,7 +5272,9 @@
             "minLength": 1
           }
         },
-        "required": ["message"]
+        "required": [
+          "message"
+        ]
       },
       "ResultString": {
         "type": "object",
@@ -5030,7 +5338,9 @@
             "minLength": 1
           }
         },
-        "required": ["message"]
+        "required": [
+          "message"
+        ]
       },
       "AftersaleHandleRequest": {
         "type": "object",
@@ -5053,7 +5363,10 @@
             "minimum": 0
           }
         },
-        "required": ["orderItemId", "returnQty"]
+        "required": [
+          "orderItemId",
+          "returnQty"
+        ]
       },
       "AftersaleReturnReceiveRequest": {
         "type": "object",
@@ -5073,7 +5386,10 @@
             "type": "string"
           }
         },
-        "required": ["items", "warehouseId"]
+        "required": [
+          "items",
+          "warehouseId"
+        ]
       },
       "WarehouseQuery": {
         "type": "object",

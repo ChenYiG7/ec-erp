@@ -36,9 +36,9 @@ export const staticRouter: RouteRecordRaw[] = [
           isHide: true,
           isFull: false,
           isAffix: true,
-          isKeepAlive: false,
-        },
-      },
+          isKeepAlive: false
+        }
+      }
     ],
   },
 ]

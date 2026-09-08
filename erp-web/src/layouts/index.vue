@@ -8,7 +8,7 @@
 
 <script setup lang="ts">
 defineOptions({
-  name: 'Layout',
+  name: 'Layout'
 })
 import { ElWatermark } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, reactive, watch, type Component } from 'vue'
@@ -26,7 +26,7 @@ const LayoutComponents: Record<LayoutType, Component> = {
   vertical: LayoutVertical,
   classic: LayoutClassic,
   transverse: LayoutTransverse,
-  columns: LayoutColumns,
+  columns: LayoutColumns
 }
 
 const globalStore = useGlobalStore()
@@ -46,7 +46,7 @@ onBeforeUnmount(() => notificationStore.stop())
 
 const font = reactive({ color: 'rgba(0, 0, 0, .15)' })
 watch(isDark, () => (font.color = isDark.value ? 'rgba(255, 255, 255, .15)' : 'rgba(0, 0, 0, .15)'), {
-  immediate: true,
+  immediate: true
 })
 </script>
 

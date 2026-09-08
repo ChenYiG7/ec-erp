@@ -38,18 +38,7 @@
 </template>
 <script setup lang="ts">
 import { ref } from 'vue'
-import {
-  ElButton,
-  ElDialog,
-  ElForm,
-  ElFormItem,
-  ElInput,
-  ElInputNumber,
-  ElMessage,
-  ElOption,
-  ElSelect,
-  ElTreeSelect,
-} from 'element-plus'
+import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElOption, ElSelect, ElTreeSelect } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { categoryApi } from '@/api/apis/goods/category'
 import type { CategoryNode, ProductCategorySaveRequest } from '@/api/interface/goods/category'
@@ -68,7 +57,7 @@ const formData = ref<ProductCategorySaveRequest>({} as ProductCategorySaveReques
 const parentOptions = ref<CategoryNode[]>([])
 
 const rules: FormRules = {
-  name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }],
+  name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }]
 }
 
 const title = ref('分类')
@@ -83,12 +72,7 @@ const open = async (m: 'add' | 'edit', row?: CategoryNode) => {
     formData.value = { parentId: row?.id, name: '' }
   } else if (row) {
     // parentId=0(根)转 undefined 仅作展示,update 缺省该键 → MP updateById 不动它
-    formData.value = {
-      parentId: row.parentId === 0 ? undefined : row.parentId,
-      name: row.name,
-      sort: row.sort,
-      status: row.status,
-    }
+    formData.value = { parentId: row.parentId === 0 ? undefined : row.parentId, name: row.name, sort: row.sort, status: row.status }
   }
   parentOptions.value = (await categoryApi.tree()) ?? []
   visible.value = true

@@ -6,34 +6,17 @@
 
 <template>
   <div class="table-box">
-    <ProTable
-      ref="proTableRef"
-      page-id="/purchase/orders"
-      title="采购单"
-      :columns="columns"
-      :request-api="purchaseOrderApi.page"
-    >
+    <ProTable ref="proTableRef" page-id="/purchase/orders" title="采购单" :columns="columns" :request-api="purchaseOrderApi.page">
       <!-- 工具栏左:新增(按钮权限收口在页面侧 v-auth;toolbarLeft prop 的 auth 属性无效,禁用) -->
       <template #toolbarLeft>
-        <el-button v-auth="'purchase:order:add'" type="primary" :icon="CirclePlus" @click="openForm('add')"
-          >新增采购单</el-button
-        >
+        <el-button v-auth="'purchase:order:add'" type="primary" :icon="CirclePlus" @click="openForm('add')">新增采购单</el-button>
       </template>
 
       <!-- 操作列(ProTable v2:type:'operation' 列必须提供本插槽;按钮可见性按状态机裁剪,越权拦截在后端 @PreAuthorize) -->
       <template #operation="scope">
         <template v-if="scope.row.status === 'DRAFT'">
-          <el-button
-            v-auth="'purchase:order:edit'"
-            type="primary"
-            link
-            :icon="EditPen"
-            @click="openForm('edit', scope.row)"
-            >编辑</el-button
-          >
-          <el-button v-auth="'purchase:order:remove'" type="danger" link :icon="Delete" @click="handleDelete(scope.row)"
-            >删除</el-button
-          >
+          <el-button v-auth="'purchase:order:edit'" type="primary" link :icon="EditPen" @click="openForm('edit', scope.row)">编辑</el-button>
+          <el-button v-auth="'purchase:order:remove'" type="danger" link :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
           <el-button v-auth="'purchase:order:audit'" type="warning" link @click="onAudit(scope.row)">审核</el-button>
         </template>
         <el-button
@@ -42,8 +25,7 @@
           type="warning"
           link
           @click="onClose(scope.row)"
-          >关闭</el-button
-        >
+        >关闭</el-button>
       </template>
     </ProTable>
     <PurchaseOrderForm ref="formRef" @saved="refreshTable" />
@@ -72,23 +54,11 @@ const columns: ColumnProps<PurchaseOrderResponse>[] = [
   { prop: 'poNo', label: '采购单号', width: 180 },
   { prop: 'supplierId', label: '供应商ID', width: 100 },
   { prop: 'warehouseId', label: '仓库', width: 130, enum: fetchWarehouseOptions },
-  {
-    prop: 'status',
-    label: '状态',
-    width: 130,
-    tag: true,
-    enum: [
-      { label: '草稿', value: 'DRAFT', tagType: 'info' },
-      { label: '已审核', value: 'AUDITED', tagType: 'primary' },
-      { label: '部分入库', value: 'PARTIAL_RECEIVED', tagType: 'warning' },
-      { label: '已入库', value: 'RECEIVED', tagType: 'success' },
-      { label: '已关闭', value: 'CLOSED', tagType: 'danger' },
-    ],
-  },
+  { prop: 'status', label: '状态', width: 130, tag: true, enum: [{ label: '草稿', value: "DRAFT", tagType: 'info' }, { label: '已审核', value: "AUDITED", tagType: 'primary' }, { label: '部分入库', value: "PARTIAL_RECEIVED", tagType: 'warning' }, { label: '已入库', value: "RECEIVED", tagType: 'success' }, { label: '已关闭', value: "CLOSED", tagType: 'danger' }] },
   { prop: 'totalAmount', label: '总金额', width: 130 },
   { prop: 'createdBy', label: '创建人', width: 90 },
   { prop: 'createdAt', label: '创建时间', width: 170 },
-  { prop: 'operation', label: '操作', fixed: 'right', width: 220 },
+  { prop: 'operation', label: '操作', fixed: 'right', width: 220 }
 ]
 
 const openForm = (mode: 'add' | 'edit', row?: PurchaseOrderResponse) => {

@@ -94,14 +94,7 @@ const onSend = async (text: string) => {
     }
     const sessionId = activeSessionId.value!
     messages.value.push({ id: --localSeq, sessionId, role: 'USER', content: text, createdAt: '' })
-    const placeholder: ChatUIMessage = {
-      id: --localSeq,
-      sessionId,
-      role: 'AI',
-      content: '',
-      createdAt: '',
-      streaming: true,
-    }
+    const placeholder: ChatUIMessage = { id: --localSeq, sessionId, role: 'AI', content: '', createdAt: '', streaming: true }
     messages.value.push(placeholder)
     await aiChatApi.chatStream(sessionId, text, chunk => {
       placeholder.content += chunk

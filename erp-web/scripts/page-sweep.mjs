@@ -4,31 +4,12 @@ import { chromium } from '@playwright/test'
 
 const BASE = 'http://localhost:5173'
 const ROUTES = [
-  '/system/users',
-  '/system/roles',
-  '/system/menus',
-  '/system/dicts',
-  '/system/configs',
-  '/shop',
-  '/goods/product',
-  '/goods/shop-products',
-  '/goods/shop-product-skus',
-  '/goods/categories',
-  '/goods/brands',
-  '/order/list',
-  '/fulfill/delivery-orders',
-  '/aftersale/orders',
-  '/system/pull-logs',
-  '/purchase/suppliers',
-  '/purchase/orders',
-  '/purchase/inbounds',
-  '/inventory/inventories',
-  '/inventory/flows',
-  '/inventory/warehouses',
-  '/system/notifications',
-  '/ai/chat',
-  '/ai/suggestions',
-  '/ai/agent',
+  '/system/users', '/system/roles', '/system/menus', '/system/dicts', '/system/configs',
+  '/shop', '/goods/product', '/goods/shop-products', '/goods/shop-product-skus',
+  '/goods/categories', '/goods/brands', '/order/list', '/fulfill/delivery-orders',
+  '/aftersale/orders', '/system/pull-logs', '/purchase/suppliers', '/purchase/orders',
+  '/purchase/inbounds', '/inventory/inventories', '/inventory/flows', '/inventory/warehouses',
+  '/system/notifications', '/ai/chat', '/ai/suggestions', '/ai/agent',
 ]
 
 const browser = await chromium.launch({ channel: 'msedge' })
@@ -86,9 +67,7 @@ if (firstBlank) {
     const main = document.querySelector('.el-main')
     return { children: main ? main.children.length : -1, text: main ? main.innerText.trim().length : -1 }
   })
-  console.log(
-    `--- after F5 on last route: children=${d.children} text=${d.text} ${d.text < 5 ? 'STILL BLANK' : 'RECOVERED'}`
-  )
+  console.log(`--- after F5 on last route: children=${d.children} text=${d.text} ${d.text < 5 ? 'STILL BLANK' : 'RECOVERED'}`)
 }
 
 await browser.close()

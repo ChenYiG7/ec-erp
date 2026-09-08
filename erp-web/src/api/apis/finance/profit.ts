@@ -9,9 +9,7 @@ import type { OrderProfitQuery, OrderProfitRow, OrderProfitSummary } from '@/api
 export const profitApi = {
   /** 订单行利润分页(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: OrderProfitQuery & PageQuery) =>
-    http
-      .get<PageResult<OrderProfitRow>>('/api/finance/profit', params)
-      .then(page => ({ list: page.records, total: page.total })),
+    http.get<PageResult<OrderProfitRow>>('/api/finance/profit', params).then(page => ({ list: page.records, total: page.total })),
   /** 同条件汇总(缺口单独计数) */
   summary: (params: OrderProfitQuery) => http.get<OrderProfitSummary>('/api/finance/profit/summary', params),
 }

@@ -12,9 +12,7 @@
     >
       <!-- 工具栏左:新增(按钮权限收口在页面侧 v-auth;toolbarLeft prop 的 auth 属性无效,禁用) -->
       <template #toolbarLeft>
-        <el-button v-auth="'system:menu:add'" type="primary" :icon="CirclePlus" @click="openForm('add')"
-          >新增菜单</el-button
-        >
+        <el-button v-auth="'system:menu:add'" type="primary" :icon="CirclePlus" @click="openForm('add')">新增菜单</el-button>
       </template>
 
       <!-- 菜单类型 / 显示状态 自定义渲染 -->
@@ -22,29 +20,16 @@
         <el-tag :type="menuTypeTag(scope.row.menuType)">{{ menuTypeLabel(scope.row.menuType) }}</el-tag>
       </template>
       <template #visible="scope">
-        <el-tag :type="scope.row.visible === 1 ? 'success' : 'info'">{{
-          scope.row.visible === 1 ? '显示' : '隐藏'
-        }}</el-tag>
+        <el-tag :type="scope.row.visible === 1 ? 'success' : 'info'">{{ scope.row.visible === 1 ? '显示' : '隐藏' }}</el-tag>
       </template>
 
       <!-- 操作列(ProTable v2:自定义插槽渲染) -->
       <template #operation="scope">
-        <el-button
-          v-if="scope.row.menuType !== 3"
-          v-auth="'system:menu:add'"
-          type="primary"
-          link
-          :icon="CirclePlus"
-          @click="openForm('add', undefined, scope.row.id)"
-        >
+        <el-button v-if="scope.row.menuType !== 3" v-auth="'system:menu:add'" type="primary" link :icon="CirclePlus" @click="openForm('add', undefined, scope.row.id)">
           新增下级
         </el-button>
-        <el-button v-auth="'system:menu:edit'" type="primary" link :icon="EditPen" @click="openForm('edit', scope.row)"
-          >编辑</el-button
-        >
-        <el-button v-auth="'system:menu:remove'" type="danger" link :icon="Delete" @click="handleDelete(scope.row)"
-          >删除</el-button
-        >
+        <el-button v-auth="'system:menu:edit'" type="primary" link :icon="EditPen" @click="openForm('edit', scope.row)">编辑</el-button>
+        <el-button v-auth="'system:menu:remove'" type="danger" link :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
       </template>
     </ProTable>
     <SysMenuForm ref="formRef" @saved="refreshTable" />
@@ -79,11 +64,11 @@ const columns: ColumnProps<SysMenuResponse>[] = [
   { prop: 'component', label: '组件路径', width: 200, showOverflowTooltip: true },
   { prop: 'sort', label: '排序', width: 70 },
   { prop: 'visible', label: '显示', width: 80 },
-  { prop: 'operation', label: '操作', fixed: 'right', width: 250 },
+  { prop: 'operation', label: '操作', fixed: 'right', width: 250 }
 ]
 
-const menuTypeLabel = (t: number) => (({ 1: '目录', 2: '菜单', 3: '按钮' }) as Record<number, string>)[t] ?? t
-const menuTypeTag = (t: number) => (({ 1: 'primary', 2: 'success', 3: 'warning' }) as Record<number, any>)[t] ?? 'info'
+const menuTypeLabel = (t: number) => ({ 1: '目录', 2: '菜单', 3: '按钮' } as Record<number, string>)[t] ?? t
+const menuTypeTag = (t: number) => ({ 1: 'primary', 2: 'success', 3: 'warning' } as Record<number, any>)[t] ?? 'info'
 
 /** open(mode[, row][, parentId]):新增下级传 parentId;edit 浅拷贝行数据 */
 const openForm = (mode: 'add' | 'edit', row?: SysMenuResponse, parentId?: number) => {
@@ -91,9 +76,7 @@ const openForm = (mode: 'add' | 'edit', row?: SysMenuResponse, parentId?: number
 }
 
 const handleDelete = async (row: SysMenuResponse) => {
-  await ElMessageBox.confirm(`确认删除菜单【${row.menuName}】吗?(若其存在下级或已被角色引用,后端将拒绝)`, '提示', {
-    type: 'warning',
-  })
+  await ElMessageBox.confirm(`确认删除菜单【${row.menuName}】吗?(若其存在下级或已被角色引用,后端将拒绝)`, '提示', { type: 'warning' })
   await sysMenuApi.remove(row.id)
   ElMessage.success('删除成功')
   refreshTable()

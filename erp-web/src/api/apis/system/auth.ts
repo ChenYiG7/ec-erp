@@ -14,5 +14,5 @@ export interface ReqLoginForm {
 export const AuthApi = {
   login: (params: ReqLoginForm) => http.post<LoginResponse>('/api/auth/login', params),
   /** 当前登录用户信息 + 菜单树 + 按钮权限(动态路由权威数据源) */
-  me: () => http.get<LoginResponse>('/api/auth/me'),
+  me: () => http.get<LoginResponse>('/api/auth/me')
 }

@@ -11,10 +11,4 @@
 /** 会话页角色词表(role 不落会话——会话不绑角色,同一会话可跨角色续聊) */
 export type AgentRole = 'SUPPORT' | 'OPS'
 
-export type {
-  AiChatSessionQuery,
-  AiChatSessionResponse,
-  AiChatMessageResponse,
-  ChatSendCommand,
-  ChatUIMessage,
-} from '@/api/interface/ai/chat'
+export type { AiChatSessionQuery, AiChatSessionResponse, AiChatMessageResponse, ChatSendCommand, ChatUIMessage } from '@/api/interface/ai/chat'

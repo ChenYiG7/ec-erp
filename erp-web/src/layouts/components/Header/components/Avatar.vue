@@ -48,7 +48,7 @@ const logout = () => {
   ElMessageBox.confirm('您是否确认退出登录?', '温馨提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
-    type: 'warning',
+    type: 'warning'
   }).then(() => {
     // 1.清除 Token 与本地缓存(权限菜单留给下次登录 getAuthInfo 覆盖/字典/标签页)
     userStore.clearUserInfo()

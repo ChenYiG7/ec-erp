@@ -7,7 +7,7 @@ const config = {
   baseURL: import.meta.env.VITE_API_URL,
   timeout: ResultEnum.TIMEOUT as number,
   // JWT 走 Authorization 头,无需携带 cookie 凭证
-  withCredentials: false,
+  withCredentials: false
 }
 
 export default new RequestHttp(config)

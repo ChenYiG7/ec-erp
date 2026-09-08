@@ -6,13 +6,7 @@
 
 <template>
   <div class="table-box">
-    <ProTable
-      ref="proTableRef"
-      page-id="/ai/suggestions"
-      title="AI建议"
-      :columns="columns"
-      :request-api="aiSuggestionApi.page"
-    >
+    <ProTable ref="proTableRef" page-id="/ai/suggestions" title="AI建议" :columns="columns" :request-api="aiSuggestionApi.page">
       <!-- 操作列(ProTable v2:type:'operation' 列必须提供本插槽) -->
       <template #operation="scope">
         <el-button type="primary" link :icon="View" @click="openDetail(scope.row)">详情</el-button>
@@ -28,16 +22,9 @@
         <el-descriptions-item label="风险等级">{{ detailRow.riskLevel }}</el-descriptions-item>
         <el-descriptions-item label="状态">{{ detailRow.status }}</el-descriptions-item>
         <el-descriptions-item label="摘要">{{ detailRow.summary }}</el-descriptions-item>
-        <el-descriptions-item label="店铺ID / 内部SKU"
-          >{{ detailRow.shopId ?? '-' }} / {{ detailRow.skuId ?? '-' }}</el-descriptions-item
-        >
-        <el-descriptions-item label="关联业务"
-          >{{ detailRow.refType ?? '-'
-          }}{{ detailRow.refId != null ? ` #${detailRow.refId}` : '' }}</el-descriptions-item
-        >
-        <el-descriptions-item label="确认人 / 确认时间"
-          >{{ detailRow.confirmedBy ?? '-' }} / {{ detailRow.confirmedAt ?? '-' }}</el-descriptions-item
-        >
+        <el-descriptions-item label="店铺ID / 内部SKU">{{ detailRow.shopId ?? '-' }} / {{ detailRow.skuId ?? '-' }}</el-descriptions-item>
+        <el-descriptions-item label="关联业务">{{ detailRow.refType ?? '-' }}{{ detailRow.refId != null ? ` #${detailRow.refId}` : '' }}</el-descriptions-item>
+        <el-descriptions-item label="确认人 / 确认时间">{{ detailRow.confirmedBy ?? '-' }} / {{ detailRow.confirmedAt ?? '-' }}</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ detailRow.createdAt }}</el-descriptions-item>
       </el-descriptions>
       <div v-if="detailRow?.payloadJson" class="payload-block">
@@ -64,46 +51,15 @@ const proTableRef = ref<InstanceType<typeof ProTable>>()
 // 列配置(gen:page 按 spec role=column/all 产出;enum/dict 选项同时供搜索下拉)
 const columns: ColumnProps<AiSuggestionResponse>[] = [
   { type: 'index', label: '#', width: 55 },
-  {
-    prop: 'suggestionType',
-    label: '建议类型',
-    width: 110,
-    enum: [
-      { label: '补货', value: 'REPLENISH', tagType: 'primary' },
-      { label: '定价', value: 'PRICING', tagType: 'warning' },
-      { label: '异常', value: 'ANOMALY', tagType: 'danger' },
-      { label: '文案', value: 'COPYWRITING', tagType: 'info' },
-      { label: '采购', value: 'PURCHASE', tagType: 'success' },
-    ],
-  },
-  {
-    prop: 'status',
-    label: '状态',
-    width: 90,
-    tag: true,
-    enum: [
-      { label: '待确认', value: 0, tagType: 'warning' },
-      { label: '已采纳', value: 1, tagType: 'success' },
-      { label: '已忽略', value: 2, tagType: 'info' },
-    ],
-  },
+  { prop: 'suggestionType', label: '建议类型', width: 110, enum: [{ label: '补货', value: "REPLENISH", tagType: 'primary' }, { label: '定价', value: "PRICING", tagType: 'warning' }, { label: '异常', value: "ANOMALY", tagType: 'danger' }, { label: '文案', value: "COPYWRITING", tagType: 'info' }, { label: '采购', value: "PURCHASE", tagType: 'success' }] },
+  { prop: 'status', label: '状态', width: 90, tag: true, enum: [{ label: '待确认', value: 0, tagType: 'warning' }, { label: '已采纳', value: 1, tagType: 'success' }, { label: '已忽略', value: 2, tagType: 'info' }] },
   { prop: 'shopId', label: '店铺ID', width: 90 },
   { prop: 'skuId', label: '内部SKU', width: 90 },
   { prop: 'summary', label: '建议摘要' },
-  {
-    prop: 'riskLevel',
-    label: '风险等级',
-    width: 90,
-    tag: true,
-    enum: [
-      { label: '低', value: 'LOW', tagType: 'success' },
-      { label: '中', value: 'MID', tagType: 'warning' },
-      { label: '高', value: 'HIGH', tagType: 'danger' },
-    ],
-  },
+  { prop: 'riskLevel', label: '风险等级', width: 90, tag: true, enum: [{ label: '低', value: "LOW", tagType: 'success' }, { label: '中', value: "MID", tagType: 'warning' }, { label: '高', value: "HIGH", tagType: 'danger' }] },
   { prop: 'confirmedAt', label: '确认时间', width: 170 },
   { prop: 'createdAt', label: '创建时间', width: 170 },
-  { prop: 'operation', label: '操作', fixed: 'right', width: 180 },
+  { prop: 'operation', label: '操作', fixed: 'right', width: 180 }
 ]
 
 // TODO(#6) 动作 ignore:忽略(0→2 cas 守卫)确认弹窗后调用并刷新,仅 status=0 可见,不带 v-auth
@@ -114,9 +70,7 @@ const columns: ColumnProps<AiSuggestionResponse>[] = [
 
 // 采纳(0→1 cas 守卫,脱靶/已处理报错由拦截器统一提示;仅落确认状态,业务动作人工走对应业务接口)
 const onAdopt = async (row: AiSuggestionResponse) => {
-  await ElMessageBox.confirm('确认采纳该建议吗?仅确认采纳,业务动作仍需到对应业务模块人工执行。', '采纳建议', {
-    type: 'warning',
-  })
+  await ElMessageBox.confirm('确认采纳该建议吗?仅确认采纳,业务动作仍需到对应业务模块人工执行。', '采纳建议', { type: 'warning' })
   await aiSuggestionApi.adopt(row.id)
   ElMessage.success('已采纳')
   refreshTable()

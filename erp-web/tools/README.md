@@ -4,10 +4,10 @@
 
 ## 两个命令
 
-| 命令                                                      | 作用                                                                                        |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `pnpm api:sync`                                           | 抓后端 springdoc `/v3/api-docs` → `tools/openapi.json` 快照(前端契约唯一查询源,入库可 diff) |
-| `pnpm gen:page --spec tools/specs/<domain>.txt [--force]` | 按行式 spec + 快照生成页面四件 + 菜单 SQL                                                   |
+| 命令 | 作用 |
+|---|---|
+| `pnpm api:sync` | 抓后端 springdoc `/v3/api-docs` → `tools/openapi.json` 快照(前端契约唯一查询源,入库可 diff) |
+| `pnpm gen:page --spec tools/specs/<domain>.txt [--force]` | 按行式 spec + 快照生成页面四件 + 菜单 SQL |
 
 ```bash
 # 标准顺序(新页面)
@@ -30,13 +30,13 @@ pnpm type:check && pnpm lint                          # 5. 门禁
 
 ## 生成物四件 + 菜单 SQL
 
-| 产物                                        | 说明                                                                                                                   |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `src/api/interface/<module>/<domain>.ts`    | Response / SaveRequest / Query 类型,字段注释取 openapi description;嵌套 `$ref` 展开为具名 interface;**禁手抄后端字段** |
-| `src/api/apis/<module>/<domain>.ts`         | `<entity>Api`:page/detail/create/update/remove/动作;**分页差异(pageNo/records ↔ pageNum/list)只在 page 内收口**        |
-| `src/views/<module>/<domain>/index.vue`     | ProTable 页面:列/搜索/操作列 v-auth/动作 TODO 槽;`defineOptions` name = 路由 name(KeepAlive 前提)                      |
-| `src/views/.../components/<Entity>Form.vue` | 新增/编辑共用弹窗:required rules / enum select / dict / money 注释;成功 emit `saved`                                   |
-| 菜单 SQL(stdout)                            | `INSERT IGNORE INTO sys_menu`;spec 声明 `menuId=` 则可直接执行,否则模板等人工分配 id;核对后回写 01_schema_init.sql     |
+| 产物 | 说明 |
+|---|---|
+| `src/api/interface/<module>/<domain>.ts` | Response / SaveRequest / Query 类型,字段注释取 openapi description;嵌套 `$ref` 展开为具名 interface;**禁手抄后端字段** |
+| `src/api/apis/<module>/<domain>.ts` | `<entity>Api`:page/detail/create/update/remove/动作;**分页差异(pageNo/records ↔ pageNum/list)只在 page 内收口** |
+| `src/views/<module>/<domain>/index.vue` | ProTable 页面:列/搜索/操作列 v-auth/动作 TODO 槽;`defineOptions` name = 路由 name(KeepAlive 前提) |
+| `src/views/.../components/<Entity>Form.vue` | 新增/编辑共用弹窗:required rules / enum select / dict / money 注释;成功 emit `saved` |
+| 菜单 SQL(stdout) | `INSERT IGNORE INTO sys_menu`;spec 声明 `menuId=` 则可直接执行,否则模板等人工分配 id;核对后回写 01_schema_init.sql |
 
 **chat 模式(pageType=chat)产三件**(会话页模板,#6;母本 views/ai/agent):interface(typesFrom 复用再导出 + 角色词表)/
 apis 五函数(pageSessions/createSession/listMessages/chatSync/chatStream,SSE 收口 `utils/sse` postSse)/ 会话页

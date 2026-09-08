@@ -25,7 +25,7 @@ const auth: Directive = {
         el.remove()
       }
     }
-  },
+  }
 }
 
 export default auth

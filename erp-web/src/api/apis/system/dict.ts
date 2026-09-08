@@ -9,15 +9,13 @@ import type { SysDictResponse, SysDictSaveRequest, SysDictQuery } from '@/api/in
  * 分页差异只在 sysDictApi.page 内单点收口
  */
 export const DictApi = {
-  getDictByType: (dictType: string) => http.get<DictItem[]>(`/api/system/dicts/type/${dictType}`),
+  getDictByType: (dictType: string) => http.get<DictItem[]>(`/api/system/dicts/type/${dictType}`)
 }
 
 export const sysDictApi = {
   /** 分页查询(入参 pageNo/pageSize,返回 {list,total}) */
   page: (params: SysDictQuery & PageQuery) =>
-    http
-      .get<PageResult<SysDictResponse>>('/api/system/dicts', params)
-      .then(page => ({ list: page.records, total: page.total })),
+    http.get<PageResult<SysDictResponse>>('/api/system/dicts', params).then(page => ({ list: page.records, total: page.total })),
   /** 新增(后端返回主键) */
   create: (data: SysDictSaveRequest) => http.post<number>(`/api/system/dicts`, data),
   /** 修改 */

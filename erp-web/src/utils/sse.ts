@@ -11,9 +11,9 @@ export const postSse = async (url: string, body: unknown, onChunk: (text: string
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(body)
   })
   if (!res.ok || !res.body) {
     // 错误体仍是 Result JSON(HTTP 200+code≠200 形态在这里表现为非 2xx 流失败);401 由登录态自然过期兜底

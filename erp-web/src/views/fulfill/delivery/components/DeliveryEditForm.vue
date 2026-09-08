@@ -7,9 +7,7 @@
     <el-form label-width="90px">
       <el-form-item label="发货单号">
         <span>{{ detail?.deliveryNo }}</span>
-        <span class="delivery-edit-form__meta"
-          >订单ID {{ detail?.orderId ?? '-' }} · 出库仓 {{ warehouseLabel }} · 仅待发货可编辑</span
-        >
+        <span class="delivery-edit-form__meta">订单ID {{ detail?.orderId ?? '-' }} · 出库仓 {{ warehouseLabel }} · 仅待发货可编辑</span>
       </el-form-item>
       <el-form-item label="发货明细">
         <el-table v-if="detail?.items?.length" :data="detail.items" size="small" border max-height="220">
@@ -25,12 +23,7 @@
         <el-input v-model="logisticsCompany" maxlength="64" placeholder="选填" class="delivery-edit-form__input" />
       </el-form-item>
       <el-form-item label="运单号">
-        <el-input
-          v-model="trackingNo"
-          maxlength="64"
-          placeholder="选填,发货前后均可补录"
-          class="delivery-edit-form__input"
-        />
+        <el-input v-model="trackingNo" maxlength="64" placeholder="选填,发货前后均可补录" class="delivery-edit-form__input" />
       </el-form-item>
     </el-form>
     <template #footer>
@@ -59,8 +52,7 @@ const trackingNo = ref('')
 const warehouseOptions = ref<Awaited<ReturnType<typeof fetchWarehouseOptions>>>([])
 
 const warehouseLabel = computed(
-  () =>
-    warehouseOptions.value.find(w => w.value === detail.value?.warehouseId)?.label ?? detail.value?.warehouseId ?? '-'
+  () => warehouseOptions.value.find(w => w.value === detail.value?.warehouseId)?.label ?? detail.value?.warehouseId ?? '-'
 )
 
 // 列表行仅缺 items,打开时拉详情补齐(提交须全量 SaveRequest,明细整体替换);业务报错弹窗由拦截器统一处理
@@ -98,7 +90,7 @@ const submit = async () => {
       logisticsCompany: logisticsCompany.value.trim() || undefined,
       trackingNo: trackingNo.value.trim() || undefined,
       waybillUrl: d.waybillUrl || undefined,
-      items: (d.items ?? []).map(i => ({ orderItemId: i.orderItemId, shipQty: i.shipQty })),
+      items: (d.items ?? []).map(i => ({ orderItemId: i.orderItemId, shipQty: i.shipQty }))
     })
     ElMessage.success('已保存')
     visible.value = false

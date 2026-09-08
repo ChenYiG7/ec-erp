@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 defineOptions({
-  name: 'Message',
+  name: 'Message'
 })
 import { ElBadge, ElButton, ElMessage, ElPopover, ElScrollbar } from 'element-plus'
 import { computed, ref } from 'vue'
