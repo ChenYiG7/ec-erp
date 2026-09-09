@@ -102,6 +102,7 @@ const columns: ColumnProps<AiSuggestionResponse>[] = [
       { label: '异常', value: 'ANOMALY', tagType: 'danger' },
       { label: '文案', value: 'COPYWRITING', tagType: 'info' },
       { label: '采购', value: 'PURCHASE', tagType: 'success' },
+      { label: '选品', value: 'SELECTION', tagType: 'primary' },
     ],
   },
   {

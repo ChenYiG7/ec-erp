@@ -92,6 +92,16 @@ erp:
       enabled: true
       # interval-ms: 86400000        # 每日一扫(fixedDelay,上一轮结束再计时)
       # quiet-hours: 24              # 静默期(小时):同类型告警全局去重窗口(同 #6 口径)
+  report:
+    # 经营简报定时推送(#23 智能报表 V1,四期 BI):erp-api ReportDigestJob 按 cron 生成日/周/月报
+    # 走 #14 出口扇出(pushAllUsers → 站内通知 + 邮箱 + Webhook 三渠道,后两者各自开关且默认关);
+    # enabled 默认 false:经营节奏功能,部署方显式开启避免首次部署通知噪声(保护性默认同 Webhook 拍板);
+    # 调度停机错过的 cron 不补发(简报漏发无损失);预览端点 GET /api/report/digest/preview 不受开关影响
+    digest:
+      enabled: false
+      # daily-cron: "0 0 8 * * ?"        # 每日 08:00 昨日日报(销量日表 01:00 聚合后数据已就位)
+      # weekly-cron: "0 30 8 ? * MON"    # 每周一 08:30 上周周报
+      # monthly-cron: "0 0 9 1 * ?"      # 每月 1 日 09:00 上月月报
   ai:
     # AI 工作流参数默认值收口 ErpAiProperties(yml 可覆盖):replenish 补货 / anomaly 订单异常检测(#6);
     # 定时接线(2026-09-07 拍板):每日低峰 cron 触发(与补货错峰)+ enabled 开关,
@@ -127,6 +137,15 @@ erp:
       scan-page-size: 100            # 单页扫描量
       # scan-max-rows: 200           # 单轮扫描商品数上限(文案逐商品产长文本,默认比补货收紧)
       # llm-max-items: 10            # 单轮送 LLM 生成上限(超限按 productId 升序截断,下轮再生成)
+    selection:
+      # 智能选品(#17 落位表「智能选品」三期提前,2026-09-08):启用商品 SKU 三维加权评分
+      # (销量规模/动销趋势/毛利率,权重 sys_config 三键归一化,评分纯程序确定性可复算),
+      # LLM 只写推荐理由(可降级模板);V1 仅手动触发(POST /api/ai/selection/run),不接定时;
+      # 去重 = 同 SKU 存在待确认 SELECTION 建议即跳过;评分窗 30d/趋势半窗 7d 属实现细节不入配置
+      scan-page-size: 100            # 单页扫描量(真键保留防 Boot 4 空 mapping 启动炸,同 kb 段口径)
+      # scan-max-rows: 500           # 单轮扫描行数上限(库存行与商品页共用护栏)
+      # persist-max-items: 20        # 单轮落库建议条数上限(综合分降序入选,未入选行丢弃防噪音)
+      # llm-max-items: 20            # 单轮送 LLM 写理由上限(超限按综合分降序截断走模板)
     kb:
       # 知识库 RAG(#6 AI 客服 V1,2026-09-08):文档切块向量化入 SimpleVectorStore(JSON 文件持久化),
       # 检索 top-k/相似度下限入 sys_config(#18 热更);向量不入库,ai_kb_chunk 文本为重建正本。

@@ -140,6 +140,10 @@ export class RequestHttp {
         const { data, config } = response
         axiosCanceler.removePending(config)
         config.loading && tryHideFullScreenLoading()
+        // blob 响应(导出下载)原样透传,不走 Result 解包(#20 报表导出)
+        if (config.responseType === 'blob' || data instanceof Blob) {
+          return data as unknown as typeof data.data
+        }
         // 全局错误信息拦截（防止下载文件的时候返回数据流，没有 code 直接报错）
         if (data.code && data.code !== ResultEnum.SUCCESS) {
           ElMessage.error(data.msg || data.message || '请求失败')

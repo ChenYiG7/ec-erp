@@ -110,6 +110,19 @@ public class SysUserService {
                 .toList();
     }
 
+    /** 启用用户邮箱列表(#14 邮件渠道收件人扇出):去空白去重;邮箱未填的用户自然不出现在收件人里 */
+    public List<String> listEnabledUserEmails() {
+        return userMapper.selectList(new LambdaQueryWrapper<SysUser>()
+                        .eq(SysUser::getStatus, STATUS_ENABLED)
+                        .isNotNull(SysUser::getEmail))
+                .stream()
+                .map(SysUser::getEmail)
+                .map(StrUtil::trimToNull)
+                .filter(StrUtil::isNotBlank)
+                .distinct()
+                .toList();
+    }
+
     private void checkUsernameUnique(String username, Long excludeId) {
         Long count = userMapper.selectCount(new LambdaQueryWrapper<SysUser>()
                 .eq(SysUser::getUsername, username)

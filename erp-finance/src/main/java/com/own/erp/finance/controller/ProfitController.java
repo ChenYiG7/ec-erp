@@ -4,7 +4,9 @@ import com.own.erp.common.api.Result;
 import com.own.erp.contract.OrderProfitQuery;
 import com.own.erp.contract.OrderProfitRow;
 import com.own.erp.contract.OrderProfitSummary;
+import com.own.erp.contract.ProfitDailyTrendRow;
 import com.own.erp.contract.ProfitQueryApi;
+import com.own.erp.contract.ProfitSkuRankRow;
 import com.own.erp.contract.QueryPage;
 import com.own.erp.finance.request.query.OrderProfitPageQuery;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,7 +16,10 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * @author : chenyi
@@ -43,6 +48,21 @@ public class ProfitController {
     @GetMapping("/summary")
     public Result<OrderProfitSummary> summarize(OrderProfitPageQuery query) {
         return Result.ok(profitQueryApi.summarize(toContract(query)));
+    }
+
+    @Operation(summary = "利润日趋势", description = "按下单日聚合,口径与汇总同源;日期升序(#21 利润看板)")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/trend")
+    public Result<List<ProfitDailyTrendRow>> trend(OrderProfitPageQuery query) {
+        return Result.ok(profitQueryApi.listDailyTrend(toContract(query)));
+    }
+
+    @Operation(summary = "SKU利润排行", description = "按内部SKU聚合(仅已绑定行),利润降序;topN 默认 10 钳制 1..100")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/sku-rank")
+    public Result<List<ProfitSkuRankRow>> skuRank(OrderProfitPageQuery query,
+                                                  @RequestParam(defaultValue = "10") int topN) {
+        return Result.ok(profitQueryApi.listSkuProfitRank(toContract(query), topN));
     }
 
     /** 域内 GET 入参 → 契约查询模型(pageNo/pageSize 语义一致,钳制随契约) */

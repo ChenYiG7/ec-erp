@@ -83,7 +83,7 @@ INSERT IGNORE INTO sys_user_role (user_id, role_id) VALUES (1, 1);
 -- 菜单种子(#16 前端工程收敛:页面 component 权威源 = erp-web/tools/specs/*;按钮 id 段 200+ 与 menuId*100+n(1100+,gen:page 生成段),按父菜单分组;
 -- icon 仅限 @element-plus/icons-vue 导出图标名(如 User/Menu/Tools,kebab 亦可解析),自造名如 peoples/tree/tool 前端不渲染)
 INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path, component, icon, sort) VALUES
-(1, 0, '系统管理', 1, NULL, '/system', NULL, 'setting', 8),
+(1, 0, '系统管理', 1, NULL, '/system', NULL, 'setting', 9),
 (2, 1, '用户管理', 2, 'system:user:list', '/system/users', 'system/user/index', 'user', 1),
 (3, 1, '角色管理', 2, 'system:role:list', '/system/roles', 'system/role/index', 'Avatar', 2),
 (4, 1, '菜单管理', 2, 'system:menu:list', '/system/menus', 'system/menu/index', 'Menu', 3),
@@ -115,7 +115,7 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path
 (21, 8, '拉单日志', 2, 'shop:pulllog:list', '/system/pull-logs', 'shop/pull-log/index', 'document', 4),
 -- 通知中心(#14 完整列表面 2026-09-06:铃铛下拉之外的全量分页 + 已读过滤;页面动作仅本人已读状态无 permKey;
 --   2026-09-07 菜单整理:系统管理 -> 顶级 sort=6,path 保持 /system/notifications 不变——页面 page-id 与之绑定,改 path 会使列配置失联)
-(22, 0, '通知中心', 2, 'system:notification:list', '/system/notifications', 'system/notification/index', 'bell', 7),
+(22, 0, '通知中心', 2, 'system:notification:list', '/system/notifications', 'system/notification/index', 'bell', 8),
 -- 商品分类(#5 前端树形页 2026-09-06:手写页,gen:page 不适用——树形域无分页端点;编辑态禁改父级,后端成环校验 TODO#7 待补)
 (23, 6, '分类管理', 2, 'goods:category:list', '/goods/categories', 'goods/category/index', 'Collection', 5),
 -- 品牌管理(#5 gen:page 生成 2026-09-06,spec=goods-brand.txt;契约无业务过滤字段,页无搜索表单)
@@ -136,6 +136,17 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path
 (31, 0, '财务中心', 1, NULL, '/finance', NULL, 'wallet', 6),
 (32, 31, '实时销售利润', 2, 'finance:profit:list', '/finance/profit', 'finance/profit/index', 'Coin', 1),
 (33, 31, '汇率快照', 2, 'finance:rate:list', '/finance/exchange-rates', 'finance/exchange-rate/index', 'Money', 2),
+-- 利润看板(#21 利润面产品化 2026-09-08:汇总卡+SVG日趋势(零图表依赖)+SKU利润排行,手写页;
+--   复用 #19③ 契约三端点 /summary /trend /sku-rank,读侧登录即可;菜单 34 同 32 口径)
+(34, 31, '利润看板', 2, 'finance:profit:list', '/finance/profit-dashboard', 'finance/profit-dashboard/index', 'DataLine', 3),
+-- 报表中心(#20 报表域 V1 2026-09-08:销售日报/周报/SKU明细 + 库存快照四 tab + Excel 导出,手写页;
+--   数据面=销量日表/库存日快照,零 DDL 纯读侧;顶级插财务中心(6)后 sort=7,通知中心(22)8/系统管理(1)9 顺延
+--   ——存量库走 scripts/report_menu.py 补 UPDATE)
+(35, 0, '报表中心', 1, NULL, '/report', NULL, 'DataAnalysis', 7),
+(36, 35, '销售与库存报表', 2, 'report:center:list', '/report/center', 'report/center/index', 'TrendCharts', 1),
+-- 商品分析(#22 四期 BI 首个功能 2026-09-09:SKU 级销量/库存双序列日趋势下钻+窗口汇总,手写页;
+--   数据面=销量日表/库存日快照照 #20 母本,零 DDL 纯读侧;SVG 零图表依赖同 #21 拍板)
+(37, 35, '商品分析', 2, 'report:goods:list', '/report/goods-analysis', 'report/goods-analysis/index', 'Histogram', 2),
 -- 系统设置(TODO#18 前端页 2026-09-07:sys_config 分组面板,手写页(gen:page 不适用——非 CRUD 列表页,
 --   只读拉全量+保存动作,后端 admin 双闸);按钮组仅“保存参数”一个动作,幂等 upsert;2026-09-08 sort 5→8 顺延)
 (29, 1, '系统设置', 2, 'system:config:list', '/system/configs', 'system/config/index', 'Tools', 5);
@@ -335,6 +346,11 @@ INSERT IGNORE INTO sys_config (config_group, config_key, config_value, remark) V
 ('AI', 'erp.ai.purchase.summary-prompt', '你是电商 ERP 的采购分析助手。根据给定的按供应商聚合的补货缺口与预估金额,为每个供应商写一句不超过 50 字的中文采购建议摘要(说明采购理由与紧急程度)。只输出 JSON 数组,元素形如 {"supplierId":1,"summary":"..."},不输出任何其他文字。', '采购摘要节点 system 提示词'),
 ('AI', 'erp.ai.copy.llm-max-items', '10', '文案生成:单轮送 LLM 生成的商品上限(超限按商品ID升序截断下轮再生成,成本护栏)'),
 ('AI', 'erp.ai.copy.prompt', '你是电商平台的 listing 文案专家。根据给定的商品信息(名称/品牌/类目/销售属性/SKU 规格)为每个商品生成一套中文电商文案:标题 title(含品牌与核心卖点,60 字以内)、五点描述 bulletPoints(5 条,每条不超过 40 字,突出卖点与规格)、商品描述 description(150~300 字)、搜索关键词 keywords(5~10 个)。只能基于给定信息撰写,禁止编造商品没有的参数。只输出 JSON 数组,元素形如 {"productId":1,"title":"...","bulletPoints":["..."],"description":"...","keywords":["..."]},不输出任何其他文字。', '文案生成节点 system 提示词'),
+('AI', 'erp.ai.selection.sales-weight', '0.4', '选品:销量规模维度权重(三维按和归一化;销量规模=近30天销量/候选集最大销量)'),
+('AI', 'erp.ai.selection.trend-weight', '0.3', '选品:动销趋势维度权重(三维按和归一化;趋势=近7天日均 vs 前7天日均)'),
+('AI', 'erp.ai.selection.margin-weight', '0.3', '选品:毛利率维度权重(三维按和归一化;毛利=30天窗口利润/销售额,30%记满分,缺失记中性)'),
+('AI', 'erp.ai.selection.llm-max-items', '20', '选品:单轮送 LLM 写推荐理由的入选行上限(超限按综合分降序截断走模板,成本护栏)'),
+('AI', 'erp.ai.selection.prompt', '你是电商 ERP 的选品分析助手。根据给定的 SKU 评分明细(综合评分/销量趋势/毛利率/库存),为每个入选 SKU 写一句不超过 50 字的中文推荐理由(说明为什么值得重点关注)。只输出 JSON 数组,元素形如 {"skuId":1,"summary":"..."},不输出任何其他文字。', '选品摘要节点 system 提示词'),
 ('AI', 'erp.ai.kb.retrieval-top-k', '4', '知识库RAG:检索命中条数上限(注入 chat 上下文的片段数;0=关闭注入)'),
 ('AI', 'erp.ai.kb.retrieval-min-score', '0.5', '知识库RAG:检索相似度下限(0~1,低于此分不注入)'),
 ('ALERT', 'erp.alert.enabled', 'true', '库存预警总开关(false 时预警任务直接返回不扫描)'),
@@ -347,7 +363,14 @@ INSERT IGNORE INTO sys_config (config_group, config_key, config_value, remark) V
 ('ALERT', 'erp.alert.slow-moving-days', '30', '预警:滞销判定窗口(天,窗口内零销量且有库存判滞销)'),
 ('ALERT', 'erp.alert.overstock-days', '90', '预警:积压阈值(天,可用库存/日均销量 ≥ 此值判积压)'),
 ('SALES', 'erp.sales.enabled', 'true', '销量日统计总开关(false 时任务直接返回不重算)'),
-('SALES', 'erp.sales.rebuild-days', '30', '销量:回溯重算天数(每日 upsert 近 N 天,含今日,覆盖状态回传/取消修正)');
+('SALES', 'erp.sales.rebuild-days', '30', '销量:回溯重算天数(每日 upsert 近 N 天,含今日,覆盖状态回传/取消修正)'),
+('NOTIFY', 'erp.mail.enabled', 'false', '邮件通知总开关(#14 邮箱推送渠道;false 时邮件外推直接跳过,外呼保护性默认关)'),
+('NOTIFY', 'erp.mail.host', '', '邮件:SMTP 主机(如 smtp.exmail.qq.com;留空=渠道未就绪不外推)'),
+('NOTIFY', 'erp.mail.port', '465', '邮件:SMTP 端口(留空按 SSL 开关取默认:SSL=465/非加密=25)'),
+('NOTIFY', 'erp.mail.username', '', '邮件:SMTP 账号(通常即发件邮箱)'),
+('NOTIFY', 'erp.mail.password', '', '邮件:SMTP 授权码(SECRET 类型:读侧回显固定 ******,真值不出后端;docs/07 §7 范围例外)'),
+('NOTIFY', 'erp.mail.from', '', '邮件:发件人 From 头(留空回落 SMTP 账号)'),
+('NOTIFY', 'erp.mail.ssl', 'true', '邮件:SSL 加密(465 端口典型 true;587 STARTTLS 场景 false)');
 -- ⚠️ 已建库(sys_config 已建表)手工补齐 = 直接执行上面 INSERT IGNORE 段(uk_config_key 冲突即跳过,幂等;
 --   已人工改过值的键不会被种子覆盖);模型连接三键种子为 NULL 属预期,值回落部署环境变量
 

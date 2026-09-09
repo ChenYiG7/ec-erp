@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.own.erp.report.mapper.ReportQueryMapper">
+
+    <!-- 报表只读聚合(#20 报表域 V1):数据源=销量日表/库存日快照(系统已就位的两个数据面),
+         join 商品/仓库名称翻译不滤已删(#7 拍板——历史销量/历史快照要能显示已删主数据的名字);
+         已支付态三态/未绑定 SKU 不统计是销量面写入口径,读侧照实聚合不重复过滤 -->
+
+    <select id="selectSalesDaily" resultType="com.own.erp.report.report.SalesDailyRow">
+        SELECT stat_date          AS statDate,
+               SUM(qty_sold)      AS totalQty,
+               COUNT(DISTINCT sku_id) AS skuCount
+        FROM order_sales_daily
+        WHERE stat_date &gt;= #{dateFrom}
+          AND stat_date &lt;= #{dateTo}
+        GROUP BY stat_date
+        ORDER BY stat_date
+    </select>
+
+    <!-- 周起点 = 本行周一(DATE_SUB + WEEKDAY,WEEKDAY 周一=0);GROUP BY 表达式兼容 ONLY_FULL_GROUP_BY -->
+    <select id="selectSalesWeekly" resultType="com.own.erp.report.report.SalesWeeklyRow">
+        SELECT DATE_SUB(stat_date, INTERVAL WEEKDAY(stat_date) DAY) AS weekStart,
+               SUM(qty_sold)            AS totalQty,
+               COUNT(DISTINCT sku_id)   AS skuCount
+        FROM order_sales_daily
+        WHERE stat_date &gt;= #{dateFrom}
+          AND stat_date &lt;= #{dateTo}
+        GROUP BY DATE_SUB(stat_date, INTERVAL WEEKDAY(stat_date) DAY)
+        ORDER BY weekStart
+    </select>
+
+    <select id="selectSalesSku" resultType="com.own.erp.report.report.SalesSkuRow">
+        SELECT d.sku_id      AS skuId,
+               ps.sku_code   AS skuCode,
+               p.name        AS productName,
+               SUM(d.qty_sold) AS totalQty
+        FROM order_sales_daily d
+                 LEFT JOIN product_sku ps ON d.sku_id = ps.id
+                 LEFT JOIN product p ON ps.product_id = p.id
+        WHERE d.stat_date &gt;= #{dateFrom}
+          AND d.stat_date &lt;= #{dateTo}
+        GROUP BY d.sku_id, ps.sku_code, p.name
+        ORDER BY totalQty DESC, d.sku_id
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectLatestSnapshotDate" resultType="java.time.LocalDate">
+        SELECT MAX(stat_date) FROM inventory_snapshot_daily
+    </select>
+
+    <select id="selectSnapshot" resultType="com.own.erp.report.report.InventorySnapshotRow">
+        SELECT s.stat_date      AS statDate,
+               s.sku_id         AS skuId,
+               ps.sku_code      AS skuCode,
+               p.name           AS productName,
+               s.warehouse_id   AS warehouseId,
+               w.wh_name        AS whName,
+               s.qty_on_hand    AS qtyOnHand,
+               s.qty_locked     AS qtyLocked,
+               s.qty_transit    AS qtyTransit,
+               s.qty_available  AS qtyAvailable
+        FROM inventory_snapshot_daily s
+                 LEFT JOIN product_sku ps ON s.sku_id = ps.id
+                 LEFT JOIN product p ON ps.product_id = p.id
+                 LEFT JOIN warehouse w ON s.warehouse_id = w.id
+        WHERE s.stat_date = #{date}
+        ORDER BY ps.sku_code, w.wh_name
+    </select>
+
+    <!-- 商品分析(#22 四期 BI):SKU 级下钻,数据面同两日表;日期轴不进 SQL(5.7 无递归 CTE,SQL 兼容红线),
+         两条简单 GROUP BY 各产半行,Service 逐日对齐;join 翻译不滤已删(#7) -->
+
+    <!-- 选项 = 销量 UNION ALL 快照 出现过的 SKU(UNION ALL 少一次去重,GROUP BY sku_id 反正要做);
+         同 SKU 两段翻译不一致时 MAX 兜底;排序键用别名 skuCode(兼容 ONLY_FULL_GROUP_BY) -->
+    <select id="selectSkuOptions" resultType="com.own.erp.report.report.SkuOptionRow">
+        SELECT t.sku_id            AS skuId,
+               MAX(t.sku_code)     AS skuCode,
+               MAX(t.product_name) AS productName
+        FROM (
+            SELECT d.sku_id, ps.sku_code, p.name AS product_name
+            FROM order_sales_daily d
+                     LEFT JOIN product_sku ps ON d.sku_id = ps.id
+                     LEFT JOIN product p ON ps.product_id = p.id
+            UNION ALL
+            SELECT s.sku_id, ps.sku_code, p.name AS product_name
+            FROM inventory_snapshot_daily s
+                     LEFT JOIN product_sku ps ON s.sku_id = ps.id
+                     LEFT JOIN product p ON ps.product_id = p.id
+        ) t
+        GROUP BY t.sku_id
+        ORDER BY skuCode
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectSkuOption" resultType="com.own.erp.report.report.SkuOptionRow">
+        SELECT ps.id       AS skuId,
+               ps.sku_code AS skuCode,
+               p.name      AS productName
+        FROM product_sku ps
+                 LEFT JOIN product p ON ps.product_id = p.id
+        WHERE ps.id = #{skuId}
+    </select>
+
+    <select id="selectSkuSalesTrend" resultType="com.own.erp.report.report.SkuTrendRow">
+        SELECT stat_date     AS statDate,
+               SUM(qty_sold) AS qtySold
+        FROM order_sales_daily
+        WHERE sku_id = #{skuId}
+          AND stat_date &gt;= #{dateFrom}
+          AND stat_date &lt;= #{dateTo}
+        GROUP BY stat_date
+        ORDER BY stat_date
+    </select>
+
+    <select id="selectSkuStockTrend" resultType="com.own.erp.report.report.SkuTrendRow">
+        SELECT stat_date        AS statDate,
+               SUM(qty_on_hand) AS qtyOnHand
+        FROM inventory_snapshot_daily
+        WHERE sku_id = #{skuId}
+          AND stat_date &gt;= #{dateFrom}
+          AND stat_date &lt;= #{dateTo}
+        GROUP BY stat_date
+        ORDER BY stat_date
+    </select>
+</mapper>

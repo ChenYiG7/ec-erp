@@ -22,6 +22,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+        <!-- 仅 @PreAuthorize 注解(报表读侧登录即可),过滤链仍收口 erp-api(禁引 Security starter),同 erp-finance 先例 -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-core</artifactId>
+        </dependency>
         <!-- 参数校验(@Valid),TODO#7 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -38,6 +43,12 @@
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-jsqlparser</artifactId>
+        </dependency>
+        <!-- Excel 导出(xlsx):POI 仅报表域使用,版本模块内自管(根 pom 不扩面) -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.4.0</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

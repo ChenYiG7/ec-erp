@@ -474,6 +474,34 @@
       单测 +17(Collect 4:扫描装配/去重跳过/材料失败隔离/SKU 截断 + Generate 8:无 key/调用失败/
       解析失败/围栏对齐/可选字段缺省/漏回跳过/截断不算降级/空短路 + Persist 2 + Workflow 3 +
       GoodsQueryApiImpl 扩容 3),全 reactor 20 模块 mvn test 绿(erp-ai 142);vue-tsc/oxlint 绿
+- [x] 智能选品评分工作流 ✅ 2026-09-08 落地(#17 落位表「智能选品」三期提前,同日用户拍板选定):
+      collect(候选域 = **启用商品 ∩ 有库存行**——inventory 行 change() 自动建行且不删,已动销 SKU 天然在列;
+      完全无信号行(30 天零动销 + 零可用)剔除,零动销有库存保留为滞销候选(NO_SALES 标记);
+      启用商品分页扫建 skuId→skuCode/SPU 名映射;数据面全走既有只读契约**零新契约零 DDL**:
+      InventoryQueryApi 跨仓合并 + SalesQueryApi 30d 合计/逐日序列 + ProfitQueryApi.listSkuProfitRank 30d 窗口;
+      逐源隔离:库存扫描失败本轮中止,商品扫描失败已扫部分生效,销量/利润批量失败降级缺数据标记继续评分;
+      去重 = 同 SKU 存在待确认 SELECTION 建议即跳过(refType=GOODS_SKU/refId=skuId,采纳/忽略后可再产出))→
+      条件边(零候选直达 END 零 LLM 成本)→ score(**纯程序三维加权评分,确定性可复算拍板**——
+      与异常检测"LLM 评风险"反向:评分可复算,LLM 只写推荐理由):销量规模 = 近30天销量/候选集最大 ×100
+      (候选集内相对归一)+ 动销趋势 = 近7天日均/前7天日均 ratio×50 钳 0..100(持平 50/翻倍 100/腰斩 25;
+      prior=0 新起量记 100/recent=0 停卖记 0)+ 毛利 = margin/30% ×100 钳 0..100(30% 记满分,
+      缺失记中性 50 打 MARGIN_MISSING 禁猜值);权重 = sys_config 三键(sales/trend/margin-weight
+      默认 0.4/0.3/0.3)按和归一化,Σ≤0 回落代码默认;综合分 1 位小数 HALF_UP;风险规则定级:
+      HIGH = 在卖毛利为负(LOSS_MAKING)/近期有动销但断货(STOCKOUT),MID = 缺毛利或零动销,LOW = 其余;
+      入选 = 综合分降序 top persist-max-items(yml 护栏默认 20,同分 skuId 升序稳定排序),未入选行丢弃
+      防建议表噪音 → summarize(LLM 单次调用按 skuId 对齐写推荐理由 ≤50 字,llm-max-items(sys_config
+      默认 20)超限按分数序截断走模板,三重降级落模板 degraded=true 照落库——评分是程序结果不受影响)→
+      persist(type=SELECTION/payloadJson = 评分明细全量(三维分/销量趋势/毛利/库存/风险标记/llmScored),
+      详情 JSON 直显可逐项核对,结构化渲染随前端评估)→ END。
+      触发 = POST /api/ai/selection/run(登录即可),V1 仅手动触发不接定时(选品是运营决策节奏,同文案拍板);
+      窗口常量(评分窗 30d/趋势半窗 7d)属实现细节不入配置(同文案 SKU_PROMPT_MAX 口径);
+      ⚠️ 边界:利润排行 topN 契约钳 100——SKU 数量级小 V1 够用,扩容随 ProfitQueryApi 契约;
+      配置 5 键入 sys_config AI 组(3 权重 + llm-max-items + prompt)+ 01_schema_init.sql 种子 +
+      scripts/selection_config_migration.py 幂等(开发库 5 键 ALL GREEN);前端设置页"智能选品"小节 tab +
+      建议类型 enum 加"选品";单测 +18(Score 7:默认权重手算/权重归一化与 Σ0 回落/趋势四分支/毛利缺口
+      中性与负毛利钳 0/风险全分支/健康 LOW/topN 同分稳定排序 + Collect 5 + Summarize 4 + Persist 2 +
+      Workflow 3),全 reactor 20 模块 mvn test BUILD SUCCESS(erp-ai 195);
+      fmt:check 292 文件/oxlint/vue-tsc/check_el_imports 全绿
 - [x] AI 客服 RAG V1 ✅ 2026-09-08 落地(#6 落位表「AI 客服」知识库半边,意图识别/多语言随四期):
       **向量库选型拍板(2026-09-08,结"三期开工拍板"悬案)** = Spring AI `SimpleVectorStore`
       (spring-ai-vector-store 构件,内存余弦 + JSON 文件持久化,零新基建零运维);VectorStore 接口编程,
@@ -909,7 +937,7 @@
       (key = pull:order|product:{shopId},命名空间 erp:lock:);两 Job 测试改 mock LockService,新增 LockServiceTest 6 用例;
       docs/07 §1 ③/§5 同步改版;锁只装互斥(防重入/single-flight),数据正确性仍走 DB 原子 UPDATE(§1 ①,库存侧随 #7 落地)
 
-## #14 通知渠道(2026-09-04 拍板:站内先行)
+## #14 通知渠道(2026-09-04 拍板:站内先行)✅ 2026-09-09 收口(站内+Webhook+邮箱三渠道齐,短信拍板不做)
 > 决策:站内通知先做;重要事项的邮件/短信/IM 推送(微信/飞书/钉钉/企业微信)为后续渠道,随前端工程与实际告警量再接。
 - [x] `sys_notification` 表(系统写入表:告警由任务扇出写入,对外只读 + 本人已读状态;
       已读状态列用 `read_status` 命名规避 is_ 前缀列,与 match_status/success 同风格)——
@@ -940,9 +968,37 @@
       与 erp.alert 内呼默认开反向);企微内容截 1000 字符防超 4096 字节;站内零用户也发布事件(告警为源,
       外推不随收件人数量增减);单测 +10(开关短路/三渠道报文/钉钉签名独立 Mac 交叉核对/飞书体签名自洽/
       企微截断/失败吞掉/非零码仅告警/AFTER_COMMIT 相位注解),erp-system 83 全绿;邮件/短信后续同款挂监听
-- [ ] 后续渠道:邮件/短信推送(在 pushAllUsers 出口扩展,同 Webhook 各挂一个监听,不提前抽象)——
+- [x] 后续渠道:邮件/短信推送(在 pushAllUsers 出口扩展,同 Webhook 各挂一个监听,不提前抽象)——
       **2026-09-08 用户拍板:通知渠道后续迭代与邮件/短信整体排期放最后**,不插队当前主线;
-      通知铃铛+已读 ✅ 随 #16 落地
+      通知铃铛+已读 ✅ 随 #16 落地;邮箱 ✅ 2026-09-08 落地(见下条);
+      **短信 ✅ 2026-09-09 终局拍板:不做,#14 渠道面就此收口**——监听器挂 pushAllUsers 出口的扩展模式
+      已由 Webhook/邮箱两例验证,后继如需新渠道照此跟随,不再单列条目
+- [x] ~~2026-09-08 二次拍板:渠道范围收窄为**只做邮箱推送**,短信做不做后续评估再定~~ →
+      **2026-09-09 终局:短信不做**(评估结论:单管理员内部系统,邮箱+站内+IM webhook 已覆盖告警触达,
+      短信有成本与供应商选型负担,价值不成比例);邮箱实施形态三次拍板五点照旧有效:
+      SMTP 邮箱参数**全量进 sys_config**(host/port/账号/授权码),敏感值回显脱敏——
+      **2026-09-08 三次拍板:授权码也进 sys_config,读侧回显改 "******"(mask),实施形态五点**:
+      ①ValueType 增 SECRET,词表白名单照旧收口(新组 GROUP_NOTIFY 登记 SMTP 键,ConfigConsts 单点扩容);
+      ②listByGroup 对 SECRET 非空值一律回显 "******",真值不出后端(读侧 isAuthenticated 亦不泄);
+      ③saveGroup 收到 "******" 视为未改动跳过(防掩码回写覆盖真值)、空值=清除覆盖、非 mask 新值才落库,
+      mask 判定附带"DB 已有行"条件防真密码恰为 ****** 的碰撞;前端 password 输入框;
+      ④消费侧 MailPushService 走 valueOf 取真值,与脱敏层零耦合;
+      ⑤docs/07 §7 记一条范围例外:SMTP 授权码为首个入 sys_config 的凭证,DB 明文存储已知悉
+      (单管理员内部系统 + admin 双闸写侧 + 回显脱敏兜底);其余凭证(openai api-key 等)仍走环境变量不随例扩面
+- [x] ✅ 邮箱推送渠道 V2 落地(2026-09-08,用户拍板"那就做邮箱通知功能",同日从"放最后"改判开工):
+      **MailPushService(erp-system)** = pushAllUsers 出口 NotifyPushedEvent 消费位,AFTER_COMMIT +
+      fallbackExecution 同 Webhook(提交后才外推/失败吞掉只记日志/不上抛);短路链 = 开关关(false 保护性默认)
+      → 零收件人(启用用户邮箱扇出 SysUserService.listEnabledUserEmails 去空去重,邮箱未填自然不在列)
+      → SMTP 主机未配;JavaMailSenderImpl 按 sys_config 七键逐次装配(connect 3s/read-write 5s 防 SMTP 慢
+      响应拖死告警 Job,SSL 开关控 mail.smtp.ssl.enable);SimpleMailMessage 纯文本 V1(主题 [ERP] 前缀,
+      空正文"(无正文)"占位,From 留空回落 SMTP 账号),端口解析失败回落 SSL 开关对应默认(465/25)不炸告警链路;
+      **配置面** = ConfigConsts 增 GROUP_NOTIFY 七键词表 + SECRET_MASK 常量,SystemConfigService 增
+      ValueType.SECRET(listByGroup 掩码回显/saveGroup 掩码回环跳过带 DB 已有行防碰撞/valueOf 真值零耦合);
+      **前端** = 设置页"邮件通知"tab(七键,password 键 type=password+show-password,掩码原样提交=未改动);
+      **种子/迁移** = 01_schema_init.sql NOTIFY 段 + scripts/mail_config_migration.py 幂等(开发库已落 7 键 ALL GREEN);
+      docs/07 §7 sys_config 凭证边界定版(SMTP 授权码唯一范围例外 + 三道防线 + 新 SECRET 键扩容口径);
+      单测 +15(MailPushServiceTest 11 + SystemConfigServiceTest +4);全 reactor 回归当日记录;
+      短信渠道:✅ 2026-09-09 拍板**不做**(终局,见上方二次拍板条收口注记)
 
 ## #15 公开前治理与发布策略(2026-09-05 边界定稿;旧仓库 ChenYiG7/erp 已删库重建,现仓库 ChenYiG7/ec-erp 私有)
 
@@ -974,8 +1030,8 @@ docs/design/、docs/devlog/。历史排查结论(2026-09-05 两轮盘点):15 提
       已从 fsck 悬空提交 0604584 补打本地 tag(15 提交链完整),ls-remote 确认远端无 tag,**严禁推送该 tag**;
       本仓库系全新 init 归零(非旧仓 reset),旧历史只存在于该备份 tag**;
       ⑥ GitHub Settings → Change visibility 翻公开(人工执行,git 无法替代)——**用户拍板 2026-09-05 暂缓,仓库维持私有,择机再翻**
-- [ ] 路线 B(部分公开,双仓镜像)——届时再落地,不提前建:白名单导出脚本(git archive 白名单 + docs 私有引用替换 + orphan 分支推公开仓);
-      闭源模块分发走编译产物(jar)或加密源码包(Release 附件+口令),**不采用 git-crypt 混仓**
+- [x] ~~路线 B(部分公开,双仓镜像)~~ ✅ 2026-09-08 用户拍板**去掉**:仓库维持单仓私有,不建镜像工具;
+      闭源分发诉求消失,持续纪律条(下一行)保留
 - [ ] 持续纪律:docs/sql/ 与 07/09 现属公开面——今后 docs/sql 只放可公开 DDL、07/09 只放可公开规约;其余 docs 仍严禁 `git add -f`
 
 ## #16 前端工程(Geeker-Admin v2 底座,2026-09-05 拍板立项)
@@ -1077,16 +1133,17 @@ docs/design/、docs/devlog/。历史排查结论(2026-09-05 两轮盘点):15 提
 | 库存预测/补货建议 | 时序预测+补货量建议 | #6 已规划:SAA Graph 补货建议工作流(取数 LLM→规则校验→报告) | 三期(已对齐) |
 | 订单异常检测 | 规则引擎+AI 评分双层融合/风险分级 | #6 已规划:"规则引擎先筛+LLM 评分"两段式控成本 | 三期(已对齐) |
 | 智能采购建议 | 采购预测/供应商比价/采购计划 | ✅ 2026-09-08 V1 落地(graph/purchase 四节点:补货缺口按最新采购供应商聚合,预估金额=最新单价×建议量;比价随多供应商数据积累评估,定时接线待拍板)——建议层叠加 #10 采购域之上(只产建议进 ai_suggestion,不碰状态机与单据) | 三期(已对齐) |
-| 智能定价 | 竞品价监控/动态调价/利润优化 | 竞品价拉取随 adapter 平台扩容;定价建议进 ai_suggestion,人工确认后走改价 | 三期候选 |
+| 智能定价 | 竞品价监控/动态调价/利润优化 | 竞品价拉取随 adapter 平台扩容;定价建议进 ai_suggestion,人工确认后走改价——**2026-09-08 用户拍板:卡竞品价数据(随 adapter/广告报表扩容),不建议现在动** | 缓办(竞品价数据就位再评估) |
 | 产品描述生成 | SEO 文案/批量生成/平台风格适配 | ✅ 2026-09-08 V1 落地(graph/copywriting 三节点:扫启用商品→LLM 批量产 listing 文案(标题/五点/描述/关键词)→落 ai_suggestion;人工采纳后文案在详情 payload 复制使用,V1 不自动回填平台——改写 listing 随 adapter 上架类接口扩容再评估;平台风格适配 V2) | 三期候选(V1 已落地) |
-| 智能报表 | 日/周/月报自动生成+Excel 导出 | erp-report 域(休眠),依赖销售/广告数据面先齐 | 四期 BI |
+| 智能报表 | 日/周/月报自动生成+Excel 导出 | ✅ 2026-09-09 V1 落地(#23 经营简报:定时生成日/周/月报走 #14 出口三渠道推送 + 报表中心「经营简报」tab 预览;Excel 导出半边 #20 已有;金额/利润/广告维度随各数据面扩展) | 四期 BI(V1 已落地) |
 | AI 客服 | RAG 知识库/意图识别/多语言 7×24 | ✅ 2026-09-08 RAG V1 落地(向量库拍板 SimpleVectorStore 文件持久化零新基建,向量不入库 ai_kb_chunk 正本可重建;上传/粘贴接入 → 切块向量化 → chat 双通道检索注入,admin 双闸写侧,降级零侵入);意图识别/多语言随四期 | 三期(V1 已落地) |
-| 智能选品 | 多维加权评分/趋势/风险评估+Feedback 自调优 | 评分引擎产建议进 ai_suggestion;其 Feedback 闭环由 ai_suggestion(待确认/已采纳/已忽略)天然承接;权重自调优四期评估 | 四期候选 |
+| 智能选品 | 多维加权评分/趋势/风险评估+Feedback 自调优 | ✅ 2026-09-08 V1 落地(graph/selection 四节点:启用商品 SKU 三维加权评分(销量规模/动销趋势/毛利率,权重 sys_config 三键归一化)**纯程序确定性可复算**,LLM 只写推荐理由可降级;产出进 ai_suggestion type=SELECTION/refType=GOODS_SKU,人工采纳后走商品/广告页人工操作;权重自调优四期评估) | 三期提前(V1 已落地) |
 
 ### 非 AI 功能面(各项目对标,随期吸收)
 
 - 补货规划/商品分析/趋势分析(wimoor):补货规划依赖库存预测先行;商品/趋势分析归四期 BI
-- 广告管理(wimoor 广告抓取+管理全套):erp-ads 休眠域,四期;数据抓取随各平台 adapter 扩容
+- 广告管理(wimoor 广告抓取+管理全套):erp-ads 休眠域,四期;数据抓取随各平台 adapter 扩容——
+  **2026-09-08 用户拍板:依赖各平台广告 API,同卡真凭证**(与智能定价同因,凭证就位前不动)
 - 电子面单打印发货/面单账户管理(wimoor、qihang):国内平台发货刚需,#11 遗留"电子面单随 #3 adapter"升格为独立功能面
 - 供应商代发/云仓发货(qihang 备货单模式):对齐 #11 遗留"FBA/OVERSEAS 供应商代发与海外仓流程待业务确认"
 - 外部通知渠道:飞书/钉钉/企微 Webhook(含钉钉签名/失败重试/高优外推低优站内分级)——#14"后续渠道"的对标实现,
@@ -1287,3 +1344,95 @@ qihang 开源版/企业版双轨宣传,只取开源版功能面,企业版能力(
       差异走通知中心既有页);单测 +16(RefundReconciliationServiceTest 9:三类差异全分支/容差恰界=平/
       跨报告多行归并/跨店铺同订单号隔离/topN 截断声明总笔数 + RefundReconciliationJobTest 7:
       开关短路/锁被占跳过/无差异不扇出/静默期去重/聚合单条扇出/推送失败不上抛/锁必释放)
+
+## #20 报表域(四期 BI 起点,2026-09-08 用户拍板开工;erp-report 从休眠 pom 立项)
+- [x] V1 落地 ✅ 2026-09-08(零 DDL 纯读侧):数据面 = order_sales_daily(销量日表,#6)+ inventory_snapshot_daily
+      (库存日快照,#6)两个已就位日快照表;落位 = erp-report 新建 src 骨架(ReportQueryMapper 纯接口不继承
+      BaseMapper + XML 五条只读聚合 join 商品/仓库翻译,**join 不滤已删**同 #7 拍板)+ ReportService(窗口拍板:
+      缺省近 30 天含起含止,防御上限 366 天,倒序窗口回退;SKU limit 缺省 100 钳 ≤1000;快照日缺省=最新,
+      无快照空列表不报错)+ ReportController(/api/report/sales/daily|weekly|sku + /inventory/snapshot +
+      /export/sales|inventory,读侧登录即可);**Excel 导出拍板 = Apache POI xlsx(5.4.0,仅 erp-report 依赖,
+      版本模块内自管不进根 pom)**——销售导出双 sheet(日汇总+SKU明细)/快照导出单 sheet,文件名 ASCII;
+      AI 工具取数再契约化(落位表注记),当前仅前端消费不进 erp-contract;
+      菜单种子:顶级「报表中心」35 +「销售与库存报表」36(四 tab:日报/周报/SKU明细/库存快照),
+      通知中心(22) 8/系统管理(1) 9 顺延,存量库走 scripts/report_menu.py(幂等复跑验证过);
+      SQL 真库验证 scripts/validate_report_sql.py 五项 ALL GREEN(哑元含已删 SPU 验 join 不滤已删);
+      单测 ReportServiceTest 10(窗口缺省/366 钳制/倒序回退/快照最新日缺省与空态/limit 钳制/
+      xlsx 产物合法性与双 sheet 结构/名称缺失空串防 null)
+- [ ] 广告报表(ad_report_daily 草案):随 erp-ads 广告数据面激活(卡各平台广告 API 真凭证),本域下一个数据源
+
+## #21 利润看板(利润面产品化,2026-09-08 开工;承接 #19「把 settlement 做深当面试样本」拍板)
+- [x] V1 落地 ✅ 2026-09-08(零 DDL):契约扩容 ProfitQueryApi 只加不改(listDailyTrend 按下单日聚合 /
+      listSkuProfitRank 按内部 SKU 聚合利润降序 topN 钳 1..100,新增 ProfitDailyTrendRow/ProfitSkuRankRow
+      两 record)——**趋势/排行复用 #19③ 既有装配管线**(assemble 全量行补成本/佣金/汇率后内存分组,
+      非独立 SQL,口径与 summarize 严格同源,LIMIT 20000 防御随用);排行仅含已绑定 SKU 行(未绑定行无
+      SKU 维度,明细页仍可见),商品名首见非空禁 null 出契约;实现收口 ProfitQueryApiImpl 转发 +
+      ProfitController 新端点 GET /trend /sku-rank(读侧登录即可);
+      前端「利润看板」页(菜单 34,/finance/profit-dashboard,手写页):汇总卡(含利润率)+ **SVG 日趋势
+      (柱=利润正绿负红,线=销售额,零图表依赖拍板——echarts 不引)**+ SKU 利润排行表(Top10,毛利率前端算);
+      blob 响应拦截器修复(axios 封装 download 原有缺陷:Blob 走 Result 解包得 undefined——
+      config.responseType==='blob' 原样透传,#20 导出复用);
+      菜单种子随 01_schema_init.sql + scripts/report_menu.py;单测 ProfitQueryServiceTest +4
+      (趋势按日升序聚合/缺口行计数不缺金额/SKU 排行降序+排除未绑定行/topN 下钳)
+
+## #22 商品分析/趋势分析(四期 BI 首个功能,2026-09-09 拍板开工;#17 落位表「商品/趋势分析(wimoor)」归四期 BI 的首个落地)
+> 拍板背景(2026-09-09 会话):短信渠道拍板不做(#14 收口)后,三期遗留全部收敛到真凭证单点依赖
+> (#3 联调/#20 广告报表/#17 智能定价均卡凭证),押后项(采购定时/HIGH 推通知)需真实使用数据支撑拍板;
+> 四期清单里唯数据面完全就绪者 = 商品/趋势分析——order_sales_daily(#6,09-07 起真跑)+ 
+> inventory_snapshot_daily(#6)两日表已就位,纯读侧零 DDL,照 #20 报表域母本扩展。
+> 定位差异化:#20 现有四 tab = "表格+导出"汇总视角;#22 = "单品时间序列下钻"视角——
+> SKU 级销量/销售额/库存三序列日趋势 + 窗口动销汇总,前端 SVG 零图表依赖同 #21 拍板。
+
+- [x] V1 落地 ✅ 2026-09-09(零 DDL 纯读侧,同 #20 母本并入 ReportService):
+  - 数据面口径:销量=order_sales_daily 按日 SUM(qty_sold)(表无金额列,趋势为"销量+库存"双序列,
+    拍板不加金额——金额随 #19③ 利润面已有,不重复造);库存=inventory_snapshot_daily 按日跨仓 SUM(qty_on_hand);
+    **日期轴不进 SQL**(MySQL 5.7 无递归 CTE,SQL 兼容红线),两条简单 GROUP BY 各产半行,
+    Service 按窗口逐日对齐:销量缺日=0(无销售)/库存缺日=null(快照缺失不猜,#19 禁猜口径,前端断点分段不连线);
+  - 后端:Row record 四件(SkuOptionRow/SkuTrendRow/SkuTrendSummary/SkuTrendResponse)+
+    Mapper 四方法(XML 四条:选项=UNION ALL 双数据面并集 GROUP BY sku_id(同 SKU 两段翻译不一致 MAX 兜底)/
+    单 SKU 翻译行/日销量/日库存);汇总由趋势行内存计算(≤366 行):销量合计/动销天数(qtySold>0)/
+    期末库存(窗口内最新非空快照含快照日);脏 id(skuId 无翻译行)sku=null 回落不报错,trend/summary 照常;
+    端点 GET /api/report/goods/options(limit 钳 ≤500)/goods/trend(skuId 必填,窗口语义同报表查询);
+  - 前端:report/goods-analysis 手写页(菜单 37 挂报表中心 35 下,icon=Histogram,perm report:goods:list)——
+    SKU 选择器(filterable,选项=两数据面出现过的 SKU)+ 日粒度 daterange + 汇总卡(SKU/窗口销量合计/
+    动销天数/期末库存@快照日/窗口标签)+ SVG 趋势(柱=日销量,虚线折线=日库存,连续非 null 段分段 polyline,
+    图例标注,零图表依赖同 #21 拍板);api interface 四类型 + apis 两函数照 #20 收口;
+  - 菜单:01_schema_init.sql 种子 (37,35,'商品分析',...,'Histogram',2) + scripts/report_menu.py 扩 37
+    (幂等,自检 3→4:menus=4/4 grants=4/4 sorts 22:8 1:9 ALL GREEN,存量库已跑);
+  - SQL 真库验证 scripts/validate_goods_sql.py 四项 ALL GREEN(选项 UNION ALL 并集含真库 12 SKU+哑元 2/
+    翻译行/日销量逐日/跨仓 SUM 11+12=23;哑元键 990011/990012 避开 #20 脚本 990001-3,幂等重跑稳绿);
+  - 单测 +4(ReportServiceTest.GoodsAnalytics:选项钳制 null/超限同钳 500×times(2)/日期轴错位对齐
+    销量补 0 库存置 null/汇总合计动销期末/脏 id 全零空态),erp-report 14 全绿(存量 10 不回退),-am 全链通过;
+  - 门禁:oxlint 0 错(3 处 curly 单行 if 复犯补大括号——单行 if 无大括号在 oxlint curly 规则下必炸,
+    手写页首次注意)/oxfmt 归一/vue-tsc 通过。
+
+## #23 智能报表/经营简报(四期 BI 第二个功能,2026-09-09 拍板开工;#17 落位表「智能报表」自动化半边,推送挂 #14 出口)
+
+> 拍板背景:#22 落地后四期清单数据面就绪项只剩智能报表(OmniTrade 对标"日/周/月报自动生成+Excel 导出"):
+> Excel 导出半边 #20 报表中心已有(手动),本项做**自动化半边** = 定时生成周期简报走 #14 出口三渠道扇出
+> (pushAllUsers → 站内+邮箱+Webhook,渠道各自开关);广告报表半边仍卡凭证。
+> 窗口拍板:日报=昨日单日(销量日表 01:00 聚合后数据已就位,推送默认 08:00)/周报=上周一至上周日/
+> 月报=上月自然月(Asia/Shanghai,pullClock 注入 AIR 可重复)。
+
+- [x] V1 落地 ✅ 2026-09-09(零 DDL 零新 SQL,数据面复用 ReportQueryMapper 既有四方法):
+  - 后端:ReportDigest record(period/notifyType/title/content/dateFrom/dateTo)+ ReportDigestService
+    (erp-report;聚合 = selectSalesDaily 合计/动销天数/日均 + selectSalesSku TOP5 +
+    selectLatestSnapshotDate/selectSnapshot 期末库存跨仓合计——快照缺失写"暂无"不猜 #19 禁猜口径,
+    TOP 行脏编码回落裸 ID 同 #22 口径);纯文本正文三渠道通用(与 NotifyPushedEvent title+content 同构);
+    预览端点 GET /api/report/digest/preview?period=DAILY|WEEKLY|MONTHLY(登录即可,零副作用);
+  - Job:erp-api ReportDigestJob(模式同 RefundReconciliationJob/#19④)——主开关
+    erp.report.digest.enabled 默认 false(经营节奏功能保护性默认同 Webhook 拍板:避免首次部署每日给
+    全用户发通知的噪声;开启后仍受邮箱/Webhook 渠道开关约束)+ 三 cron 键独立可覆盖
+    (daily 08:00/weekly 周一 08:30/monthly 每月 1 日 09:00);per-period 全局锁
+    report:digest:daily|weekly|monthly 防跨进程重入;
+    去重拍板:**不加 existsRecent 静默期**——cron 按日历时刻触发,每周期窗口互不重叠无重扫问题
+    (勾稽 Job 需要静默期是因其 fixedDelay 每日重扫同一 14 天报告窗,简报不存在该形态);
+    停机错过的 cron 不补发(Spring 调度语义,简报漏发一天无损失);
+  - 前端:报表中心第 5 tab「经营简报」(周期 radio 切换预览 + 推送配置说明 alert,页面只读不推送);
+  - yml:erp.report.digest 段登记(enabled/daily-cron/weekly-cron/monthly-cron);
+  - 单测 +12(ReportDigestServiceTest 6:固定 Clock 三周期窗口语义/聚合文本全行含日均取整与脏编码回落/
+    空态降级零销量+无快照/parse 容大小写与非法抛错 + ReportDigestJobTest 6:开关短路/锁被占/
+    扇出参数 bizType/bizId 留空/per-period 独立锁键/生成与推送异常不上抛租约必释放);
+  - 边界与后续:V1 只有销量+库存两面——金额/利润随 #19③ 利润面扩展,广告随 #20 广告报表解卡;
+    TOP5 行数定长(简报是摘要,明细走报表中心页);邮件正文为纯文本(SimpleMailMessage V1),
+    HTML 模板化/附件化随 MailPushService V2 评估。

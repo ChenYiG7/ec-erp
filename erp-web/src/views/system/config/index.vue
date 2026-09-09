@@ -20,6 +20,15 @@
         <div class="config-row">
           <el-switch v-if="isBoolKey(row.configKey)" v-model="boolValues[row.configKey]" :disabled="!canSave" />
           <el-input
+            v-else-if="isSecretKey(row.configKey)"
+            v-model="textValues[row.configKey!]"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            :placeholder="placeholderOf(row)"
+            :disabled="!canSave"
+          />
+          <el-input
             v-else
             v-model="textValues[row.configKey!]"
             type="textarea"
@@ -61,10 +70,13 @@ const GROUPS = [
   { name: 'AI', label: '大模型 / AI 工作流' },
   { name: 'ALERT', label: '库存预警' },
   { name: 'SALES', label: '销量统计' },
+  { name: 'NOTIFY', label: '邮件通知' },
 ] as const
 
 /** 布尔键词表(与后端 SystemConfigService.ValueType.BOOL 对齐) */
-const BOOL_KEYS = new Set(['erp.alert.enabled', 'erp.sales.enabled'])
+const BOOL_KEYS = new Set(['erp.alert.enabled', 'erp.sales.enabled', 'erp.mail.enabled', 'erp.mail.ssl'])
+/** 敏感键词表(与后端 ValueType.SECRET 对齐:password 输入框;后端回显固定 ******,原样提交=未改动) */
+const SECRET_KEYS = new Set(['erp.mail.password'])
 /** 多行 prompt 键(渲染 textarea 4 行) */
 const PROMPT_KEYS = new Set([
   'erp.ai.system-prompt',
@@ -72,6 +84,7 @@ const PROMPT_KEYS = new Set([
   'erp.ai.anomaly.score-prompt',
   'erp.ai.purchase.summary-prompt',
   'erp.ai.copy.prompt',
+  'erp.ai.selection.prompt',
   'erp.ai.agent.support-prompt',
   'erp.ai.agent.ops-prompt',
 ])
@@ -182,6 +195,28 @@ const CONFIG_ITEMS: Record<string, { label: string; desc?: string; def?: string 
     def: '10',
   },
   'erp.ai.copy.prompt': { label: '文案生成提示词' },
+  // —— AI 组 · 智能选品(#17,评分权重三维按和归一化)——
+  'erp.ai.selection.sales-weight': {
+    label: '销量规模权重',
+    desc: '近30天销量/候选集最大销量维度分;三维权重按和归一化,Σ=0 回落默认',
+    def: '0.4',
+  },
+  'erp.ai.selection.trend-weight': {
+    label: '动销趋势权重',
+    desc: '近7天日均 vs 前7天日均(ratio×50,持平=50/翻倍=100);三维权重按和归一化',
+    def: '0.3',
+  },
+  'erp.ai.selection.margin-weight': {
+    label: '毛利率权重',
+    desc: '30天窗口毛利,30% 记满分,数据缺失记中性;三维权重按和归一化',
+    def: '0.3',
+  },
+  'erp.ai.selection.llm-max-items': {
+    label: '单轮送评上限',
+    desc: '单轮送 LLM 写推荐理由的入选行上限,超限按综合分降序截断走模板(成本护栏)',
+    def: '20',
+  },
+  'erp.ai.selection.prompt': { label: '选品推荐理由提示词' },
   // —— AI 组 · 知识库 RAG(#6 AI 客服 V1)——
   'erp.ai.kb.retrieval-top-k': {
     label: '检索命中条数上限',
@@ -210,6 +245,17 @@ const CONFIG_ITEMS: Record<string, { label: string; desc?: string; def?: string 
   // —— SALES 组:销量统计 ——
   'erp.sales.enabled': { label: '总开关', def: 'true' },
   'erp.sales.rebuild-days': { label: '回溯重算天数', desc: '每日 upsert 近 N 天,含今日', def: '30' },
+  // —— NOTIFY 组:邮件通知(#14 邮箱推送渠道)——
+  'erp.mail.enabled': { label: '总开关', desc: '开启后告警外推邮件到启用用户邮箱(外呼保护性默认关)' },
+  'erp.mail.host': { label: 'SMTP 主机', desc: '如 smtp.exmail.qq.com / smtp.163.com;留空 = 渠道未就绪不外推' },
+  'erp.mail.port': { label: 'SMTP 端口', desc: '留空按 SSL 开关取默认(SSL=465 / 非加密=25)', def: '465' },
+  'erp.mail.username': { label: 'SMTP 账号', desc: '通常即发件邮箱地址' },
+  'erp.mail.password': {
+    label: 'SMTP 授权码',
+    desc: '邮箱服务商授权码(非登录密码);保存后回显固定 ******,原样提交 = 未改动,清空提交 = 清除',
+  },
+  'erp.mail.from': { label: '发件人(From)', desc: '留空回落 SMTP 账号' },
+  'erp.mail.ssl': { label: 'SSL 加密', desc: '465 端口典型开启;587 STARTTLS 场景关闭', def: 'true' },
 }
 
 const activeGroup = ref<string>('AI')
@@ -227,6 +273,7 @@ const AI_SECTIONS = [
   { name: 'anomaly', label: '订单异常检测' },
   { name: 'purchase', label: '采购建议' },
   { name: 'copy', label: '文案生成' },
+  { name: 'selection', label: '智能选品' },
   { name: 'kb', label: '知识库 RAG' },
 ] as const
 
@@ -247,6 +294,9 @@ const sectionOf = (key?: string | null) => {
   if (key?.startsWith('erp.ai.copy.')) {
     return 'copy'
   }
+  if (key?.startsWith('erp.ai.selection.')) {
+    return 'selection'
+  }
   if (key?.startsWith('erp.ai.kb.')) {
     return 'kb'
   }
@@ -260,6 +310,7 @@ const visibleRows = computed(() =>
 const canSave = computed(() => true) // 权限由 v-auth 收口按钮;输入态不按权限禁用(仅展示)
 
 const isBoolKey = (key?: string | null) => !!key && BOOL_KEYS.has(key)
+const isSecretKey = (key?: string | null) => !!key && SECRET_KEYS.has(key)
 const isPromptKey = (key?: string | null) => !!key && PROMPT_KEYS.has(key)
 /** 说明文字:后端 remark 优先,为空回落词表 desc,再兜底"(无说明)" */
 const remarkOf = (row: SysConfig) => row.remark || (row.configKey && CONFIG_ITEMS[row.configKey]?.desc) || '(无说明)'

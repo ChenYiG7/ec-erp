@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.contract.OrderProfitQuery;
 import com.own.erp.contract.OrderProfitRow;
 import com.own.erp.contract.OrderProfitSummary;
+import com.own.erp.contract.ProfitDailyTrendRow;
+import com.own.erp.contract.ProfitSkuRankRow;
 import com.own.erp.contract.QueryPage;
 import com.own.erp.finance.mapper.ProfitQueryMapper;
 import com.own.erp.finance.profit.OrderProfitAmountGroup;
@@ -14,10 +16,14 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.time.LocalDate;
+import java.util.TreeMap;
 
 /**
  * @author : chenyi
@@ -65,6 +71,56 @@ public class ProfitQueryService {
                 rows.stream().filter(row -> row.rate() == null).count(),
                 rows.stream().filter(OrderProfitRow::costMissing).count(),
                 rows.stream().filter(OrderProfitRow::commissionMissing).count());
+    }
+
+    /** 利润日趋势(#21):全量行按下单日聚合,口径与 summarize 同源(同一装配管线,非独立 SQL);日期升序 */
+    public List<ProfitDailyTrendRow> listDailyTrend(OrderProfitQuery query) {
+        List<OrderProfitRow> rows = assemble(profitQueryMapper.selectProfitLinesAll(
+                query.shopId(), query.platform(), query.skuId(), query.dateFrom(), query.dateTo()));
+        Map<LocalDate, List<OrderProfitRow>> byDate = new TreeMap<>();
+        for (OrderProfitRow row : rows) {
+            byDate.computeIfAbsent(row.orderTime().toLocalDate(), k -> new ArrayList<>()).add(row);
+        }
+        List<ProfitDailyTrendRow> trend = new ArrayList<>(byDate.size());
+        for (Map.Entry<LocalDate, List<OrderProfitRow>> entry : byDate.entrySet()) {
+            List<OrderProfitRow> dayRows = entry.getValue();
+            trend.add(new ProfitDailyTrendRow(entry.getKey(), dayRows.size(),
+                    sumOf(dayRows, OrderProfitRow::salesCny),
+                    sumOf(dayRows, OrderProfitRow::costCny),
+                    sumOf(dayRows, OrderProfitRow::commissionCny),
+                    sumOf(dayRows, OrderProfitRow::profitCny)));
+        }
+        return trend;
+    }
+
+    /** SKU 利润排行(#21):按内部 SKU 聚合(仅已绑定行,未绑定行无 SKU 维度不参与),利润降序,topN 钳制 1..100 */
+    public List<ProfitSkuRankRow> listSkuProfitRank(OrderProfitQuery query, int topN) {
+        int limit = Math.max(1, Math.min(topN, 100));
+        List<OrderProfitRow> rows = assemble(profitQueryMapper.selectProfitLinesAll(
+                query.shopId(), query.platform(), query.skuId(), query.dateFrom(), query.dateTo()));
+        Map<Long, List<OrderProfitRow>> bySku = new LinkedHashMap<>();
+        for (OrderProfitRow row : rows) {
+            if (row.skuId() != null) {
+                bySku.computeIfAbsent(row.skuId(), k -> new ArrayList<>()).add(row);
+            }
+        }
+        List<ProfitSkuRankRow> rank = new ArrayList<>(bySku.size());
+        for (Map.Entry<Long, List<OrderProfitRow>> entry : bySku.entrySet()) {
+            List<OrderProfitRow> skuRows = entry.getValue();
+            rank.add(new ProfitSkuRankRow(entry.getKey(), firstNonNull(skuRows), skuRows.size(),
+                    skuRows.stream().mapToLong(row -> row.quantity() == null ? 0L : row.quantity()).sum(),
+                    sumOf(skuRows, OrderProfitRow::salesCny),
+                    sumOf(skuRows, OrderProfitRow::costCny),
+                    sumOf(skuRows, OrderProfitRow::commissionCny),
+                    sumOf(skuRows, OrderProfitRow::profitCny)));
+        }
+        rank.sort(Comparator.comparing(ProfitSkuRankRow::profitCny).reversed());
+        return rank.size() > limit ? rank.subList(0, limit) : rank;
+    }
+
+    /** 商品名称快照:同 SKU 多订单行取首见非空(禁 null 出契约) */
+    private String firstNonNull(List<OrderProfitRow> skuRows) {
+        return skuRows.stream().map(OrderProfitRow::productName).filter(Objects::nonNull).findFirst().orElse("");
     }
 
     /** 组装:主查询行 → 批量补成本/佣金 → 逐行汇率回溯折算(分页 ≤200 行逐行 LIMIT 1 查询可接受) */

@@ -1,6 +1,12 @@
 import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
-import type { OrderProfitQuery, OrderProfitRow, OrderProfitSummary } from '@/api/interface/finance/profit'
+import type {
+  OrderProfitQuery,
+  OrderProfitRow,
+  OrderProfitSummary,
+  ProfitDailyTrendRow,
+  ProfitSkuRankRow,
+} from '@/api/interface/finance/profit'
 
 /**
  * 实时销售利润(/api/finance/profit,#19③ 三口径第一层)
@@ -14,4 +20,9 @@ export const profitApi = {
       .then(page => ({ list: page.records, total: page.total })),
   /** 同条件汇总(缺口单独计数) */
   summary: (params: OrderProfitQuery) => http.get<OrderProfitSummary>('/api/finance/profit/summary', params),
+  /** 利润日趋势(#21 利润看板,按下单日聚合) */
+  trend: (params: OrderProfitQuery) => http.get<ProfitDailyTrendRow[]>('/api/finance/profit/trend', params),
+  /** SKU 利润排行(#21 利润看板,利润降序) */
+  skuRank: (params: OrderProfitQuery & { topN?: number }) =>
+    http.get<ProfitSkuRankRow[]>('/api/finance/profit/sku-rank', params),
 }

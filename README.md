@@ -22,7 +22,7 @@ ec-erp/
 │   ├── 09-前端开发规范守则.md
 │   └── sql/01_schema_init.sql
 ├── erp-common/           通用基础(返回体/异常/分页)
-├── erp-system/           系统管理(RBAC/字典/通知渠道)
+├── erp-system/           系统管理(RBAC/字典/通知渠道:站内/Webhook/邮件)
 ├── erp-shop/             平台中心(店铺/授权/拉取日志/多商户)
 ├── erp-goods/            商品中心(商品库/SKU绑定★)
 ├── erp-order/            订单中心(统一订单/审核/发货单)

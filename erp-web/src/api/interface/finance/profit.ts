@@ -64,3 +64,26 @@ export interface OrderProfitQuery {
   /** 下单时间止(不含) */
   dateTo?: string
 }
+
+/** 利润日趋势行(GET /api/finance/profit/trend,#21 利润看板;按下单日聚合,口径与汇总同源) */
+export interface ProfitDailyTrendRow {
+  /** 统计日(yyyy-MM-dd) */
+  statDate: string
+  orderItemCount: number
+  salesCny: string
+  costCny: string
+  commissionCny: string
+  profitCny: string
+}
+
+/** SKU 利润排行行(GET /api/finance/profit/sku-rank;仅已绑定行,利润降序) */
+export interface ProfitSkuRankRow {
+  skuId: number
+  productName: string
+  orderItemCount: number
+  quantity: number
+  salesCny: string
+  costCny: string
+  commissionCny: string
+  profitCny: string
+}

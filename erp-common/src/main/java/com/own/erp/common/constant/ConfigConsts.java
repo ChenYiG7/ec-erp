@@ -8,7 +8,9 @@ import java.util.Set;
  * @Description : 系统参数词表(#18 系统设置):sys_config 的组/键白名单与边界常量,前后端共用唯一事实源。
  *     键名 = yml relaxed-binding 键同名(erp.ai.system-prompt),DB 无行 = 消费侧走代码默认值;
  *     消费侧写法收口各域 runtime 配置类(erp-ai AiRuntimeProperties 等),禁业务代码散落读键。
- *     凭证类键(openai api-key 等)禁入 sys_config——安全红线 docs/07 §7,凭证只走环境变量/local.properties
+ *     凭证类键(openai api-key 等)禁入 sys_config——安全红线 docs/07 §7,凭证只走环境变量/local.properties;
+ *     ⚠️ 唯一范围例外:SMTP 授权码(KEY_MAIL_PASSWORD,SECRET 类型,#14 邮箱渠道 2026-09-08 拍板)——
+ *     读侧回显固定脱敏 SECRET_MASK,真值不出后端,DB 明文存储已知悉(单管理员内部系统)
  */
 public final class ConfigConsts {
 
@@ -21,8 +23,14 @@ public final class ConfigConsts {
     /** 参数组:销量日统计 */
     public static final String GROUP_SALES = "SALES";
 
+    /** 参数组:邮件通知渠道(#14 邮箱推送,SMTP 参数全量热更) */
+    public static final String GROUP_NOTIFY = "NOTIFY";
+
     /** 合法组词表(保存校验用) */
-    public static final Set<String> GROUPS = Set.of(GROUP_AI, GROUP_ALERT, GROUP_SALES);
+    public static final Set<String> GROUPS = Set.of(GROUP_AI, GROUP_ALERT, GROUP_SALES, GROUP_NOTIFY);
+
+    /** SECRET 类型键回显掩码(listByGroup 对 SECRET 非空值统一替换;saveGroup 收到此值 = 未改动跳过) */
+    public static final String SECRET_MASK = "******";
 
     /** ── AI 工作流参数键(GROUP_AI)── */
 
@@ -62,6 +70,18 @@ public final class ConfigConsts {
     /** 文案生成:单轮送 LLM 生成的商品上限(成本护栏,超限截断下轮再生成),int */
     public static final String KEY_COPY_LLM_MAX_ITEMS = "erp.ai.copy.llm-max-items";
 
+    /** 选品:销量规模维度权重(三维按和归一化),decimal 文本 */
+    public static final String KEY_SELECTION_SALES_WEIGHT = "erp.ai.selection.sales-weight";
+
+    /** 选品:动销趋势维度权重(三维按和归一化),decimal 文本 */
+    public static final String KEY_SELECTION_TREND_WEIGHT = "erp.ai.selection.trend-weight";
+
+    /** 选品:毛利率维度权重(三维按和归一化),decimal 文本 */
+    public static final String KEY_SELECTION_MARGIN_WEIGHT = "erp.ai.selection.margin-weight";
+
+    /** 选品:单轮送 LLM 写推荐理由的入选行上限(成本护栏),int */
+    public static final String KEY_SELECTION_LLM_MAX_ITEMS = "erp.ai.selection.llm-max-items";
+
     /** 对话 system prompt(多行文本) */
     public static final String KEY_SYSTEM_PROMPT = "erp.ai.system-prompt";
 
@@ -76,6 +96,9 @@ public final class ConfigConsts {
 
     /** 文案生成节点 system prompt(多行文本) */
     public static final String KEY_COPY_PROMPT = "erp.ai.copy.prompt";
+
+    /** 选品摘要节点 system prompt(多行文本) */
+    public static final String KEY_SELECTION_PROMPT = "erp.ai.selection.prompt";
 
     /** Agent:客服角色 system prompt(多行文本) */
     public static final String KEY_AGENT_SUPPORT_PROMPT = "erp.ai.agent.support-prompt";
@@ -117,8 +140,10 @@ public final class ConfigConsts {
             KEY_ANOMALY_BIG_ORDER_AMOUNT, KEY_ANOMALY_UNPAID_HOURS,
             KEY_ANOMALY_HIGH_DISCOUNT_RATIO, KEY_ANOMALY_LLM_MAX_ITEMS,
             KEY_PURCHASE_LLM_MAX_ITEMS, KEY_COPY_LLM_MAX_ITEMS,
+            KEY_SELECTION_SALES_WEIGHT, KEY_SELECTION_TREND_WEIGHT,
+            KEY_SELECTION_MARGIN_WEIGHT, KEY_SELECTION_LLM_MAX_ITEMS,
             KEY_SYSTEM_PROMPT, KEY_REPLENISH_SUMMARY_PROMPT, KEY_ANOMALY_SCORE_PROMPT,
-            KEY_PURCHASE_SUMMARY_PROMPT, KEY_COPY_PROMPT,
+            KEY_PURCHASE_SUMMARY_PROMPT, KEY_COPY_PROMPT, KEY_SELECTION_PROMPT,
             KEY_AGENT_SUPPORT_PROMPT, KEY_AGENT_OPS_PROMPT,
             KEY_AGENT_MAX_ITERS, KEY_AGENT_HISTORY_MAX_MESSAGES,
             KEY_TOOL_AUDIT_MAX_LENGTH, KEY_MODEL, KEY_AGENT_BASE_URL, KEY_AGENT_MODEL,
@@ -170,6 +195,34 @@ public final class ConfigConsts {
 
     /** 销量组合法键全集 */
     public static final Set<String> SALES_KEYS = Set.of(KEY_SALES_ENABLED, KEY_SALES_REBUILD_DAYS);
+
+    /** ── 邮件通知键(GROUP_NOTIFY,#14 邮箱推送渠道)── */
+
+    /** 邮件:总开关(false 时 MailPushService 直接返回不外推;外呼保护性默认关,与 erp.alert 内呼默认开反向) */
+    public static final String KEY_MAIL_ENABLED = "erp.mail.enabled";
+
+    /** 邮件:SMTP 主机(如 smtp.exmail.qq.com;空白 = 渠道未就绪跳过外推) */
+    public static final String KEY_MAIL_HOST = "erp.mail.host";
+
+    /** 邮件:SMTP 端口(缺省 465) */
+    public static final String KEY_MAIL_PORT = "erp.mail.port";
+
+    /** 邮件:SMTP 账号(通常即发件邮箱) */
+    public static final String KEY_MAIL_USERNAME = "erp.mail.username";
+
+    /** 邮件:SMTP 授权码(SECRET 类型:读侧回显脱敏 SECRET_MASK,docs/07 §7 范围例外) */
+    public static final String KEY_MAIL_PASSWORD = "erp.mail.password";
+
+    /** 邮件:发件人(From 头;空白回落 SMTP 账号) */
+    public static final String KEY_MAIL_FROM = "erp.mail.from";
+
+    /** 邮件:SSL 加密(465 端口典型 true;587 STARTTLS 场景置 false) */
+    public static final String KEY_MAIL_SSL = "erp.mail.ssl";
+
+    /** 邮件组合法键全集 */
+    public static final Set<String> NOTIFY_KEYS = Set.of(
+            KEY_MAIL_ENABLED, KEY_MAIL_HOST, KEY_MAIL_PORT, KEY_MAIL_USERNAME,
+            KEY_MAIL_PASSWORD, KEY_MAIL_FROM, KEY_MAIL_SSL);
 
     /** 参数值上限(与表列 VARCHAR(1024) 对齐) */
     public static final int VALUE_MAX_LENGTH = 1024;

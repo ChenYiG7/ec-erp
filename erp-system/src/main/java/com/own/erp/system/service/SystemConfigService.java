@@ -28,7 +28,11 @@ import java.util.stream.Collectors;
  *     ③值类型可解析 + 长度钳制(文本键放行 ≤1024,数字/布尔键解析失败拒存——配置错误在保存口暴露,禁带病落库);
  *     保存即 upsert(uk_config_key 兜底)并返回生效键数。类型词表与消费侧解析器同源本类,
  *     新键登记 ConfigConsts + typeOf 补一行即可(单点扩容)。
- *     凭证类键(openai api-key 等)不在词表——词表白名单天然拦截,凭证只走环境变量/local.properties(docs/07 §7)
+ *     凭证类键(openai api-key 等)不在词表——词表白名单天然拦截,凭证只走环境变量/local.properties(docs/07 §7);
+ *     ⚠️ 唯一例外 = SMTP 授权码(SECRET 类型,#14 邮箱渠道 2026-09-08 拍板):
+ *     读侧 listByGroup 对 SECRET 非空值统一回显 SECRET_MASK——真值不出后端(读侧 isAuthenticated 亦不泄);
+ *     写侧 saveGroup 收到 SECRET_MASK 视为"未改动"跳过(防掩码回写覆盖真值致邮件静默失效),
+ *     仅当 DB 无行时才把提交值按字面落库(防真密码恰为掩码字面量的碰撞);消费侧 valueOf 恒取真值零感知
  */
 @Service
 @Slf4j
@@ -46,7 +50,9 @@ public class SystemConfigService {
         /** 布尔(开关类) */
         BOOL,
         /** 自由文本(prompt/base-url) */
-        TEXT
+        TEXT,
+        /** 敏感凭证(校验同 TEXT;读侧回显脱敏,写侧掩码回环跳过——SMTP 授权码专用) */
+        SECRET
     }
 
     private final SysConfigMapper configMapper;
@@ -60,7 +66,8 @@ public class SystemConfigService {
     }
 
     /** 分组全量:该组合法键全词表 × DB 已存行(合并视图,DB 无行 = 代码默认值,前端表单仍要渲染);
-     *  已存行按组 eq 查 + 内存交集(禁 .in() 急切解析坑,docs/07 §10) */
+     *  已存行按组 eq 查 + 内存交集(禁 .in() 急切解析坑,docs/07 §10);
+     *  SECRET 键已存值统一回显掩码(真值不出后端;占位行本就无值,不受影响) */
     public List<SysConfig> listByGroup(String configGroup) {
         Set<String> keys = keysOfGroup(configGroup);
         Map<String, SysConfig> savedBy = configMapper.selectList(new LambdaQueryWrapper<SysConfig>()
@@ -68,16 +75,24 @@ public class SystemConfigService {
                 .stream()
                 .filter(row -> keys.contains(row.getConfigKey()))
                 .collect(Collectors.toMap(SysConfig::getConfigKey, Function.identity()));
-        return keys.stream()
+        List<SysConfig> rows = keys.stream()
                 .map(key -> savedBy.containsKey(key) ? savedBy.get(key)
                         : SysConfig.builder().configGroup(configGroup).configKey(key).build())
                 .sorted(java.util.Comparator.comparing(SysConfig::getConfigKey))
                 .toList();
+        rows.forEach(row -> {
+            if (typeOf(row.getConfigKey()) == ValueType.SECRET && StrUtil.isNotBlank(row.getConfigValue())) {
+                row.setConfigValue(ConfigConsts.SECRET_MASK);
+            }
+        });
+        return rows;
     }
 
     /**
      * 保存一组参数(upsert):逐键三重校验(词表白名单/组键匹配/类型可解析),全部通过才落库;
-     * 空值 = 删除覆盖行(回落代码默认值),返回实际生效(写入/删除)键数
+     * 空值 = 删除覆盖行(回落代码默认值),返回实际生效(写入/删除)键数;
+     * SECRET 键提交掩码 = 未改动跳过(DB 已有行)——防前端把回显掩码原样提交回来覆盖真值;
+     * DB 无行时的掩码字面量按普通新值落库(防真密码恰为掩码字面量的碰撞被误吞)
      */
     public int saveGroup(String configGroup, Map<String, String> values) {
         Set<String> allowedKeys = keysOfGroup(configGroup);
@@ -86,6 +101,11 @@ public class SystemConfigService {
             String key = StrUtil.trim(entry.getKey());
             String value = StrUtil.trimToNull(entry.getValue());
             validate(configGroup, allowedKeys, key, value);
+            if (typeOf(key) == ValueType.SECRET && ConfigConsts.SECRET_MASK.equals(value)
+                    && configMapper.selectOne(new LambdaQueryWrapper<SysConfig>()
+                            .eq(SysConfig::getConfigKey, key)) != null) {
+                continue;
+            }
             affected += upsert(key, value);
         }
         // 保存后发布变更事件:缓存持有方(SystemConfigApiImpl)即时失效,模型/提示词改动秒级生效
@@ -122,6 +142,9 @@ public class SystemConfigService {
                 case TEXT -> {
                     // 自由文本放行
                 }
+                case SECRET -> {
+                    // 敏感凭证(授权码)无格式约束,长度校验已在上方统一执行
+                }
             }
         } catch (NumberFormatException e) {
             throw new BusinessException("参数值不是合法的 " + type + ":" + key);
@@ -151,6 +174,7 @@ public class SystemConfigService {
             case ConfigConsts.GROUP_AI -> ConfigConsts.AI_KEYS;
             case ConfigConsts.GROUP_ALERT -> ConfigConsts.ALERT_KEYS;
             case ConfigConsts.GROUP_SALES -> ConfigConsts.SALES_KEYS;
+            case ConfigConsts.GROUP_NOTIFY -> ConfigConsts.NOTIFY_KEYS;
             default -> throw new BusinessException("未知参数组:" + configGroup);
         };
     }
@@ -162,6 +186,9 @@ public class SystemConfigService {
         }
         if (ConfigConsts.ALERT_KEYS.contains(key)) {
             return ConfigConsts.GROUP_ALERT;
+        }
+        if (ConfigConsts.NOTIFY_KEYS.contains(key)) {
+            return ConfigConsts.GROUP_NOTIFY;
         }
         return ConfigConsts.GROUP_SALES;
     }
@@ -199,6 +226,10 @@ public class SystemConfigService {
                  ConfigConsts.KEY_MODEL,
                  ConfigConsts.KEY_AGENT_BASE_URL,
                  ConfigConsts.KEY_AGENT_MODEL -> ValueType.TEXT;
+            case ConfigConsts.KEY_MAIL_ENABLED,
+                 ConfigConsts.KEY_MAIL_SSL -> ValueType.BOOL;
+            case ConfigConsts.KEY_MAIL_PORT -> ValueType.INT;
+            case ConfigConsts.KEY_MAIL_PASSWORD -> ValueType.SECRET;
             default -> ValueType.TEXT;
         };
     }

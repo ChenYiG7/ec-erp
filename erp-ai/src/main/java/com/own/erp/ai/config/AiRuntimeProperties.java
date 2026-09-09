@@ -187,6 +187,46 @@ public class AiRuntimeProperties {
                 props.getCopy().getPrompt());
     }
 
+    /** ── 智能选品工作流参数(#17,2026-09-08)── */
+
+    /** 销量规模维度权重(decimal ≥0,三维按和归一化;负值回落代码默认) */
+    public BigDecimal selectionSalesWeight() {
+        BigDecimal value = decimalOf(com.own.erp.common.constant.ConfigConsts.KEY_SELECTION_SALES_WEIGHT,
+                props.getSelection().getSalesWeight());
+        return value.signum() < 0 ? props.getSelection().getSalesWeight() : value;
+    }
+
+    /** 动销趋势维度权重(decimal ≥0,三维按和归一化;负值回落代码默认) */
+    public BigDecimal selectionTrendWeight() {
+        BigDecimal value = decimalOf(com.own.erp.common.constant.ConfigConsts.KEY_SELECTION_TREND_WEIGHT,
+                props.getSelection().getTrendWeight());
+        return value.signum() < 0 ? props.getSelection().getTrendWeight() : value;
+    }
+
+    /** 毛利率维度权重(decimal ≥0,三维按和归一化;负值回落代码默认) */
+    public BigDecimal selectionMarginWeight() {
+        BigDecimal value = decimalOf(com.own.erp.common.constant.ConfigConsts.KEY_SELECTION_MARGIN_WEIGHT,
+                props.getSelection().getMarginWeight());
+        return value.signum() < 0 ? props.getSelection().getMarginWeight() : value;
+    }
+
+    /** 单轮落库建议条数上限(int,≥0;yml 护栏不入 sys_config) */
+    public int selectionPersistMaxItems() {
+        return props.getSelection().getPersistMaxItems();
+    }
+
+    /** 单轮送 LLM 写推荐理由的入选行上限(int,≥0) */
+    public int selectionLlmMaxItems() {
+        return intOf(com.own.erp.common.constant.ConfigConsts.KEY_SELECTION_LLM_MAX_ITEMS,
+                props.getSelection().getLlmMaxItems(), 0);
+    }
+
+    /** 摘要节点 system prompt */
+    public String selectionPrompt() {
+        return textOf(com.own.erp.common.constant.ConfigConsts.KEY_SELECTION_PROMPT,
+                props.getSelection().getPrompt());
+    }
+
     /** ── 知识库 RAG(#6 AI 客服 V1)── */
 
     /** 检索命中条数上限(int,≥0;0 = 关闭注入,检索不进行) */

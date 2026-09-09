@@ -32,6 +32,9 @@ public final class AiConsts {
     /** 建议类型:采购(#17 三期候选落地,2026-09-08:补货缺口按供应商聚合为采购计划建议) */
     public static final String TYPE_PURCHASE = "PURCHASE";
 
+    /** 建议类型:选品(#17 落位表「智能选品」三期提前,2026-09-08:启用 SKU 三维加权评分产重点关注建议) */
+    public static final String TYPE_SELECTION = "SELECTION";
+
     /** 关联业务类型:订单(异常建议 refType) */
     public static final String REF_TYPE_SHOP_ORDER = "SHOP_ORDER";
 
@@ -43,6 +46,9 @@ public final class AiConsts {
 
     /** 关联业务类型:商品(文案建议 refType,#17 产品描述生成 2026-09-08 加,refId=productId,dedup 键为 refId) */
     public static final String REF_TYPE_GOODS_PRODUCT = "GOODS_PRODUCT";
+
+    /** 关联业务类型:商品SKU(选品建议 refType,#17 智能选品 2026-09-08 加,refId=skuId,dedup 键为 refId) */
+    public static final String REF_TYPE_GOODS_SKU = "GOODS_SKU";
 
     /** 风险等级:低 */
     public static final String RISK_LOW = "LOW";

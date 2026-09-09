@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>erp-system</artifactId>
-    <description>系统管理:用户/角色/菜单(RBAC)、部门、字典、通知渠道(飞书/钉钉/企微)、审计日志</description>
+    <description>系统管理:用户/角色/菜单(RBAC)、部门、字典、通知渠道(飞书/钉钉/企微/邮件)、审计日志</description>
 
     <dependencies>
         <dependency>
@@ -61,6 +61,11 @@
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
             <scope>runtime</scope>
+        </dependency>
+        <!-- TODO#14 邮件通知渠道:JavaMailSender(jakarta.mail;SMTP 参数走 sys_config 热更,非 yml 装配) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
         <!-- 单测(Mockito/JUnit,标准栈对齐 2026-09-04 随 #14 补齐) -->
         <dependency>

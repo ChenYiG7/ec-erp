@@ -48,6 +48,11 @@ public class ErpAiProperties {
      *  扫描护栏独立;LLM 上限与 prompt 入 sys_config(#18 热更);V1 仅手动触发不接定时 */
     private Copy copy = new Copy();
 
+    /** 智能选品工作流参数组(#17 落位表「智能选品」三期提前,2026-09-08):
+     *  三维加权评分(纯程序确定性)+ LLM 推荐理由(可降级);扫描/落库护栏独立,
+     *  评分权重与 LLM 上限/prompt 入 sys_config(#18 热更);V1 仅手动触发不接定时 */
+    private Selection selection = new Selection();
+
     /** Agent 参数组(四期 agent/):角色 system prompt 收口本类(docs/07 §9),yml `erp.ai.agent.*` 可覆盖 */
     private Agent agent = new Agent();
 
@@ -239,5 +244,41 @@ public class ErpAiProperties {
                 + "(5~10 个)。只能基于给定信息撰写,禁止编造商品没有的参数。只输出 JSON 数组,元素形如"
                 + " {\"productId\":1,\"title\":\"...\",\"bulletPoints\":[\"...\"],\"description\":\"...\","
                 + "\"keywords\":[\"...\"]},不输出任何其他文字。";
+    }
+
+    /**
+     * 智能选品参数组(#17,2026-09-08):评分纯程序(销量规模/动销趋势/毛利率三维加权,
+     * 权重 sys_config 三键归一化),LLM 只写推荐理由;评分窗口 30d/趋势半窗 7d 属实现细节
+     * 收口 SelectionCollectNode 常量不入配置;落库护栏 persist-max-items 防建议表噪音
+     */
+    @Getter
+    @Setter
+    public static class Selection {
+
+        /** 单页扫描量(契约钳制 ≤100;真键保留防 Boot 4 空 mapping 启动炸,同 purchase 段口径) */
+        private int scanPageSize = 100;
+
+        /** 单轮扫描行数上限(库存行与商品页共用护栏) */
+        private int scanMaxRows = 500;
+
+        /** 单轮落库建议条数上限(综合分降序入选,未入选行丢弃——建议表防噪音) */
+        private int persistMaxItems = 20;
+
+        /** 销量规模维度权重默认值(三维按和归一化;与 sys_config 种子、SelectionScoreNode 兜底三方一致,改一处必改三处) */
+        private BigDecimal salesWeight = new BigDecimal("0.4");
+
+        /** 动销趋势维度权重默认值 */
+        private BigDecimal trendWeight = new BigDecimal("0.3");
+
+        /** 毛利率维度权重默认值 */
+        private BigDecimal marginWeight = new BigDecimal("0.3");
+
+        /** 单轮送 LLM 写推荐理由的入选行上限(超限按综合分降序截断,未送评行走模板) */
+        private int llmMaxItems = 20;
+
+        /** 摘要节点 system prompt(集中配置,docs/07 §9) */
+        private String prompt = "你是电商 ERP 的选品分析助手。根据给定的 SKU 评分明细(综合评分/销量趋势/毛利率/库存),"
+                + "为每个入选 SKU 写一句不超过 50 字的中文推荐理由(说明为什么值得重点关注)。只输出 JSON 数组,"
+                + "元素形如 {\"skuId\":1,\"summary\":\"...\"},不输出任何其他文字。";
     }
 }

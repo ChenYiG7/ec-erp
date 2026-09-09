@@ -37,6 +37,8 @@ class SystemConfigServiceTest {
     private static final String KEY_DECIMAL = ConfigConsts.KEY_ANOMALY_BIG_ORDER_AMOUNT;
     private static final String KEY_BOOL = ConfigConsts.KEY_ALERT_ENABLED;
     private static final String KEY_TEXT = ConfigConsts.KEY_SYSTEM_PROMPT;
+    private static final String KEY_SECRET = ConfigConsts.KEY_MAIL_PASSWORD;
+    private static final String KEY_MAIL_BOOL = ConfigConsts.KEY_MAIL_ENABLED;
 
     private SysConfigMapper configMapper;
     private ApplicationEventPublisher eventPublisher;
@@ -155,5 +157,72 @@ class SystemConfigServiceTest {
         int affected = service.saveGroup(ConfigConsts.GROUP_ALERT, Map.of(KEY_BOOL, "true",
                 ConfigConsts.KEY_ALERT_LOW_STOCK_THRESHOLD, "5"));
         assertEquals(2, affected);
+    }
+
+    @Test
+    void listByGroupMasksSecretValues() {
+        // SECRET 键已存值回显掩码(真值不出后端);占位行(无 DB 行)value 恒 null 不受影响
+        when(configMapper.selectList(any())).thenReturn(List.of(SysConfig.builder()
+                .id(9L).configGroup(ConfigConsts.GROUP_NOTIFY)
+                .configKey(KEY_SECRET).configValue("real-auth-code").build()));
+        List<SysConfig> rows = service.listByGroup(ConfigConsts.GROUP_NOTIFY);
+        assertEquals(ConfigConsts.NOTIFY_KEYS.size(), rows.size());
+        assertTrue(rows.stream().anyMatch(r -> KEY_SECRET.equals(r.getConfigKey())
+                && ConfigConsts.SECRET_MASK.equals(r.getConfigValue())));
+        assertTrue(rows.stream().anyMatch(r -> ConfigConsts.KEY_MAIL_HOST.equals(r.getConfigKey())
+                && r.getConfigValue() == null));
+    }
+
+    @Test
+    void saveGroupSecretMaskPassthroughSkipsWhenRowExists() {
+        // 前端把回显掩码原样提交回来 = 未改动,DB 已有行时跳过,真值不被掩码覆盖(防邮件静默失效)
+        SysConfig existing = SysConfig.builder()
+                .id(9L).configGroup(ConfigConsts.GROUP_NOTIFY)
+                .configKey(KEY_SECRET).configValue("real-auth-code").build();
+        when(configMapper.selectOne(any())).thenReturn(existing);
+        int affected = service.saveGroup(ConfigConsts.GROUP_NOTIFY, Map.of(KEY_SECRET, ConfigConsts.SECRET_MASK));
+        assertEquals(0, affected);
+        verify(configMapper, never()).insert(any(SysConfig.class));
+        verify(configMapper, never()).updateById(any(SysConfig.class));
+        verify(configMapper, never()).deleteById(any(Long.class));
+        // 跳过仍发布变更事件(同组其他键可能生效,缓存统一失效)
+        verify(eventPublisher).publishEvent(any(SystemConfigChangedEvent.class));
+    }
+
+    @Test
+    void saveGroupSecretMaskWithoutRowStoresLiteral() {
+        // DB 无行时掩码字面量按普通新值落库(防真密码恰为掩码字面量的碰撞被误吞)
+        when(configMapper.selectOne(any())).thenReturn(null);
+        when(configMapper.insert(any(SysConfig.class))).thenReturn(1);
+        int affected = service.saveGroup(ConfigConsts.GROUP_NOTIFY, Map.of(KEY_SECRET, ConfigConsts.SECRET_MASK));
+        assertEquals(1, affected);
+        ArgumentCaptor<SysConfig> captor = ArgumentCaptor.forClass(SysConfig.class);
+        verify(configMapper).insert(captor.capture());
+        assertEquals(ConfigConsts.GROUP_NOTIFY, captor.getValue().getConfigGroup());
+        assertEquals(ConfigConsts.SECRET_MASK, captor.getValue().getConfigValue());
+    }
+
+    @Test
+    void saveGroupNotifyKeysRouteAndValidate() {
+        // NOTIFY 组:BOOL/INT 键类型校验生效;SECRET 键真值正常落库
+        when(configMapper.selectOne(any())).thenReturn(null);
+        when(configMapper.insert(any(SysConfig.class))).thenReturn(1);
+        int affected = service.saveGroup(ConfigConsts.GROUP_NOTIFY,
+                Map.of(KEY_MAIL_BOOL, "true", ConfigConsts.KEY_MAIL_PORT, "465", KEY_SECRET, "auth-code"));
+        assertEquals(3, affected);
+        assertThrows(BusinessException.class,
+                () -> service.saveGroup(ConfigConsts.GROUP_NOTIFY, Map.of(KEY_MAIL_BOOL, "yes")));
+        assertThrows(BusinessException.class,
+                () -> service.saveGroup(ConfigConsts.GROUP_NOTIFY, Map.of(ConfigConsts.KEY_MAIL_PORT, "smtp")));
+        assertThrows(BusinessException.class,
+                () -> service.saveGroup(ConfigConsts.GROUP_NOTIFY, Map.of(KEY_BOOL, "true")));
+    }
+
+    @Test
+    void valueOfReturnsSecretRealValueForConsumerSide() {
+        // 消费侧(MailPushService)走 valueOf 取真值,与读侧脱敏零耦合
+        when(configMapper.selectOne(any())).thenReturn(SysConfig.builder()
+                .configKey(KEY_SECRET).configValue("real-auth-code").build());
+        assertEquals("real-auth-code", service.valueOf(KEY_SECRET));
     }
 }
