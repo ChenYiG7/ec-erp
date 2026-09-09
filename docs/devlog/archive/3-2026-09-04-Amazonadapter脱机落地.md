@@ -1,0 +1,3 @@
+# Amazon adapter 脱机落地(#3 接入中,选型定 Amazon SP-API,淘宝因企业资质门槛搁置):`a
+
+2026-09-04 Amazon adapter 脱机落地(#3 接入中,选型定 Amazon SP-API,淘宝因企业资质门槛搁置):`adapter/amazon` 包——`AmazonClient`(LWA buildAuthUrl/exchangeToken/refreshToken,SPI 新增 default refreshToken;**@ConditionalOnProperty 默认不注册 Bean**,`erp.adapter.amazon.enabled` 控制,未启用时调度自动跳过)、`LwaTokenClient`(RestClient,端点可配,JDK HttpServer 假服务单测不出网)、`AmazonOrderTranslator`(官方样例报文单测,状态机/时间/金额/地址翻译,raw_json 必存);SP-API getOrders 实调(需 AWS SigV4 签名器)等 TODO(#3) 占位封死;sdk pom 新引 spring-web/jackson-databind/spring-boot-autoconfigure(版本走 Boot BOM)。平台凭证注册节奏:Professional 卖家账号审核约 1 个月,办理中。
