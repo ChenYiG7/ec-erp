@@ -1,0 +1,36 @@
+# 盘点单 spec(gen:page 拍板表;仓内作业 2026-09-11,docs/plans/warehouse-ops.md)
+# 契约:GET/POST /api/inventory/stocktakes + GET/PUT/DELETE /api/inventory/stocktakes/{id}
+#       + POST /{id}/start /{id}/submit /{id}/adjust /{id}/close /{id}/cancel + PUT /{id}/counts
+# 盘点范围 SKU_SET 的 skuIds 选择器、录实盘行编辑(counts)均为生成器外定制组件(人工槽位);
+# createdBy/confirmedBy/confirmedAt 服务端回填不入表单;后端登录即可(同发货单口径),权限由 permKey 前端收口
+module=inventory
+domain=stocktake
+base=inventory/stocktakes
+entity=StocktakeOrder
+nameZh=盘点单
+permPrefix=inventory:stocktake
+todoId=30
+menuParent=17
+menuId=38
+path=/inventory/stocktakes
+component=inventory/stocktake/index
+icon=Files
+menuSort=4
+
+field=stocktakeNo role=all    label=盘点单号      width=180  required
+field=warehouseId role=all    label=盘点仓ID      width=110  required
+field=scopeType   role=all    label=盘点范围      enum=ALL:全仓:primary|SKU_SET:选定SKU集:warning  width=130  required
+field=status      role=column label=状态          enum=DRAFT:草稿:info|COUNTING:盘点中:primary|PENDING_ADJUST:待调整:warning|ADJUSTED:已调整:success|CLOSED:已关闭:info|CANCELED:已取消:danger  width=120  tag
+field=createdBy   role=column label=创建人        width=90
+field=confirmedBy role=column label=调整确认人    width=110
+field=confirmedAt role=column label=调整确认时间  width=170
+field=createdAt   role=column label=创建时间      width=170
+field=remark      role=form   label=备注
+
+# 页面级动作槽位(start/submit/adjust/close/cancel api 已生成,按钮与调用人工补;条件更新即守卫,失败弹拦截器报错)
+todo=start:DRAFT→COUNTING 开始盘点,确认弹窗后调用
+todo=recordCounts:COUNTING 阶段录实盘(PUT /{id}/counts,行编辑为定制组件),提交后刷新
+todo=submit:COUNTING→PENDING_ADJUST,实盘录齐方可提交(缺行整单回滚)
+todo=adjust:PENDING_ADJUST→ADJUSTED,按确认时点账面 re-diff 逐行 ADJUST 动账,可用不足整单回滚并提示差异行
+todo=close:ADJUSTED→CLOSED,确认弹窗后调用
+todo=cancel:未动账三态(草稿/盘点中/待调整)可取消,确认弹窗后调用

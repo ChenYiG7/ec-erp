@@ -134,8 +134,13 @@ export function parseSpec(specPath) {
     fail('role= 行仅 chat 模式可用(补 pageType=chat)')
   }
   // TODO 编号登记守卫(禁裸 TODO 同款)
+  // 2026-09-11 修正:TODO.md 2026-09-09 重整后为 P0~P3 分节 + `- [ ] **#NN 标题**` 行式,
+  // 不再有 `## #NN ` 标题段;旧形态守卫对全部 spec 恒报错(存量 delivery.txt 亦不通过)。
+  // 兼容两形态:`## #NN ` 标题段 或 `**#NN<非数字>` 行式登记(负向先行防 #3 命中 #30)。
   const todoMd = fs.readFileSync(path.join(REPO_ROOT, 'TODO.md'), 'utf8')
-  if (!todoMd.includes(`## #${spec.todoId} `)) {
+  const registered = todoMd.includes(`## #${spec.todoId} `)
+    || new RegExp(`\\*\\*#${spec.todoId}(?![0-9])`).test(todoMd)
+  if (!registered) {
     fail(`TODO.md 未登记 #${spec.todoId} 条目——先登记再生成(禁裸 TODO)`)
   }
   if (!spec.nameZh || /^[\x00-\x7F]*$/.test(spec.nameZh)) {

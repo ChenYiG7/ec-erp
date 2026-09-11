@@ -12,9 +12,12 @@ import com.own.erp.ai.tools.GoodsTools;
 import com.own.erp.ai.tools.InventoryTools;
 import com.own.erp.ai.tools.OrderTools;
 import com.own.erp.ai.tools.PurchaseTools;
+import com.own.erp.ai.tools.ReportTools;
 import com.own.erp.ai.tools.ShopTools;
 import com.own.erp.common.exception.BusinessException;
 import com.own.erp.contract.CurrentUserApi;
+import com.own.erp.contract.ProfitQueryApi;
+import com.own.erp.contract.ReportQueryApi;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
@@ -23,8 +26,13 @@ import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
+
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -52,6 +60,7 @@ class ErpChatServiceTest {
 
     private static final Long USER_ID = 99L;
 
+    private ChatClient.Builder builder;
     private ChatClient.ChatClientRequestSpec spec;
     private AiChatSessionService sessionService;
     private AiChatMessageService messageService;
@@ -60,7 +69,7 @@ class ErpChatServiceTest {
 
     @BeforeEach
     void setUp() {
-        ChatClient.Builder builder = mock(ChatClient.Builder.class);
+        builder = mock(ChatClient.Builder.class);
         ChatClient chatClient = mock(ChatClient.class);
         spec = mock(ChatClient.ChatClientRequestSpec.class, RETURNS_SELF);
         when(builder.build()).thenReturn(chatClient);
@@ -74,7 +83,7 @@ class ErpChatServiceTest {
                 RuntimePropsStub.of(new ErpAiProperties()), currentUserApi, sessionService,
                 messageService, kbSearchService, mock(OrderTools.class), mock(InventoryTools.class),
                 mock(GoodsTools.class), mock(AftersaleTools.class), mock(ShopTools.class),
-                mock(PurchaseTools.class), mock(DeliveryTools.class));
+                mock(PurchaseTools.class), mock(DeliveryTools.class), mock(ReportTools.class));
         ReflectionTestUtils.setField(service, "apiKey", "test-key");
     }
 
@@ -191,6 +200,32 @@ class ErpChatServiceTest {
 
         verify(spec).user("hi");
         verify(messageService).append(eq(1L), eq("AI"), eq("好"), any(), any(), any());
+    }
+
+    /**
+     * #6 第八类接线回归:真实 ReportTools 实例经 ToolCallbacks.from 注册进 chat 工具白名单
+     * (其余七类传桩——Mockito 子类不继承方法上的 @Tool 注解,桩不产出工具,不影响本断言);
+     * 同时覆盖"无 DB 模型覆盖时不再 .options(null)"的链路(不抛 IllegalArgumentException)
+     */
+    @Test
+    void chatWhitelistRegistersReportToolsWithoutModelOverride() {
+        stubCallChain(emptyResponse("好"));
+        ErpChatService svc = new ErpChatService(builder, new ErpAiProperties(),
+                RuntimePropsStub.of(new ErpAiProperties()), mock(CurrentUserApi.class), sessionService,
+                messageService, kbSearchService, mock(OrderTools.class), mock(InventoryTools.class),
+                mock(GoodsTools.class), mock(AftersaleTools.class), mock(ShopTools.class),
+                mock(PurchaseTools.class), mock(DeliveryTools.class),
+                new ReportTools(mock(ReportQueryApi.class), mock(ProfitQueryApi.class)));
+        ReflectionTestUtils.setField(svc, "apiKey", "test-key");
+
+        svc.chat(1L, "最近7天销量top5的SKU");
+
+        ToolCallback[] callbacks = (ToolCallback[]) ReflectionTestUtils.getField(svc, "toolCallbacks");
+        Set<String> names = Arrays.stream(callbacks)
+                .map(cb -> cb.getToolDefinition().name())
+                .collect(Collectors.toSet());
+        assertTrue(names.containsAll(Set.of("reportSalesDaily", "reportSkuSalesTop", "reportSkuTrend",
+                "reportInventorySnapshot", "reportProfitSummary")), "实际注册工具=" + names);
     }
 
     private ChatResponse emptyResponse(String text) {

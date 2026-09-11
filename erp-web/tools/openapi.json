@@ -3796,6 +3796,118 @@
         }
       }
     },
+    "/api/orders/{id}/review": {
+      "post": {
+        "tags": ["平台订单"],
+        "summary": "订单审核",
+        "description": "状态机:待审核(1)/无需审核(0)/已驳回(3) → 通过(2)/驳回(3);已通过为审核终态;审核人/时间服务端回填,remark 落审核备注(#29)",
+        "operationId": "review_15",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShopOrderReviewCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orders/manual": {
+      "post": {
+        "tags": ["平台订单"],
+        "summary": "内销订单录入",
+        "description": "合成单号 MAN-*;status 固定 WAIT_SHIP、来源 MANUAL、金额服务端计算;SKU 必绑;按风控规则决定是否待审核。返回订单ID(#29)",
+        "operationId": "createManual_15",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualOrderSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultLong"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orders/manual/{id}": {
+      "put": {
+        "tags": ["平台订单"],
+        "summary": "修改内销订单",
+        "description": "仅 MANUAL + WAIT_SHIP 可改;明细整体替换并重算金额;不触碰单号/状态/审核列(#29)",
+        "operationId": "updateManual_15",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualOrderSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/inventory/inventories": {
       "get": {
         "tags": ["库存"],
@@ -6895,6 +7007,13 @@
           },
           "orderStatus": {
             "type": "string"
+          },
+          "orderSource": {
+            "type": "string"
+          },
+          "reviewStatus": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -7012,6 +7131,105 @@
           }
         }
       },
+      "ShopOrderReviewCommand": {
+        "type": "object",
+        "properties": {
+          "approve": {
+            "type": "boolean"
+          },
+          "remark": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": ["approve"]
+      },
+      "ManualOrderItemSaveRequest": {
+        "type": "object",
+        "properties": {
+          "skuId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "productName": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "unitPrice": {
+            "type": "number"
+          }
+        },
+        "required": ["skuId", "quantity", "unitPrice"]
+      },
+      "ManualOrderSaveRequest": {
+        "type": "object",
+        "properties": {
+          "shopId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "buyerNote": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "receiverName": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "receiverPhone": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "receiverCountry": {
+            "type": "string",
+            "maxLength": 8
+          },
+          "receiverState": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "receiverCity": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "receiverAddress": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "receiverZip": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 3
+          },
+          "exchangeRate": {
+            "type": "number"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManualOrderItemSaveRequest"
+            }
+          }
+        },
+        "required": [
+          "shopId",
+          "receiverName",
+          "receiverPhone",
+          "receiverCountry",
+          "receiverCity",
+          "receiverAddress",
+          "receiverZip",
+          "items"
+        ]
+      },
       "ShopOrderResponse": {
         "type": "object",
         "properties": {
@@ -7081,6 +7299,27 @@
           },
           "discountAmount": {
             "type": "number"
+          },
+          "orderSource": {
+            "type": "string"
+          },
+          "reviewStatus": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reviewRemark": {
+            "type": "string"
+          },
+          "reviewedBy": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reviewedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "riskFlag": {
+            "type": "string"
           },
           "createdAt": {
             "type": "string",

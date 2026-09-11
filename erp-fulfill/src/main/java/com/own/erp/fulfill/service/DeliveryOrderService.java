@@ -10,6 +10,7 @@ import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.InventoryChangeApi;
 import com.own.erp.contract.InventoryChangeCommand;
 import com.own.erp.contract.InventoryConsts;
+import com.own.erp.contract.OrderReviewConsts;
 import com.own.erp.contract.ShopOrderApi;
 import com.own.erp.contract.WarehouseApi;
 import com.own.erp.fulfill.constant.DeliveryConsts;
@@ -313,12 +314,13 @@ public class DeliveryOrderService {
         }
     }
 
-    /** 订单可发校验(#11 建单/改单前置):存在 + WAIT_SHIP + SELF_FULFILL,返回发货视图 */
+    /** 订单可发校验(#11 建单/改单前置):存在 + 审核放行(#29) + WAIT_SHIP + SELF_FULFILL,返回发货视图 */
     private ShopOrderApi.OrderDeliveryView requireDeliverableOrder(Long orderId) {
         ShopOrderApi.OrderDeliveryView view = shopOrderApi.findDeliveryView(orderId);
         if (view == null) {
             throw new BusinessException("订单不存在:" + orderId);
         }
+        requireReviewPassed(view);
         if (!DeliveryConsts.ORDER_WAIT_SHIP.equals(view.orderStatus())) {
             throw new BusinessException("仅待发货订单可创建发货单,当前订单状态:" + view.orderStatus());
         }
@@ -326,6 +328,23 @@ public class DeliveryOrderService {
             throw new BusinessException("仅卖家自履约订单可创建发货单(FBA/海外仓由平台/仓履约),当前:" + view.fulfillmentChannel());
         }
         return view;
+    }
+
+    /**
+     * 订单审核闸门(#29 订单域补课,计划书 §2.1):review_status∈{1 待审核,3 已驳回} 拦截建单,
+     * 文案区分两种原因供人工处置;0 无需审核/2 已通过放行,审核态为空(历史数据/上游未回填)按放行处理
+     */
+    private void requireReviewPassed(ShopOrderApi.OrderDeliveryView view) {
+        Integer reviewStatus = view.reviewStatus();
+        if (reviewStatus == null) {
+            return;
+        }
+        if (OrderReviewConsts.REVIEW_PENDING == reviewStatus) {
+            throw new BusinessException("订单待审核,请先审核通过后再建发货单:orderId=" + view.orderId());
+        }
+        if (OrderReviewConsts.REVIEW_REJECTED == reviewStatus) {
+            throw new BusinessException("订单已审核驳回,禁止建发货单(如需放行请复核通过):orderId=" + view.orderId());
+        }
     }
 
     /** 校验并装配发货明细行:订单明细归属 + sku_id 已绑定 + 行去重 + 剩余量预校验;skuId 服务端回填 */

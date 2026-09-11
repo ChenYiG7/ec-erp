@@ -5,16 +5,18 @@ import java.util.Set;
 /**
  * @author : chenyi
  * @Date : 2026/9/7
- * @Description : Agent 角色词表(四期 agent/):客服全量只读工具;运营收敛到库存/商品盘面工具
+ * @Description : Agent 角色词表(四期 agent/):客服全量只读工具;运营收敛到库存/商品盘面工具 + 报表盘面工具
  *     (工具名 = tools/ 各 @Tool 方法名,空集 = 全量)。新角色随工具面扩容在此登记,禁散落字面量(docs/07 §1)
  */
 public enum AgentRole {
 
-    /** 客服助手:订单/库存/商品/售后全量只读查询 */
+    /** 客服助手:订单/库存/商品/售后/报表全量只读查询 */
     SUPPORT(Set.of()),
 
-    /** 运营助手:库存 + 商品盘面(订单/售后工具不开放) */
-    OPS(Set.of("queryInventory", "searchProducts", "findSkuByCode"));
+    /** 运营助手:库存 + 商品盘面 + 报表盘面(#6 Report tools 默认双开,计划书 §七①;订单/售后工具不开放) */
+    OPS(Set.of("queryInventory", "searchProducts", "findSkuByCode",
+            "reportSalesDaily", "reportSkuSalesTop", "reportSkuTrend",
+            "reportInventorySnapshot", "reportProfitSummary"));
 
     /** 可用工具名白名单(空集 = 全量) */
     private final Set<String> allowedTools;

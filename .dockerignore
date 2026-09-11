@@ -1,0 +1,26 @@
+# 构建上下文瘦身 + 密钥红线:以下文件一律不进镜像
+.git/
+.idea/
+.vscode/
+.claude/
+.zcode/
+.workbuddy/
+
+# 密钥与本地配置(红线:密钥禁入镜像分层;erp-web/.env* 仅含标题/端口/代理地址无密钥,不在此列)
+.env
+local.properties
+erp-api/local.properties
+
+# 构建产物
+target/
+*/target/
+erp-web/node_modules/
+erp-web/dist/
+logs/
+*.log
+
+# 文档与脚本(docs/ 是建库正本唯一例外——compose 以卷挂载注入,不经构建上下文)
+docs/
+scripts/
+erp-web/e2e/
+erp-web/take-screenshots/

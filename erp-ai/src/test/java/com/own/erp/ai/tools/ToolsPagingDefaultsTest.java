@@ -5,8 +5,10 @@ import com.own.erp.contract.DeliveryQueryApi;
 import com.own.erp.contract.GoodsQueryApi;
 import com.own.erp.contract.InventoryQueryApi;
 import com.own.erp.contract.OrderQueryApi;
+import com.own.erp.contract.ProfitQueryApi;
 import com.own.erp.contract.PurchaseQueryApi;
 import com.own.erp.contract.QueryPage;
+import com.own.erp.contract.ReportQueryApi;
 import com.own.erp.contract.ShopQueryApi;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -115,6 +117,33 @@ class ToolsPagingDefaultsTest {
                 ArgumentCaptor.forClass(DeliveryQueryApi.DeliveryFilter.class);
         verify(api).pageDeliveries(captor.capture());
         assertEquals(1, captor.getValue().page());
+        assertEquals(20, captor.getValue().size());
+    }
+
+    @Test
+    void reportSalesDailyNullPagingDefaultsToPageOneSizeTwenty() {
+        ReportQueryApi api = mock(ReportQueryApi.class);
+        when(api.salesDailySummary(any())).thenReturn(QueryPage.of(List.of(), 0));
+        new ReportTools(api, mock(ProfitQueryApi.class)).reportSalesDaily(null, null, null, null);
+
+        ArgumentCaptor<ReportQueryApi.ReportSalesQuery> captor =
+                ArgumentCaptor.forClass(ReportQueryApi.ReportSalesQuery.class);
+        verify(api).salesDailySummary(captor.capture());
+        assertEquals(1, captor.getValue().page());
+        assertEquals(20, captor.getValue().size());
+    }
+
+    @Test
+    void reportInventorySnapshotNullPagingDefaultsToPageOneSizeTwenty() {
+        ReportQueryApi api = mock(ReportQueryApi.class);
+        when(api.inventorySnapshotSummary(any())).thenReturn(QueryPage.of(List.of(), 0));
+        new ReportTools(api, mock(ProfitQueryApi.class)).reportInventorySnapshot(null, null, null);
+
+        ArgumentCaptor<ReportQueryApi.ReportInvQuery> captor =
+                ArgumentCaptor.forClass(ReportQueryApi.ReportInvQuery.class);
+        verify(api).inventorySnapshotSummary(captor.capture());
+        assertEquals(1, captor.getValue().page());
+        // 工具面硬上限 20(契约侧快照缺省 50,#6 工具裁剪更严)
         assertEquals(20, captor.getValue().size());
     }
 }

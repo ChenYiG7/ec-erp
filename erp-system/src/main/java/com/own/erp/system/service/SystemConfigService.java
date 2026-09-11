@@ -190,6 +190,9 @@ public class SystemConfigService {
         if (ConfigConsts.NOTIFY_KEYS.contains(key)) {
             return ConfigConsts.GROUP_NOTIFY;
         }
+        if (ConfigConsts.ORDER_REVIEW_KEYS.contains(key)) {
+            return ConfigConsts.GROUP_ORDER_REVIEW;
+        }
         return ConfigConsts.GROUP_SALES;
     }
 
@@ -230,6 +233,8 @@ public class SystemConfigService {
                  ConfigConsts.KEY_MAIL_SSL -> ValueType.BOOL;
             case ConfigConsts.KEY_MAIL_PORT -> ValueType.INT;
             case ConfigConsts.KEY_MAIL_PASSWORD -> ValueType.SECRET;
+            // #29 订单审核风控:关键词表自由文本(英文逗号分隔),长度上限由统一校验兜底
+            case ConfigConsts.KEY_ORDER_REVIEW_RISK_KEYWORDS -> ValueType.TEXT;
             default -> ValueType.TEXT;
         };
     }

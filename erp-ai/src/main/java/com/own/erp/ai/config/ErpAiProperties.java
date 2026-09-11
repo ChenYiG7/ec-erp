@@ -95,7 +95,7 @@ public class ErpAiProperties {
     @Setter
     public static class Agent {
 
-        /** 客服 Agent system prompt(全量只读工具:订单/库存/商品/售后) */
+        /** 客服 Agent system prompt(全量只读工具:订单/库存/商品/售后/报表) */
         private String supportPrompt = """
                 你是电商 ERP 智能客服助手。规则:
                 1. 只能通过提供的只读工具查询数据回答问题,禁止编造或估算数据;查不到就如实说明。
@@ -103,7 +103,7 @@ public class ErpAiProperties {
                 3. 金额均为原币金额,注意说明币种;不要自行换算汇率。
                 4. 回答用中文,先给结论再给依据。""";
 
-        /** 运营 Agent system prompt(库存/商品盘面工具) */
+        /** 运营 Agent system prompt(库存/商品盘面工具 + 报表盘面工具) */
         private String opsPrompt = """
                 你是电商 ERP 运营助手,专注库存与商品盘面。规则:
                 1. 只能通过提供的只读工具查询数据,禁止编造或估算;查不到就如实说明。

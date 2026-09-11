@@ -13,6 +13,7 @@ import com.own.erp.ai.tools.GoodsTools;
 import com.own.erp.ai.tools.InventoryTools;
 import com.own.erp.ai.tools.OrderTools;
 import com.own.erp.ai.tools.PurchaseTools;
+import com.own.erp.ai.tools.ReportTools;
 import com.own.erp.ai.tools.ShopTools;
 import com.own.erp.common.exception.BusinessException;
 import com.own.erp.contract.CurrentUserApi;
@@ -74,7 +75,8 @@ public class ErpChatService {
                           AftersaleTools aftersaleTools,
                           ShopTools shopTools,
                           PurchaseTools purchaseTools,
-                          DeliveryTools deliveryTools) {
+                          DeliveryTools deliveryTools,
+                          ReportTools reportTools) {
         this.chatClient = chatClientBuilder.build();
         this.props = props;
         this.runtime = runtime;
@@ -83,17 +85,13 @@ public class ErpChatService {
         this.aiChatMessageService = aiChatMessageService;
         this.kbSearchService = kbSearchService;
         this.toolCallbacks = ToolCallbacks.from(orderTools, inventoryTools, goodsTools, aftersaleTools,
-                shopTools, purchaseTools, deliveryTools);
+                shopTools, purchaseTools, deliveryTools, reportTools);
     }
 
     /** 同步对话:归属校验 → 标题回填 → USER 落库 → 模型调用 → AI 落库(带 token 用量)→ 回复 */
     public String chat(Long sessionId, String message) {
         String question = prepare(sessionId, message);
-        var response = chatClient.prompt()
-                .system(runtime.systemPrompt())
-                .options(chatOptions())
-                .toolCallbacks(wrapToolCallbacks(sessionId))
-                .user(withKbContext(question))
+        var response = promptSpec(sessionId, question)
                 .call()
                 .chatResponse();
         String reply = response == null || response.getResult() == null
@@ -104,6 +102,22 @@ public class ErpChatService {
                 usage == null ? null : usage.getPromptTokens().intValue(),
                 usage == null ? null : usage.getCompletionTokens().intValue());
         return reply;
+    }
+
+    /**
+     * 对话请求装配(同步/流式共用):system prompt + 工具白名单 + user 消息(RAG 上下文)。
+     * <p><b>#6 联调修复(2026-09-10)</b>:#18 引入的 {@link #chatOptions()} 在无 DB 覆盖时返回 null,
+     * 原链路无条件 `.options(null)` 会被 Spring AI 断言拦截(IllegalArgumentException: customizer cannot be null)
+     * ——即 sys_config 模型键为种子态(NULL)时对话整体 500;改为**有覆盖才挂 options**,
+     * 与 {@link #chatOptions()} 的既有注释口径("不额外建 options,保持原链路")对齐
+     */
+    private ChatClient.ChatClientRequestSpec promptSpec(Long sessionId, String question) {
+        ChatClient.ChatClientRequestSpec request = chatClient.prompt().system(runtime.systemPrompt());
+        ChatOptions.Builder<?> options = chatOptions();
+        if (options != null) {
+            request = request.options(options);
+        }
+        return request.toolCallbacks(wrapToolCallbacks(sessionId)).user(withKbContext(question));
     }
 
     /**
@@ -118,11 +132,7 @@ public class ErpChatService {
         String question = prepare(sessionId, message);
         StringBuilder full = new StringBuilder();
         AtomicBoolean failed = new AtomicBoolean(false);
-        return chatClient.prompt()
-                .system(runtime.systemPrompt())
-                .options(chatOptions())
-                .toolCallbacks(wrapToolCallbacks(sessionId))
-                .user(withKbContext(question))
+        return promptSpec(sessionId, question)
                 .stream()
                 .content()
                 .doOnNext(full::append)

@@ -26,8 +26,11 @@ public final class ConfigConsts {
     /** 参数组:邮件通知渠道(#14 邮箱推送,SMTP 参数全量热更) */
     public static final String GROUP_NOTIFY = "NOTIFY";
 
+    /** 参数组:订单审核风控(#29 订单域补课,风控关键词热更) */
+    public static final String GROUP_ORDER_REVIEW = "ORDER_REVIEW";
+
     /** 合法组词表(保存校验用) */
-    public static final Set<String> GROUPS = Set.of(GROUP_AI, GROUP_ALERT, GROUP_SALES, GROUP_NOTIFY);
+    public static final Set<String> GROUPS = Set.of(GROUP_AI, GROUP_ALERT, GROUP_SALES, GROUP_NOTIFY, GROUP_ORDER_REVIEW);
 
     /** SECRET 类型键回显掩码(listByGroup 对 SECRET 非空值统一替换;saveGroup 收到此值 = 未改动跳过) */
     public static final String SECRET_MASK = "******";
@@ -223,6 +226,14 @@ public final class ConfigConsts {
     public static final Set<String> NOTIFY_KEYS = Set.of(
             KEY_MAIL_ENABLED, KEY_MAIL_HOST, KEY_MAIL_PORT, KEY_MAIL_USERNAME,
             KEY_MAIL_PASSWORD, KEY_MAIL_FROM, KEY_MAIL_SSL);
+
+    /** ── 订单审核风控键(GROUP_ORDER_REVIEW,#29 订单域补课)── */
+
+    /** 订单审核:买家留言风控关键词(英文逗号分隔,命中置待审核;空=仅按地址规则判定) */
+    public static final String KEY_ORDER_REVIEW_RISK_KEYWORDS = "erp.order.review.risk-keywords";
+
+    /** 订单审核组合法键全集 */
+    public static final Set<String> ORDER_REVIEW_KEYS = Set.of(KEY_ORDER_REVIEW_RISK_KEYWORDS);
 
     /** 参数值上限(与表列 VARCHAR(1024) 对齐) */
     public static final int VALUE_MAX_LENGTH = 1024;

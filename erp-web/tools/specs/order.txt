@@ -1,6 +1,10 @@
 # 平台订单 spec:只读域(readonly=true;后端 #4 订单对外只读,写侧拉单落库不开放)
 # 详情 GET /api/orders/{id}(含明细 items)暂不出页面,gen:page otherExtra 注释留槽,后续人工接详情抽屉
 # 菜单 id=9 已在 01_schema_init.sql 种子(path=/order/list, component=order/index, perm=order:list),本 spec 三值与其对齐
+# #29 订单域补课人工改动(2026-09-11):审核状态/订单来源两列 + 五列搜索过滤(shopId/platform/orderStatus/
+#   orderSource/reviewStatus,**须显式 search:{el:'select'} 才进搜索表单**,ProTable 仅收 search.el/render);
+#   审核动作 ReviewDialog + 手工录单 ManualOrderForm(内销录单,api: review/createManual/updateManual 人工补),
+#   按钮 permKey order:review / order:manual(mode=page 生成器不覆盖人工改动)
 module=order
 domain=order
 base=orders
@@ -14,12 +18,19 @@ component=order/index
 icon=Documentation
 readonly=true
 
-field=shopId              role=all    label=店铺ID    width=90
-field=platform            role=all    label=平台      dict=shop_platform  width=110
-field=orderStatus         role=all    label=订单状态  width=110
+field=shopId              role=all    label=店铺ID    width=90   search=select
+field=platform            role=all    label=平台      dict=shop_platform  width=110  search=select
+field=orderStatus         role=all    label=订单状态  width=110  search=select
+field=orderSource         role=all    label=来源      enum=PLATFORM:平台拉单|MANUAL:内销录单:warning  width=100  search=select
+field=reviewStatus        role=all    label=审核状态  enum=0:无需审核|1:待审核:warning|2:已通过:success|3:已驳回:danger  width=110  search=select
 field=platformOrderId     role=column label=平台单号  width=200
 field=fulfillmentChannel  role=column label=履约渠道  width=110
 field=currency            role=column label=币种      width=70
 field=orderAmount         role=column label=订单金额  width=120  money
 field=orderTime           role=column label=下单时间  width=170
 field=paidTime            role=column label=付款时间  width=170
+
+# 人工槽位(#29):审核动作(order:review;POST /api/orders/{id}/review)与手工录单(order:manual;POST /api/orders/manual,PUT /manual/{id})
+todo=review:reviewStatus≠2 显示审核按钮,弹窗裁定通过/驳回 + 备注,后端条件更新即守卫(已通过为终态)
+todo=manualCreate:工具栏手工录单(order:manual),选店铺 + 收货六列 + 明细(SkuSelector,sku_id 必绑),单号/状态/金额后端派生
+todo=manualEdit:orderSource=MANUAL 且 orderStatus=WAIT_SHIP 显示编辑,明细整体替换,不触碰单号/状态/审核列

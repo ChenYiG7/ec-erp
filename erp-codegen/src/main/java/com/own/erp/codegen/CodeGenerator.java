@@ -102,7 +102,7 @@ public final class CodeGenerator {
     }
 
     private static final Pattern TABLE_BLOCK = Pattern.compile(
-            "CREATE TABLE IF NOT EXISTS (\\w+)\\s*\\((.*?)\\r?\\n\\)\\s*COMMENT\\s*'([^']*)'\\s*;",
+            "CREATE TABLE IF NOT EXISTS (\\w+)\\s*\\((.*?)\\r?\\n\\)\\s*COMMENT\\s*=?\\s*'([^']*)'\\s*;",
             Pattern.DOTALL);
     private static final Pattern COL_LINE = Pattern.compile(
             "^([A-Za-z_][A-Za-z0-9_]*)\\s+([A-Za-z]+\\s*\\([^)]*\\)?|[A-Za-z]+)\\s*(.*)$");

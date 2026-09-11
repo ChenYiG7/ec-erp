@@ -1,0 +1,20 @@
+# 订单审核状态机守卫测试 spec(#29 订单域补课)—— StateMachineTestGenerator
+# 语法见 erp-codegen/README.md;语义对齐 ShopOrderService#review(独立列条件更新即守卫,计划书 §六红线)
+# 改状态机(或 Mapper casReviewStatus 实参)后:改本文件 → 重跑生成器 -Dforce=true → mvn -pl erp-order test
+# 守卫 SQL:WHERE review_status <> 2(已通过为审核终态;待审核/无需审核/已驳回均可裁定)
+module=order
+entity=ShopOrder
+var=shopOrder
+constClass=com.own.erp.contract.OrderReviewConsts
+mock=ShopOrderMapper
+mock=ShopOrderItemMapper
+mock=com.own.erp.order.service.OrderRiskEvaluator
+mock=org.springframework.context.ApplicationEventPublisher
+mock=com.own.erp.contract.CurrentUserApi
+todoId=29
+manual=审核人 reviewed_by 由 CurrentUserApi 回填(单测 mock 返回 null,故 stub/call 不含真实用户);MANUAL 单冲突防御、upsert 不冲审核列(ODKU 显式排除)在真库 validate 脚本与手写单测覆盖;内销录单 ManualOrderService 合成单号重试/店铺与 SKU 校验属复合流程,落手写单测(生成器边界外)
+# action=<serviceMethod> | cas=<mapper方法> | stub=<stub实参> | call=<调用实参> | fail=<消息前缀> [| 可选项]
+# ⚠️ 第四实参(审核人 reviewed_by)由 CurrentUserApi 服务端回填;单测中该 mock 未 stub,
+#    Mockito 默认应答(ReturnsEmptyValues)对包装类型 Long 返回 0L 而非 null,故 stub 用 0L 与生产实参一致
+action=review | cas=casReviewStatus | stub=ID, OrderReviewConsts.REVIEW_APPROVED, "凭证齐全", 0L | call=ID, true, "凭证齐全" | fail=审核通过失败 | verify | name=Approve
+action=review | cas=casReviewStatus | stub=ID, OrderReviewConsts.REVIEW_REJECTED, "虚假单号驳回", 0L | call=ID, false, "虚假单号驳回" | fail=审核驳回失败 | verify | name=Reject

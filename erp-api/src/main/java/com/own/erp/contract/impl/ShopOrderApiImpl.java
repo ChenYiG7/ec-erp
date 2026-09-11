@@ -42,6 +42,8 @@ public class ShopOrderApiImpl implements ShopOrderApi {
                 .platformOrderId(order.platformOrderId())
                 .orderStatus(order.orderStatus())
                 .fulfillmentChannel(order.fulfillmentChannel())
+                // #29:审核态透传给 erp-fulfill 建单闸门(review_status∈{1,3} 拦截)
+                .reviewStatus(order.reviewStatus())
                 .items(items)
                 .build();
     }

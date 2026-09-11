@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.contract.InventoryConsts;
 import com.own.erp.inventory.entity.Inventory;
 import com.own.erp.inventory.entity.InventoryFlow;
 import com.own.erp.inventory.mapper.InventoryFlowMapper;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * @author : chenyi
@@ -27,14 +29,13 @@ import java.util.Collection;
  *     change 按 flow_type 差异化列语义(#7 2026-09-06,FlowOps 矩阵):采购审核占在途/入库核销(#10)、
  *     发货建单占用/出库核销占用(#11),占用与在途全部落原子 UPDATE 守卫;
  *     成本账随动账同事务推进(#19③):recordFlow 前 InventoryCostService.apply 锁 sku_cost_state
- *     推进移动加权并回填流水成本快照(锁序 inventory 行 → state 行,单向无死锁)
+ *     推进移动加权并回填流水成本快照(锁序 inventory 行 → state 行,单向无死锁)。
+ *     仓内作业(2026-09-11,盘点/调拨域模块内消费)额外暴露两读口:currentOnHand(确认时点 re-diff)
+ *     与 listByWarehouse(建单快照),均在唯一入口之上做只读收口,不改数量列
  */
 @Service
 @RequiredArgsConstructor
 public class InventoryService {
-
-    /** 调拨两腿流水关联业务类型(transfer 上层组合专用;调拨单据域立项后由其常量收口) */
-    private static final String BIZ_TYPE_INVENTORY_TRANSFER = "INVENTORY_TRANSFER";
 
     /** 全零行:行不存在时守卫提示的取值基准(仅供文案,不入库) */
     private static final Inventory ZERO_ROW = Inventory.builder()
@@ -142,12 +143,13 @@ public class InventoryService {
     /**
      * 跨仓调拨组合(#7 收口"TRANSFER 由上层组合或另设 transfer"的拍板:组合收口本方法):
      * 同事务 TRANSFER_OUT(源仓负数)+ TRANSFER_IN(目标仓正数),两腿各写一条流水
-     * (biz_type=INVENTORY_TRANSFER),任一腿可用不足整体回滚。
-     * 目前无调拨单业务域与人工入口,直调预留(调拨单据/审批/前端页面随需求另立项)
+     * (biz_type=TRANSFER_ORDER,2026-09-11 由调拨单域常量为准,不再用 INVENTORY_TRANSFER 字面量,
+     * 历史流水不改写),任一腿可用不足整体回滚。
+     * 人工入口 = 调拨单域(TransferOrderService.confirm 逐行调用,仓内作业 2026-09-11 落地)
      */
     @Transactional(rollbackFor = Exception.class)
     public void transfer(Long skuId, Long fromWarehouseId, Long toWarehouseId, int quantity,
-                         String remark, Long createdBy) {
+                         String remark, Long createdBy, Long bizId) {
         if (quantity <= 0) {
             throw new BusinessException("调拨数量必须大于0");
         }
@@ -156,12 +158,32 @@ public class InventoryService {
         }
         change(InventoryFlow.builder()
                 .skuId(skuId).warehouseId(fromWarehouseId).quantity(-quantity)
-                .flowType(FlowOps.TRANSFER_OUT.name()).bizType(BIZ_TYPE_INVENTORY_TRANSFER)
-                .remark(remark).createdBy(createdBy).build());
+                .flowType(FlowOps.TRANSFER_OUT.name()).bizType(InventoryConsts.BIZ_TYPE_TRANSFER_ORDER)
+                .bizId(bizId).remark(remark).createdBy(createdBy).build());
         change(InventoryFlow.builder()
                 .skuId(skuId).warehouseId(toWarehouseId).quantity(quantity)
-                .flowType(FlowOps.TRANSFER_IN.name()).bizType(BIZ_TYPE_INVENTORY_TRANSFER)
-                .remark(remark).createdBy(createdBy).build());
+                .flowType(FlowOps.TRANSFER_IN.name()).bizType(InventoryConsts.BIZ_TYPE_TRANSFER_ORDER)
+                .bizId(bizId).remark(remark).createdBy(createdBy).build());
+    }
+
+    /**
+     * 确认时点账面在库量(盘点域 re-diff 取数,仓内作业 2026-09-11):(sku, warehouse) 行不存在按 0 计。
+     * 只读;盘点确认时以此值为基准重算差异(非建单快照差,计划书 §2.1 拍板点②)
+     */
+    public int currentOnHand(Long skuId, Long warehouseId) {
+        Inventory row = loadRow(skuId, warehouseId);
+        return row == null ? 0 : (row.getQtyOnHand() == null ? 0 : row.getQtyOnHand());
+    }
+
+    /**
+     * 盘点建单快照取数(仓内作业 2026-09-11):skus 为空 = 该仓全部库存行(scope ALL);
+     * 非空 = 指定 SKU 在该仓的现存行(scope SKU_SET;缺席 SKU 由调用方按无行=账面 0 处理)。
+     * 只读,行数按仓内 SKU 规模,不分页
+     */
+    public List<Inventory> listByWarehouse(Long warehouseId, Collection<Long> skus) {
+        return inventoryMapper.selectList(new LambdaQueryWrapper<Inventory>()
+                .eq(Inventory::getWarehouseId, warehouseId)
+                .in(CollUtil.isNotEmpty(skus), Inventory::getSkuId, skus));
     }
 
     /**
@@ -179,9 +201,14 @@ public class InventoryService {
 
     /** 回查 (sku, warehouse) 行:区分原子 UPDATE 未命中是"行不存在"还是"余额不足" */
     private Inventory loadRow(InventoryFlow flow) {
+        return loadRow(flow.getSkuId(), flow.getWarehouseId());
+    }
+
+    /** 回查 (sku, warehouse) 行(盘点时点账面等只读取数共用) */
+    private Inventory loadRow(Long skuId, Long warehouseId) {
         return inventoryMapper.selectOne(new LambdaQueryWrapper<Inventory>()
-                .eq(Inventory::getSkuId, flow.getSkuId())
-                .eq(Inventory::getWarehouseId, flow.getWarehouseId()));
+                .eq(Inventory::getSkuId, skuId)
+                .eq(Inventory::getWarehouseId, warehouseId));
     }
 
     /** 重试上限:一轮重试足够覆盖并发首建窗口,两轮仍冲突按业务冲突上抛(极端竞争,调用方可重试) */
@@ -192,8 +219,9 @@ public class InventoryService {
     }
 
     /**
-     * flow_type → 库存列语义(#7 差异化)。枚举名即 flow_type 字面量(本模块不依赖 erp-contract,
-     * 词表三方同步:本枚举 ↔ InventoryConsts ↔ 01_schema_init.sql/docs/03 §4 DDL 注释):
+     * flow_type → 库存列语义(#7 差异化)。枚举名即 flow_type 字面量(词表三方同步:
+     * 本枚举 ↔ erp-contract InventoryConsts ↔ 01_schema_init.sql/docs/03 §4 DDL 注释;
+     * 本模块已依赖 erp-contract,契约常量为词表正本,本枚举仅承载列语义实现):
      * <pre>
      * 类型           列变化(Δ=quantity,正负随调用方)                守卫
      * IN_TRANSIT    在途±Δ(采购审核占/关闭释放,仅 qty_transit)      无(释放量调用方按未到货给值)

@@ -149,7 +149,10 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path
 (37, 35, '商品分析', 2, 'report:goods:list', '/report/goods-analysis', 'report/goods-analysis/index', 'Histogram', 2),
 -- 系统设置(TODO#18 前端页 2026-09-07:sys_config 分组面板,手写页(gen:page 不适用——非 CRUD 列表页,
 --   只读拉全量+保存动作,后端 admin 双闸);按钮组仅“保存参数”一个动作,幂等 upsert;2026-09-08 sort 5→8 顺延)
-(29, 1, '系统设置', 2, 'system:config:list', '/system/configs', 'system/config/index', 'Tools', 5);
+(29, 1, '系统设置', 2, 'system:config:list', '/system/configs', 'system/config/index', 'Tools', 5),
+-- 盘点单/调拨单(仓内作业 2026-09-11:盘点单建单/录实盘/生成调整/关闭/取消,调拨单建单/确认/取消,库存管理目录下)
+(38, 17, '盘点单', 2, 'inventory:stocktake:list', '/inventory/stocktakes', 'inventory/stocktake/index', 'Files', 4),
+(39, 17, '调拨单', 2, 'inventory:transfer:list', '/inventory/transfer-orders', 'inventory/transfer/index', 'Switch', 5);
 INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key) VALUES
 (200, 2, '新增', 3, 'system:user:add'),
 (201, 2, '编辑', 3, 'system:user:edit'),
@@ -213,7 +216,25 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key) VALU
 (2402, 24, '编辑', 3, 'goods:brand:edit'),
 (2403, 24, '删除', 3, 'goods:brand:remove'),
 -- 财务中心按钮(#19③ 2026-09-08:汇率录入单动作;利润页只读无按钮)
-(3301, 33, '录入快照', 3, 'finance:rate:save');
+(3301, 33, '录入快照', 3, 'finance:rate:save'),
+-- 订单管理按钮(#29 订单域补课 2026-09-11:审核 = 独立列条件更新即守卫;手工录单 = 内销订单新写入口,
+--   与拉单写口 saveUnifiedOrder 分离;两端点后端登录即可(同发货单口径),权限由本 permKey 前端收口)
+(901, 9, '订单审核', 3, 'order:review'),
+(902, 9, '手工录单', 3, 'order:manual'),
+-- 盘点单/调拨单按钮(仓内作业 2026-09-11:按钮 id 段 menuId*100+n;写三件 add/edit/remove 对齐 gen:page permPrefix,
+--   动作件按各自状态机裁剪;后端不限 admin,权限由本 permKey 前端收口)
+(3801, 38, '新增', 3, 'inventory:stocktake:add'),
+(3802, 38, '编辑', 3, 'inventory:stocktake:edit'),
+(3803, 38, '删除', 3, 'inventory:stocktake:remove'),
+(3804, 38, '录入实盘', 3, 'inventory:stocktake:count'),
+(3805, 38, '生成调整', 3, 'inventory:stocktake:adjust'),
+(3806, 38, '关闭', 3, 'inventory:stocktake:close'),
+(3807, 38, '取消', 3, 'inventory:stocktake:cancel'),
+(3901, 39, '新增', 3, 'inventory:transfer:add'),
+(3902, 39, '编辑', 3, 'inventory:transfer:edit'),
+(3903, 39, '删除', 3, 'inventory:transfer:remove'),
+(3904, 39, '确认', 3, 'inventory:transfer:confirm'),
+(3905, 39, '取消', 3, 'inventory:transfer:cancel');
 INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
 (1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(1,9),(1,100),(1,101),
 (1,200),(1,201),(1,202),(1,203),(1,204),(1,210),(1,211),(1,212),(1,213),
@@ -226,13 +247,24 @@ INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
 (1,20),(1,2001),(1,2002),(1,2003),(1,21),(1,22),
 (1,23),(1,2301),(1,2302),(1,2303),(1,24),(1,2401),(1,2402),(1,2403),
 (1,25),(1,26),(1,27),(1,28),(1,29),(1,290),(1,30),
-(1,31),(1,32),(1,33),(1,3301);
+(1,31),(1,32),(1,33),(1,3301),
+-- 补绑:34~37(财务/报表页)、901/902(#29 订单域补课)此前漏绑,本次一并补齐(INSERT IGNORE 幂等)
+(1,34),(1,35),(1,36),(1,37),(1,901),(1,902),
+-- 仓内作业 2026-09-11:盘点单(38)/调拨单(39)页面与按钮
+(1,38),(1,3801),(1,3802),(1,3803),(1,3804),(1,3805),(1,3806),(1,3807),
+(1,39),(1,3901),(1,3902),(1,3903),(1,3904),(1,3905);
 -- ⚠️ 已建库(旧种子已插入)需手工执行对齐 --
 -- UPDATE sys_menu SET path='/goods/product', component='goods/product/index' WHERE id=7;   -- IGNORE 不更新存量行
 -- 再执行上面对应新增段(各新增段均为全新 id,含后续追加的按钮/页面/授权行,整段重跑 INSERT IGNORE 即可,幂等);
 -- 菜单变更后重新登录生效
 -- TODO#18(2026-09-07):已建库手工补齐 = 重跑上面 sys_menu 29/290 段 + sys_role_menu (1,29),(1,290) 段
 --   + CREATE TABLE sys_config 段(全部 INSERT IGNORE / CREATE IF NOT EXISTS 幂等,整段重跑即可)
+-- TODO#29(2026-09-11 订单域补课):已建库手工补齐 = 重跑上面 sys_menu 901/902 段 + sys_role_menu (1,901),(1,902) 段
+--   + shop_order 六列 ALTER 段(见订单段注释,幂等执行后重新登录生效)
+-- 仓内作业(2026-09-11 盘点单/调拨单):已建库手工补齐 = 重跑 stocktake_order/stocktake_item/transfer_order/transfer_order_item
+--   CREATE IF NOT EXISTS 段 + sys_menu 38/39/3801~3807/3901~3905 段 + sys_role_menu (1,38),(1,3801~3807),(1,39),(1,3901~3905)
+--   + 漏绑补段 (1,34~37),(1,901),(1,902)(整段重跑 INSERT IGNORE 即可,幂等;改完重新登录生效);
+--   或直接跑 python scripts/validate_inventory_sql.py(含建表 + 菜单段幂等重放 + 动账 SQL 真库验证)
 -- 菜单整理(2026-09-07,两次合并最终态):AI助手顶级置顶 + 系统管理瘦身(店铺管理->商品中心,拉单日志->订单中心,通知中心->顶级);
 --   最终顶级排序:AI助手/商品中心/订单中心/采购管理/库存管理/通知中心/系统管理;系统管理仅剩用户/角色/菜单/字典/系统设置;
 --   已建库手工对齐 = 执行下面 12 条(全绝对值幂等,与执行顺序无关),或跑 python scripts/menu_tool.py reorg(自动读 local.properties 连接),改完重新登录生效:
@@ -306,7 +338,7 @@ CREATE TABLE IF NOT EXISTS sys_notification (
 --   凭证类(AI api-key/平台密钥)禁入本表——安全红线 docs/07 §7,凭证只走环境变量/local.properties
 CREATE TABLE IF NOT EXISTS sys_config (
     id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
-    config_group VARCHAR(32)   NOT NULL COMMENT '参数组:AI=大模型与AI工作流(含对话/Agent提示词与连接) ALERT=库存预警 SALES=销量统计',
+    config_group VARCHAR(32)   NOT NULL COMMENT '参数组:AI=大模型与AI工作流(含对话/Agent提示词与连接) ALERT=库存预警 SALES=销量统计 NOTIFY=邮件通知 ORDER_REVIEW=订单审核风控(#29)',
     config_key   VARCHAR(64)   NOT NULL COMMENT '参数键(与 yml relaxed-binding 键同名,如 erp.ai.replenish.low-stock-threshold),唯一',
     config_value VARCHAR(1024) NULL COMMENT '参数值(文本存储,数字/布尔由消费侧解析;凭证类禁入本表)',
     remark       VARCHAR(255)  NULL COMMENT '参数说明(前端表单旁展示)',
@@ -521,13 +553,30 @@ CREATE TABLE IF NOT EXISTS shop_order (
     order_amount     DECIMAL(12,4) NOT NULL DEFAULT 0 COMMENT '订单总金额(原币)',
     shipping_fee     DECIMAL(12,4) NOT NULL DEFAULT 0 COMMENT '运费(原币)',
     discount_amount  DECIMAL(12,4) NOT NULL DEFAULT 0 COMMENT '优惠金额(原币)',
+    order_source     VARCHAR(16)  NOT NULL DEFAULT 'PLATFORM' COMMENT '订单来源:PLATFORM平台拉单/MANUAL内销手工录单(#29 订单域补课)',
+    review_status    TINYINT      NOT NULL DEFAULT 0 COMMENT '审核状态:0无需审核/1待审核/2已通过/3已驳回(#29;独立于 order_status 的第二状态机)',
+    review_remark    VARCHAR(500) NULL COMMENT '审核/风控备注(审核动作写入,#29)',
+    reviewed_by      BIGINT       NULL COMMENT '审核人(sys_user.id,#29)',
+    reviewed_at      DATETIME     NULL COMMENT '审核时间(#29)',
+    risk_flag        VARCHAR(255) NULL COMMENT '命中风控规则摘要(地址不完整/关键词命中;空=未命中,#29 仅落库展示)',
     raw_json         JSON         NULL COMMENT '平台原始报文,排查/补偿用',
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     UNIQUE KEY uk_shop_platform_order (shop_id, platform_order_id),
     KEY idx_order_time (order_time),
-    KEY idx_status (order_status)
-) COMMENT '平台订单(幂等:uk_shop_platform_order)';
+    KEY idx_status (order_status),
+    KEY idx_review (review_status)
+) COMMENT '平台订单(幂等:uk_shop_platform_order;审核列不被拉单 upsert 覆盖,#29)';
+-- TODO#29 已建库手工补齐(2026-09-11 订单域补课):新库重跑本脚本即含上述列,存量库手工执行:
+--   ALTER TABLE shop_order
+--     ADD COLUMN order_source  VARCHAR(16)  NOT NULL DEFAULT 'PLATFORM' COMMENT '订单来源:PLATFORM平台拉单/MANUAL内销手工录单(#29)',
+--     ADD COLUMN review_status TINYINT      NOT NULL DEFAULT 0 COMMENT '审核状态:0无需审核/1待审核/2已通过/3已驳回(#29)',
+--     ADD COLUMN review_remark VARCHAR(500) NULL COMMENT '审核/风控备注(审核动作写入,#29)',
+--     ADD COLUMN reviewed_by   BIGINT       NULL COMMENT '审核人(sys_user.id,#29)',
+--     ADD COLUMN reviewed_at   DATETIME     NULL COMMENT '审核时间(#29)',
+--     ADD COLUMN risk_flag     VARCHAR(255) NULL COMMENT '命中风控规则摘要(#29)',
+--     ADD KEY idx_review (review_status);
+-- 发货单三列(warehouse_id/logistics_company/tracking_no/#拆单)已于 #11 加列,本次无需变更(计划书 §七.4 核对结论)
 
 CREATE TABLE IF NOT EXISTS shop_order_item (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
@@ -559,7 +608,7 @@ CREATE TABLE IF NOT EXISTS order_sales_daily (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     UNIQUE KEY uk_sku_date (sku_id, stat_date),
     KEY idx_date (stat_date)
-) COMMENT='订单销量日统计';
+) COMMENT '订单销量日统计';
 -- ---------------- 采购/发货/售后(二期,docs/03 §5 草案定稿 2026-09-03) ----------------
 CREATE TABLE IF NOT EXISTS supplier (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
@@ -773,7 +822,72 @@ CREATE TABLE IF NOT EXISTS inventory_snapshot_daily (
     UNIQUE KEY uk_sku_wh_date (sku_id, warehouse_id, stat_date),
     KEY idx_date (stat_date),
     KEY idx_sku (sku_id)
-) COMMENT='库存日快照(周转报表/存量趋势数据面,只增不可回溯)';
+) COMMENT '库存日快照(周转报表/存量趋势数据面,只增不可回溯)';
+
+-- ---------------- 仓内作业:盘点单 / 调拨单(2026-09-11 落地,docs/plans/warehouse-ops.md,docs/03 §4.1) ----------------
+-- 盘点单(账实核对→差异 ADJUST 动账):
+--   双口径 = 建单即快照账面四量进 stocktake_item.book_qty(snapshot_at 记时点,防盘点期间动账污染展示)
+--   + 生成调整时按**确认时点**账面 vs 实盘 re-diff(非建单快照差),差异行逐行经 InventoryService.change()
+--   (flow_type=ADJUST、biz_type=STOCKTAKE、biz_id=盘点单 id);可用不足(守卫拒)整单回滚并提示差异行;
+--   状态机 DRAFT→COUNTING→PENDING_ADJUST→ADJUSTED→CLOSED,CANCELED 旁路;只有 ADJUSTED 可达 CLOSED
+--   (差异必处理或明确放弃);单据域=硬删,不带 deleted(docs/07 §6.4 单据三主表+明细排除逻辑删除)
+CREATE TABLE IF NOT EXISTS stocktake_order (
+    id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    stocktake_no VARCHAR(32) NOT NULL COMMENT '盘点单号 ST+yyyyMMdd+seq,唯一',
+    warehouse_id BIGINT NOT NULL COMMENT '盘点仓ID(warehouse.id)',
+    scope_type   VARCHAR(16) NOT NULL DEFAULT 'ALL' COMMENT '盘点范围:ALL全仓/SKU_SET选定SKU集(库位不做,只能按SKU集圈定)',
+    status       VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT草稿/COUNTING盘点中/PENDING_ADJUST待调整/ADJUSTED已调整/CLOSED已关闭/CANCELED已取消',
+    remark       VARCHAR(255) NULL COMMENT '备注',
+    created_by   BIGINT NULL COMMENT '创建人(sys_user.id)',
+    confirmed_by BIGINT NULL COMMENT '调整确认人(sys_user.id,生成调整时回填)',
+    confirmed_at DATETIME NULL COMMENT '调整确认时间(生成调整时回填)',
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_stocktake_no (stocktake_no),
+    KEY idx_warehouse (warehouse_id)
+) COMMENT '盘点单(仓内作业;差异经 InventoryService.change 同事务写 flow,flow_type=ADJUST)';
+
+CREATE TABLE IF NOT EXISTS stocktake_item (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    stocktake_id   BIGINT NOT NULL COMMENT '盘点单ID(stocktake_order.id)',
+    sku_id         BIGINT NOT NULL COMMENT 'SKU ID(product_sku.id)',
+    book_qty       INT NOT NULL COMMENT '建单快照账面在库量(snapshot_at 时点值,展示用)',
+    snapshot_at    DATETIME NOT NULL COMMENT '账面快照时点',
+    counted_qty    INT NULL COMMENT '实盘数量(COUNTING 阶段录入,未录为 NULL)',
+    diff_qty       INT NULL COMMENT '差异=实盘-确认时点账面(生成调整时算,生成前为 NULL)',
+    adjust_flow_id BIGINT NULL COMMENT '差异调整流水ID(inventory_flow.id,生成调整时回填)',
+    created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_stocktake_sku (stocktake_id, sku_id)
+) COMMENT '盘点单明细(建单快照+实盘+差异;差异 ADJUST 动账凭证)';
+
+-- 调拨单(V1=确认即达,无在途账;在途模式留 TODO#30 拍板):
+--   CONFIRM 复合事务逐行调 InventoryService.transfer() 原语(TRANSFER_OUT+TRANSFER_IN 同事务两腿),
+--   biz_type=TRANSFER_ORDER 收口(不再用 INVENTORY_TRANSFER 字面量,历史流水不改写);单据域=硬删,不带 deleted
+CREATE TABLE IF NOT EXISTS transfer_order (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    transfer_no       VARCHAR(32) NOT NULL COMMENT '调拨单号 TR+yyyyMMdd+seq,唯一',
+    from_warehouse_id BIGINT NOT NULL COMMENT '调出仓ID(warehouse.id)',
+    to_warehouse_id   BIGINT NOT NULL COMMENT '调入仓ID(warehouse.id)',
+    status            VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT草稿/CONFIRMED已确认(调拨已达)/CANCELED已取消',
+    remark            VARCHAR(255) NULL COMMENT '备注',
+    created_by        BIGINT NULL COMMENT '创建人(sys_user.id)',
+    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_transfer_no (transfer_no),
+    KEY idx_from (from_warehouse_id),
+    KEY idx_to (to_warehouse_id)
+) COMMENT '调拨单(仓内作业,V1 确认即达;两腿经 InventoryService.transfer 同事务写 flow)';
+
+CREATE TABLE IF NOT EXISTS transfer_order_item (
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    transfer_id BIGINT NOT NULL COMMENT '调拨单ID(transfer_order.id)',
+    sku_id      BIGINT NOT NULL COMMENT 'SKU ID(product_sku.id)',
+    quantity    INT NOT NULL COMMENT '调拨数量(>0)',
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_transfer_sku (transfer_id, sku_id)
+) COMMENT '调拨单明细(确认时逐行经 InventoryService.transfer 写 TRANSFER_OUT/IN 两腿)';
 
 -- ---------------- AI 辅助(三期 2026-09-06 随 #6 AI 地基落地,docs/03 §7 定稿) ----------------
 CREATE TABLE IF NOT EXISTS ai_suggestion (

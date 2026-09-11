@@ -54,6 +54,13 @@ public interface ShopOrderApi {
             /** 履约渠道:SELF_FULFILL/FBA/OVERSEAS_WAREHOUSE */
             String fulfillmentChannel,
 
+            /**
+             * 审核状态(#29 订单域补课,erp-fulfill 建发货单前置校验用):
+             * 0无需审核/1待审核/2已通过/3已驳回(见 OrderReviewConsts);
+             * 建单闸门在 erp-fulfill——review_status∈{1,3} 拦截(契约扩字段,零新契约)
+             */
+            Integer reviewStatus,
+
             /** 可发行明细(sku_id 已绑定),可发数量=quantity-已发(发货域按 delivery_order_item 聚合判定) */
             List<Item> items
     ) {

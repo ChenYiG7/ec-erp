@@ -113,40 +113,27 @@ ec-erp/
 
 ## 快速开始
 
+两条路任选:**Docker 一键**(零本地依赖,新环境首选)或**本地 dev-up 脚本**(复用本机 MySQL/Redis)。密钥准备:
+
+- Docker 路:复制 `.env.example` 为项目根 `.env`(已被 .gitignore 忽略,严禁提交),填 3 个必填键:`MYSQL_ROOT_PASSWORD` / `ERP_JWT_SECRET`(≥32 字节,`openssl rand -hex 32`)/ `ERP_TOKEN_KEY`(32 字节标准 base64,`openssl rand -base64 32`);可选键(AI/Amazon/Webhook)照注释按需填
+- 本地路:复制 `local.properties.example` 为 `local.properties`(严禁提交),填 MySQL/Redis 连接与上述两个密钥键;生成值命令同上(Windows PowerShell 生成命令见下「密钥生成」注)
+
 ```bash
-# 1. 建表:执行 docs/sql/01_schema_init.sql(幂等:CREATE TABLE IF NOT EXISTS + INSERT IGNORE,可重复执行)
-#    注:脚本 2026-09-02(shop 唯一键、绑定列可空)与 2026-09-03(11 表补 updated_at、inventory 补
-#      created_at)修订过,旧库手工 ALTER 已全部在开发库执行验证(存量清单存档于 git 历史),新库直接重跑脚本即可
+# ── 路线 A:Docker 一键(需 Docker Engine + Compose v2)──
+cp .env.example .env            # 填 3 个必填键(见上)
+docker compose --profile web up -d   # mysql+redis+erp-api+web 前端;首次构建较慢
+# 浏览器 http://localhost:8080 登录;后端直连 :8088,MySQL/Redis 宿主机端口也已映射
+# 重来一遍:docker compose down -v(清卷)后可重来;数据库初始化只挂 docs/sql/01_schema_init.sql 单一正本
 
-# 2. 本地配置:复制 local.properties.example 为项目根 local.properties(已被 .gitignore 忽略,严禁提交),
-#    填入 MySQL/Redis 连接与密钥(ERP_JWT_SECRET / ERP_TOKEN_KEY)。application.yml 不含任何明文连接/密钥——占位符取自
-#    local.properties 或同名环境变量(env 优先级更高,生产直接设环境变量即可);两者皆缺失则启动即失败
-#    注意:datasource url 的 characterEncoding 必须写 UTF-8(Java 字符集名,驱动自动协商 utf8mb4),
-#    写 utf8mb4 会连接报错
-
-# 3. 构建并启动
-mvn clean install
-java -jar erp-api/target/erp-api-0.1.0-SNAPSHOT.jar
-
-# 4. 前端(需 Node ≥22.12 + pnpm 11.8)
-cd erp-web
-pnpm install
-pnpm dev              # :5173,vite proxy /api -> 8088
-
-# 5. 登录:默认管理员 admin / admin@123(BCrypt 存储,首次登录后立即改密)
-#    JWT 密钥必须设置:环境变量 ERP_JWT_SECRET(≥32字节),无默认值,不设置应用启动即失败
-#    登录后请求头带 Authorization: Bearer <token>;全部 /api/** 已纳入登录鉴权,
-#    用户/角色/菜单管理类接口限 admin 角色
-
-# 6. 平台凭证加密密钥(TODO#2):ERP_TOKEN_KEY —— 无默认值,不设置应用启动即失败!
-#    本地开发:写入项目根 local.properties 同名键(与 ERP_JWT_SECRET 同规,env 优先;2026-09-05 起支持,
-#    此前只认环境变量);生成值须为 32 字节标准 base64:
-#    Linux/macOS/Git Bash:  openssl rand -base64 32
-#    Windows PowerShell:    $b=[byte[]]::new(32);[Security.Cryptography.RandomNumberGenerator]::Fill($b);[Convert]::ToBase64String($b)
-#    生产:直接设同名环境变量。换密钥后存量密文不可解(店铺需重新授权),请妥善保管
-
-# 7. AI 功能(可选):设置环境变量 AI_API_KEY 或改 application.yml,无 key 时启动不炸、调用返回友好报错
+# ── 路线 B:本地一键脚本(git-bash / WSL / Linux;需 JDK 21 + mvn + mysql 客户端)──
+scripts/dev-up.sh               # 环境检查(密钥/端口,报错含修复示例)→ 建库(幂等)→ 构建 → 前台启动 :8088
+scripts/dev-up.sh --with-web    # 额外后台起前端 pnpm dev(:5173)
+scripts/dev-up.sh --skip-build --skip-db   # 增量:有 jar 时直接重启
 ```
+
+登录:默认管理员 admin / admin@123(BCrypt 存储,首次登录后立即改密);全部 /api/** 已纳入 JWT+RBAC 鉴权,用户/角色/菜单管理类接口限 admin 角色。AI 功能(可选):设置 `OPENAI_API_KEY`/`AI_API_KEY` 后生效,无 key 时启动不炸、调用返回友好报错。
+
+> **密钥生成**:Linux/macOS/Git Bash:`openssl rand -base64 32`(ERP_TOKEN_KEY)/ `openssl rand -hex 32`(ERP_JWT_SECRET);Windows PowerShell:`$b=[byte[]]::new(32);[Security.Cryptography.RandomNumberGenerator]::Fill($b);[Convert]::ToBase64String($b)`。换 `ERP_TOKEN_KEY` 后存量密文不可解(店铺需重新授权),请妥善保管。换库重跑:建库正本 `docs/sql/01_schema_init.sql` 幂等(CREATE IF NOT EXISTS + INSERT IGNORE),新库直接执行即可。
 
 环境要求:JDK 21 · MySQL 9.7.2 LTS(mapper XML 自定义 SQL 用 9.7.2 原生形态并须真库验证,见 TODO"SQL 兼容性红线") · Redis 7 · Node ≥22.12 + pnpm 11.8(前端)。
 

@@ -18,6 +18,7 @@ import io.agentscope.core.model.Model;
 import io.agentscope.core.model.ToolSchema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import reactor.core.publisher.Flux;
@@ -199,6 +200,27 @@ class AgentServiceTest {
         assertEquals(2, service.listBridgedToolNames(AgentRole.SUPPORT).size());
         assertEquals(1, service.listBridgedToolNames(AgentRole.OPS).size());
         assertTrue(service.listBridgedToolNames(AgentRole.OPS).contains("queryInventory"));
+    }
+
+    /**
+     * #6 第八类:agent 双角色报表工具面同步——真实 ReportTools 回调经 AgentRole 过滤后
+     * OPS 同样可调全部 5 个报表工具(计划书 §七① 默认双开,此处为静态白名单证明)
+     */
+    @Test
+    void opsRoleCanUseReportTools() {
+        List<ToolCallback> reportCallbacks = List.of(ToolCallbacks.from(
+                new com.own.erp.ai.tools.ReportTools(
+                        mock(com.own.erp.contract.ReportQueryApi.class),
+                        mock(com.own.erp.contract.ProfitQueryApi.class))));
+        AgentService reportOnly = new AgentService(props, runtime, fakeModel(), reportCallbacks,
+                sessionService, messageService, currentUserApi, "test-key");
+
+        List<String> opsTools = reportOnly.listBridgedToolNames(AgentRole.OPS);
+
+        assertTrue(opsTools.containsAll(List.of("reportSalesDaily", "reportSkuSalesTop",
+                "reportSkuTrend", "reportInventorySnapshot", "reportProfitSummary")),
+                "实际=" + opsTools);
+        assertEquals(5, opsTools.size());
     }
 
     private Model fakeModel() {

@@ -16,6 +16,8 @@
 
 ## 构建与运行
 
+部署(#28):新环境 Docker 一键 `docker compose --profile web up -d`(密钥进根 .env,模板 .env.example);本地一键 `scripts/dev-up.sh`(检查→建库→构建→启动,--with-web/--skip-build/--skip-db),详见 README「快速开始」。
+
 ```bash
 mvn -DskipTests compile          # 编译验证(改完必须跑通)
 mvn clean install
@@ -85,21 +87,21 @@ pnpm gen:page --spec tools/specs/<domain>.txt   # 新页面生成器(存在即�
 | 模块 | 职责与现状 |
 |---|---|
 | erp-common | 返回体/异常/分页(PageQuery + MP Page)/领域事件(DeliveryShippedEvent、SystemConfigChangedEvent 等,发布方与监听方互不依赖) |
-| erp-contract | 跨域契约(零实现,收口 erp-api):动账/存在性/引用计数命令(InventoryChangeApi/GoodsSkuApi/WarehouseApi/CurrentUserApi/ShopOrderApi findDeliveryView+casOrderStatus)+ **只读查询契约九件**(Order/Inventory/Goods/Aftersale/Sales/Shop/Purchase/Delivery/InventorySnapshot)+ ProfitQueryApi + SystemConfigApi;过滤 record + 行视图 record + QueryPage,全 record 不引 MP 类型;**凭证字段不进契约**(ShopView 不收 appKey/accessToken);域 Service 注入契约接口一律 @Lazy 断构造环;lombok 仅编译期 |
+| erp-contract | 跨域契约(零实现,收口 erp-api):动账/存在性/引用计数命令(InventoryChangeApi/GoodsSkuApi/WarehouseApi/CurrentUserApi/ShopOrderApi findDeliveryView+casOrderStatus)+ **只读查询契约十件**(Order/Inventory/Goods/Aftersale/Sales/Shop/Purchase/Delivery/InventorySnapshot/Report)+ ProfitQueryApi + SystemConfigApi;过滤 record + 行视图 record + QueryPage,全 record 不引 MP 类型;**凭证字段不进契约**(ShopView 不收 appKey/accessToken);域 Service 注入契约接口一律 @Lazy 断构造环;lombok 仅编译期 |
 | erp-system | 用户/角色/菜单/字典(JWT + RBAC,按 role_key 鉴权)/站内通知(#14 三渠道:站内 pushAllUsers 出口 + Webhook(钉钉/飞书/企微)与邮箱两监听器 AFTER_COMMIT 挂事件)/sys_config 配置热更(#18:词表白名单、SECRET 掩码回显、事件失效缓存) |
 | erp-shop | 店铺/授权/凭证加密(AES-256-GCM,脱敏唯一出口)/pull_log/OAuth 授权中心(state 加密签发 10 分钟 TTL、DB CAS 防双刷新、过期前 10 分钟刷新)/店铺删除引用校验 |
 | erp-goods | 商品库(SPU/SKU/分类/品牌 + 分类成环校验)+ **SKU 映射**(#5:自动匹配 + 人工绑定,绑定列永不被同步覆盖)/SKU 批量翻译端点(options) |
-| erp-order | 统一订单(saveUnifiedOrder upsert 幂等 + casOrderStatus 条件推进,对外只读)/order_sales_daily 销量日表(SalesSnapshotJob 01:00 重算 30 天窗,支付日×SKU 已支付态口径) |
+| erp-order | 统一订单(saveUnifiedOrder upsert 幂等 + casOrderStatus 条件推进)/order_sales_daily 销量日表(SalesSnapshotJob 01:00 重算 30 天窗,支付日×SKU 已支付态口径)+ **#29 订单域补课**:订单审核(review_status 第二状态机 casReviewStatus + OrderRiskEvaluator 风控判定[地址六列/留言关键词 sys_config],审核列不进 ODKU 更新清单,拉单不冲人工结论)/内销手工录单 ManualOrderService(合成单号 MAN-{shopId}-{yyyyMMdd}-{seq} 占 uk + SKU 必绑,MANUAL 撞拉单即拒覆盖 + 事件告警)/按仓·按物流拆单=同订单多次建单(发货单三列 #11 已备) |
 | erp-inventory | 多仓四量 + 流水(**change() 唯一入口**:一条原子 UPDATE 守卫下推 WHERE,首建捕 DuplicateKeyException 重试;**FlowOps 矩阵**按 flow_type 差异化列语义:IN_TRANSIT 采购占在途/LOCK_SHIP 发货占用/IN_PURCHASE 核销/OUT_SHIP 占用转出库)/transfer() 跨仓组合/**InventoryCostService 移动加权成本账**(随流水同事务,#19③,CostOps 策略分派,FOR UPDATE 锁 state 行)/inventory_snapshot_daily 日快照(InventorySnapshotJob 01:30,只增不可回溯) |
 | erp-purchase | 采购四域(#10:状态机 DRAFT→AUDITED→(部分)入库→CLOSED;audit/close 复合事务占/释在途;入库核销 confirm 三步同事务,arrived_qty 原子累加防超收)/供应商(uk_name 唯一) |
 | erp-warehouse | 仓库档案/出入库/删除引用校验(库存 + 采购两域合计) |
-| erp-fulfill | 发货单(#11:状态机 + **建单即占库存**(LOCK_SHIP,缺货建单即拦)/ship 同事务核销 + 发足判定推进订单(部分发货不推进)/cancel·delete 释放/update 行锁读 + 释放重占;delivery_order_item 为进度事实源,未绑定行不参与;ship 事务内发布 DeliveryShippedEvent) |
+| erp-fulfill | 发货单(#11:状态机 + **建单即占库存**(LOCK_SHIP,缺货建单即拦)/ship 同事务核销 + 发足判定推进订单(部分发货不推进)/cancel·delete 释放/update 行锁读 + 释放重占;delivery_order_item 为进度事实源,未绑定行不参与;ship 事务内发布 DeliveryShippedEvent)+ **#29 建单审核闸门**(订单 review_status∈{1待审核,3已驳回} 拦建单,文案区分;null 放行兼容历史数据) |
 | erp-aftersale | 售后单(#12:8 态五动作状态机,类型血缘前置白名单;收退件 receiveReturn 复合事务(校验链→占位→IN_RETURN 动账→实收明细);saveUnifiedRefund 平台同步(仅平台终态条件推进)) |
 | erp-finance | 财务(#19:settlement 域结算报告解析 V2 报表(勾稽不平整单 FAILED)+ profit 域 SKU 级利润(移动加权,归集键:成本=OUT_SHIP 流水/佣金=settlement_detail 按 platform_order_item_id;缺口纪律三计数不静默归零)+ 汇率回溯 resolveRate + RefundReconciliationService 退款勾稽三类差异)/erp-api RefundReconciliationJob 每日一扫 |
 | erp-ads | 营销中心(休眠:卡各平台广告 API 真凭证;ad_report_daily 草案随 #20 激活) |
 | erp-report | 报表 BI(#20~#23:销售日报/周报/SKU 明细/库存快照 + Excel 导出(POI)/商品分析单品下钻(日期轴不进 SQL)/利润看板(SVG 零依赖)/经营简报(ReportDigestJob 三周期定时,走 #14 三渠道);join 不滤已删) |
 | erp-platform-sdk | 防腐层 SPI:PlatformClient/AdapterRegistry(构造统一套 PlatformGateway 限流装饰)/ShopSession/unified 模型/gateway 横切(PlatformRateGuard 三维令牌桶,Redis 持久化防重启丢,fail-open/closed 双模式)/`adapter/amazon` 包(LWA + SigV4 + STS + Orders/Reports/Finances + confirmShipment + AmazonMarketplace 23 站币种映射,翻译 fixture 官方模板推导;默认不注册 Bean `erp.adapter.amazon.enabled`);其余 adapter 待实现 |
-| erp-ai | AI 能力层:tools/ 只读 @Tool 七类(一类一文件,取数走 erp-contract,余量 Report)+ ErpChatService(chat 同步/SSE 流式)+ 会话持久化(ai_chat_session/message + source 列隔离 CHAT/AGENT;AuditingToolCallback 工具审计行)+ ai_suggestion 确认闭环(cas 守卫 + adopt/ignore)+ graph/ 五工作流(AnomalyWorkflow 两段式母本 → Replenish(V2 (s,S) 策略)/Purchase/Copywriting/Selection 变体;共享组件 LowStockScanner/ReplenishCalculator)+ alert/ 预警引擎(五规则,出口 AlertJob 收口)+ agent/(AgentScope ReActAgent 双角色 SUPPORT/OPS,SpringAiAgentToolBridge 桥接零复制,历史重放截断)+ kb/ RAG(SimpleVectorStore,向量不入库正本可重建,检索注入 chat 双通道) |
+| erp-ai | AI 能力层:tools/ 只读 @Tool 八类(一类一文件,取数走 erp-contract;#6 第八类 Report 2026-09-10 落地)+ ErpChatService(chat 同步/SSE 流式)+ 会话持久化(ai_chat_session/message + source 列隔离 CHAT/AGENT;AuditingToolCallback 工具审计行)+ ai_suggestion 确认闭环(cas 守卫 + adopt/ignore)+ graph/ 五工作流(AnomalyWorkflow 两段式母本 → Replenish(V2 (s,S) 策略)/Purchase/Copywriting/Selection 变体;共享组件 LowStockScanner/ReplenishCalculator)+ alert/ 预警引擎(五规则,出口 AlertJob 收口)+ agent/(AgentScope ReActAgent 双角色 SUPPORT/OPS,SpringAiAgentToolBridge 桥接零复制,历史重放截断)+ kb/ RAG(SimpleVectorStore,向量不入库正本可重建,检索注入 chat 双通道) |
 | erp-api | 主应用入口 :8088(配置:GlobalExceptionHandler/MybatisPlusConfig/SecurityConfig;跨域编排:contract/impl 契约实现 + job 调度(OrderPullJob/ProductPullJob/AlertJob/ReplenishJob/AnomalyJob/SalesSnapshotJob/InventorySnapshotJob/RefundReconciliationJob/ReportDigestJob,均 MDC traceId + LockService 抢锁)+ shipment/ShipmentSyncService 发货回传编排(AFTER_COMMIT 事件驱动,失败记 pull_log 不回滚本地)) |
 | erp-worker | 拉单 worker :8089(预留,一期跑在 erp-api 进程内;吞吐不足再拆,拆分预案见 docs/01 演进触发点) |
 | erp-codegen | 开发工具(非运行时):DDL→CRUD 八件套 + 状态机守卫测试生成器,存在即跳过 |

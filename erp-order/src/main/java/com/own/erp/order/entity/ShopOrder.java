@@ -87,6 +87,24 @@ public class ShopOrder {
     /** 优惠金额(原币) */
     private BigDecimal discountAmount;
 
+    /** 订单来源:PLATFORM平台拉单/MANUAL内销手工录单(#29 订单域补课) */
+    private String orderSource;
+
+    /** 审核状态:0无需审核/1待审核/2已通过/3已驳回(#29;独立于 order_status 的第二状态机,不可被拉单覆盖) */
+    private Integer reviewStatus;
+
+    /** 审核/风控备注(审核动作写入,#29) */
+    private String reviewRemark;
+
+    /** 审核人(sys_user.id,#29) */
+    private Long reviewedBy;
+
+    /** 审核时间(#29) */
+    private LocalDateTime reviewedAt;
+
+    /** 命中风控规则摘要(地址不完整/关键词命中;空=未命中,#29) */
+    private String riskFlag;
+
     /** 平台原始报文,排查/补偿用 */
     private String rawJson;
 

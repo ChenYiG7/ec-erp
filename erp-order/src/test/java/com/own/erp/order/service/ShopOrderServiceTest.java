@@ -1,7 +1,10 @@
 package com.own.erp.order.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.common.api.ManualOrderCollisionEvent;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.contract.CurrentUserApi;
+import com.own.erp.contract.OrderReviewConsts;
 import com.own.erp.order.entity.ShopOrder;
 import com.own.erp.order.entity.ShopOrderItem;
 import com.own.erp.order.mapper.ShopOrderItemMapper;
@@ -13,6 +16,7 @@ import com.own.erp.platform.unified.UnifiedOrder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -35,19 +39,27 @@ import static org.mockito.Mockito.when;
  * @author : chenyi
  * @Date : 2026/9/3
  * @Description : ShopOrderService 单测(AIR:mock Mapper,不依赖数据库);
- *     覆盖 #4 拉单落库:幂等 upsert 主流程、明细翻译与金额计算、必填校验(docs/07 §10 必测清单)
+ *     覆盖 #4 拉单落库(幂等 upsert 主流程/明细翻译与金额计算/必填校验)+ #29 订单域补课
+ *     (风控落审核态、MANUAL 单拒绝覆盖);审核状态机守卫用例在 ShopOrderStateMachineTest(生成器产出)
  */
 class ShopOrderServiceTest {
 
     private ShopOrderMapper shopOrderMapper;
     private ShopOrderItemMapper shopOrderItemMapper;
+    private OrderRiskEvaluator orderRiskEvaluator;
+    private ApplicationEventPublisher eventPublisher;
+    private CurrentUserApi currentUserApi;
     private ShopOrderService shopOrderService;
 
     @BeforeEach
     void setUp() {
         shopOrderMapper = mock(ShopOrderMapper.class);
         shopOrderItemMapper = mock(ShopOrderItemMapper.class);
-        shopOrderService = new ShopOrderService(shopOrderMapper, shopOrderItemMapper);
+        orderRiskEvaluator = mock(OrderRiskEvaluator.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
+        currentUserApi = mock(CurrentUserApi.class);
+        shopOrderService = new ShopOrderService(shopOrderMapper, shopOrderItemMapper,
+                orderRiskEvaluator, eventPublisher, currentUserApi);
     }
 
     @Test
@@ -120,6 +132,10 @@ class ShopOrderServiceTest {
         assertEquals(new BigDecimal("30.00"), saved.getOrderAmount());
         assertEquals(new BigDecimal("5.00"), saved.getShippingFee());
         assertEquals(new BigDecimal("2.00"), saved.getDiscountAmount());
+        // #29:来源固定 PLATFORM;风控未命中(evaluator 默认返回 null)→ 无需审核直过、无风险摘要
+        assertEquals(OrderReviewConsts.SOURCE_PLATFORM, saved.getOrderSource());
+        assertEquals(OrderReviewConsts.REVIEW_NONE, saved.getReviewStatus());
+        assertNull(saved.getRiskFlag());
         // 明细先删后插(状态回传可能改行)
         verify(shopOrderItemMapper).delete(any());
         ArgumentCaptor<ShopOrderItem> itemCaptor = ArgumentCaptor.forClass(ShopOrderItem.class);
@@ -139,12 +155,48 @@ class ShopOrderServiceTest {
     }
 
     @Test
+    void saveUnifiedOrderFlagsReviewPendingWhenRiskRuleHits() {
+        when(shopOrderMapper.selectOne(any())).thenReturn(savedOrder(100L));
+        when(orderRiskEvaluator.evaluate(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn("地址不完整:收货电话");
+
+        Long id = shopOrderService.saveUnifiedOrder(1L, baseOrder(), Map.of());
+
+        assertEquals(100L, id);
+        ArgumentCaptor<ShopOrder> orderCaptor = ArgumentCaptor.forClass(ShopOrder.class);
+        verify(shopOrderMapper).upsert(orderCaptor.capture());
+        // 风控命中 → 待审核(建发货单被拦)+ 风险摘要落库
+        assertEquals(OrderReviewConsts.REVIEW_PENDING, orderCaptor.getValue().getReviewStatus().intValue());
+        assertEquals("地址不完整:收货电话", orderCaptor.getValue().getRiskFlag());
+    }
+
+    @Test
+    void saveUnifiedOrderRejectsOverwritingManualOrder() {
+        ShopOrder manual = new ShopOrder();
+        manual.setId(77L);
+        manual.setOrderSource(OrderReviewConsts.SOURCE_MANUAL);
+        when(shopOrderMapper.selectOne(any())).thenReturn(manual);
+
+        Long id = shopOrderService.saveUnifiedOrder(1L, baseOrder(), Map.of());
+
+        // #29 防御:命中 MANUAL 单 → 原样返回不覆盖,不发明细写,发布冲突告警
+        assertEquals(77L, id);
+        verify(shopOrderMapper, never()).upsert(any());
+        verify(shopOrderItemMapper, never()).delete(any());
+        ArgumentCaptor<ManualOrderCollisionEvent> captor = ArgumentCaptor.forClass(ManualOrderCollisionEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertEquals(77L, captor.getValue().orderId());
+        assertEquals("P-001", captor.getValue().platformOrderId());
+        assertEquals(1L, captor.getValue().shopId());
+    }
+
+    @Test
     void saveUnifiedOrderRejectsMissingIdempotentKey() {
         UnifiedOrder order = baseOrder();
         order.setPlatformOrderId(" ");
 
         assertThrows(BusinessException.class, () -> shopOrderService.saveUnifiedOrder(1L, order, Map.of()));
-        verifyNoInteractions(shopOrderMapper, shopOrderItemMapper);
+        verifyNoInteractions(shopOrderMapper, shopOrderItemMapper, orderRiskEvaluator, eventPublisher);
     }
 
     @Test

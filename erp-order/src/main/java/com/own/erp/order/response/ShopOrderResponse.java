@@ -79,6 +79,24 @@ public record ShopOrderResponse(
         /** 优惠金额(原币) */
         BigDecimal discountAmount,
 
+        /** 订单来源:PLATFORM平台拉单/MANUAL内销手工录单(#29) */
+        String orderSource,
+
+        /** 审核状态:0无需审核/1待审核/2已通过/3已驳回(#29) */
+        Integer reviewStatus,
+
+        /** 审核/风控备注(#29) */
+        String reviewRemark,
+
+        /** 审核人(sys_user.id,#29) */
+        Long reviewedBy,
+
+        /** 审核时间(#29) */
+        LocalDateTime reviewedAt,
+
+        /** 命中风控规则摘要(空=未命中,#29) */
+        String riskFlag,
+
         /** 创建时间 */
         LocalDateTime createdAt,
 
@@ -123,6 +141,7 @@ public record ShopOrderResponse(
         return new ShopOrderResponse(id, shopId, platform, platformOrderId, orderStatus, fulfillmentChannel,
                 orderTime, paidTime, buyerNote, receiverName, receiverPhone, receiverCountry, receiverState,
                 receiverCity, receiverAddress, receiverZip, currency, exchangeRate, orderAmount, shippingFee,
-                discountAmount, createdAt, updatedAt, items);
+                discountAmount, orderSource, reviewStatus, reviewRemark, reviewedBy, reviewedAt, riskFlag,
+                createdAt, updatedAt, items);
     }
 }

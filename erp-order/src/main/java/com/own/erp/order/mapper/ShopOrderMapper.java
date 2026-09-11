@@ -19,4 +19,14 @@ public interface ShopOrderMapper extends BaseMapper<ShopOrder> {
     int casOrderStatus(@Param("orderId") Long orderId,
                        @Param("fromStatus") String fromStatus,
                        @Param("toStatus") String toStatus);
+
+    /**
+     * 审核状态条件推进(#29 订单域补课):WHERE review_status &lt;&gt; 2(已通过为审核终态)即状态机守卫,
+     * 返回受影响行数;与 casOrderStatus 两条状态机互不干扰(独立列独立条件更新,计划书 §六红线);
+     * reviewed_at 由库 NOW() 服务端回填
+     */
+    int casReviewStatus(@Param("orderId") Long orderId,
+                        @Param("toStatus") int toStatus,
+                        @Param("reviewRemark") String reviewRemark,
+                        @Param("reviewedBy") Long reviewedBy);
 }

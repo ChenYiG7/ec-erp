@@ -7,7 +7,9 @@ package com.own.erp.contract;
  *         采购入库 #10 用 IN_PURCHASE(入库核销在途);发货出库 #11 用 OUT_SHIP(占用转出库);
  *         售后退货入库 #12 用 IN_RETURN;采购审核占在途/关闭释放 #10 用 IN_TRANSIT;
  *         发货单建单占用/取消释放 #11 用 LOCK_SHIP。
- *         字面量与 docs/03 §4 库存流水 DDL 注释、01_schema_init.sql 保持同步
+ *         字面量与 docs/03 §4 库存流水 DDL 注释、01_schema_init.sql 保持同步。
+ *         biz_type(关联业务类型)同理随契约走:单据域自持常量者(采购/发货)在各自域常量类,
+ *         仓内作业域(盘点/调拨)由本类收口(InventoryService.transfer 亦引用,防模块内硬编码漂移)
  */
 public final class InventoryConsts {
 
@@ -27,6 +29,11 @@ public final class InventoryConsts {
     public static final String FLOW_TYPE_IN_TRANSIT = "IN_TRANSIT";
     /** inventory_flow.flow_type:发货单占用(建单 +q:占用+q/可用-q;取消·删除·改单释放 -q;#11,#7 2026-09-06) */
     public static final String FLOW_TYPE_LOCK_SHIP = "LOCK_SHIP";
+
+    /** inventory_flow.biz_type:盘点单(差异 ADJUST 动账,关联单据 = stocktake_order.id;2026-09-11 仓内作业) */
+    public static final String BIZ_TYPE_STOCKTAKE = "STOCKTAKE";
+    /** inventory_flow.biz_type:调拨单(两腿 TRANSFER_OUT/IN,关联单据 = transfer_order.id;2026-09-11 收口自 INVENTORY_TRANSFER 字面量) */
+    public static final String BIZ_TYPE_TRANSFER_ORDER = "TRANSFER_ORDER";
 
     private InventoryConsts() {
     }

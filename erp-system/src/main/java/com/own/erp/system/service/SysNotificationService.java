@@ -35,8 +35,12 @@ public class SysNotificationService {
 
     /** 通知类型:拉单连续失败告警 */
     public static final String TYPE_PULL_FAIL = "PULL_FAIL";
+    /** 通知类型:内销合成单号与拉单单号冲突(#29 订单域补课防御告警,理论不可达) */
+    public static final String TYPE_ORDER_MANUAL_CONFLICT = "ORDER_MANUAL_CONFLICT";
     /** 关联业务类型:店铺 */
     public static final String BIZ_TYPE_SHOP = "SHOP";
+    /** 关联业务类型:订单(#29 内销单号冲突告警,bizId = shop_order.id) */
+    public static final String BIZ_TYPE_ORDER = "ORDER";
 
     private static final int READ_UNREAD = 0;
     private static final int READ_READ = 1;

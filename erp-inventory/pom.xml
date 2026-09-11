@@ -17,6 +17,12 @@
             <groupId>com.own.erp</groupId>
             <artifactId>erp-common</artifactId>
         </dependency>
+        <!-- 跨域契约:WarehouseApi(仓库存在性)/GoodsSkuApi(SKU 存在性)校验 + InventoryConsts 词表(biz_type 收口)
+             实现收口 erp-api,本模块禁横向依赖 erp-warehouse/erp-goods(铁律 2,docs/07 §2.2) -->
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-contract</artifactId>
+        </dependency>
         <!-- 本模块含 Controller/CRUD,自带 web + mybatis-plus;由 erp-api 聚合运行 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

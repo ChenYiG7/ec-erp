@@ -5,6 +5,7 @@ import com.own.erp.common.exception.BusinessException;
 import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.InventoryChangeApi;
 import com.own.erp.contract.InventoryChangeCommand;
+import com.own.erp.contract.OrderReviewConsts;
 import com.own.erp.contract.ShopOrderApi;
 import com.own.erp.contract.WarehouseApi;
 import com.own.erp.fulfill.constant.DeliveryConsts;
@@ -79,8 +80,15 @@ class DeliveryOrderServiceTest {
 
     private ShopOrderApi.OrderDeliveryView view(String status, String channel,
                                                 List<ShopOrderApi.OrderDeliveryView.Item> items) {
+        // reviewStatus 缺省 null = 上游未回填,审核闸门按放行处理(#29 兼容历史数据)
+        return view(status, channel, null, items);
+    }
+
+    private ShopOrderApi.OrderDeliveryView view(String status, String channel, Integer reviewStatus,
+                                                List<ShopOrderApi.OrderDeliveryView.Item> items) {
         return ShopOrderApi.OrderDeliveryView.builder()
-                .orderId(ORDER_ID).shopId(2L).orderStatus(status).fulfillmentChannel(channel).items(items).build();
+                .orderId(ORDER_ID).shopId(2L).orderStatus(status).fulfillmentChannel(channel)
+                .reviewStatus(reviewStatus).items(items).build();
     }
 
     private DeliveryOrderSaveRequest request(DeliveryOrderItemSaveRequest... items) {
@@ -138,6 +146,31 @@ class DeliveryOrderServiceTest {
                 () -> deliveryOrderService.save(request(line(11L, 1))));
 
         assertTrue(e.getMessage().contains("卖家自履约"));
+        verify(deliveryOrderMapper, never()).insert(any(DeliveryOrder.class));
+    }
+
+    @Test
+    void saveRejectedWhenOrderReviewPending() {
+        // #29 审核闸门:待审核(1)订单建发货单被拦,文案与"已驳回"区分
+        when(shopOrderApi.findDeliveryView(ORDER_ID)).thenReturn(
+                view("WAIT_SHIP", "SELF_FULFILL", OrderReviewConsts.REVIEW_PENDING, List.of(viewItem(11L, 1001L, 10))));
+
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> deliveryOrderService.save(request(line(11L, 1))));
+
+        assertTrue(e.getMessage().contains("订单待审核"));
+        verify(deliveryOrderMapper, never()).insert(any(DeliveryOrder.class));
+    }
+
+    @Test
+    void saveRejectedWhenOrderReviewRejected() {
+        when(shopOrderApi.findDeliveryView(ORDER_ID)).thenReturn(
+                view("WAIT_SHIP", "SELF_FULFILL", OrderReviewConsts.REVIEW_REJECTED, List.of(viewItem(11L, 1001L, 10))));
+
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> deliveryOrderService.save(request(line(11L, 1))));
+
+        assertTrue(e.getMessage().contains("已审核驳回"));
         verify(deliveryOrderMapper, never()).insert(any(DeliveryOrder.class));
     }
 

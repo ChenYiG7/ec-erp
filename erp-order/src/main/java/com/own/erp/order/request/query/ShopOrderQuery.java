@@ -21,4 +21,10 @@ public class ShopOrderQuery extends PageQuery {
 
     /** WAIT_PAY/WAIT_SHIP/SHIPPED/COMPLETED/CANCELLED/CLOSED */
     private String orderStatus;
+
+    /** 订单来源:PLATFORM/MANUAL(#29 订单域补课) */
+    private String orderSource;
+
+    /** 审核状态:0无需审核/1待审核/2已通过/3已驳回(#29) */
+    private Integer reviewStatus;
 }

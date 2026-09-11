@@ -4,8 +4,11 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.common.api.ManualOrderCollisionEvent;
 import com.own.erp.common.constant.PullConsts;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.contract.CurrentUserApi;
+import com.own.erp.contract.OrderReviewConsts;
 import com.own.erp.order.entity.ShopOrder;
 import com.own.erp.order.entity.ShopOrderItem;
 import com.own.erp.order.mapper.ShopOrderItemMapper;
@@ -14,8 +17,9 @@ import com.own.erp.order.request.query.ShopOrderQuery;
 import com.own.erp.order.response.ShopOrderItemResponse;
 import com.own.erp.order.response.ShopOrderResponse;
 import com.own.erp.platform.unified.UnifiedOrder;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,24 +34,49 @@ import java.util.Map;
  * @author : chenyi
  * @Date : 2026/9/4
  * @Description : 平台订单服务:shop_order 域整域收口,Controller 不直连 Mapper(docs/07 §2.1)。
- *     订单为系统写入表(拉单落库),不开放人工 CRUD 写接口;唯一写入口 saveUnifiedOrder(#4):
- *     幂等靠 UNIQUE(shop_id, platform_order_id) ON DUPLICATE KEY UPDATE(docs/07 铁律 5,禁先查后插),
- *     已有订单按本次报文整体推进状态与金额;状态只允许拉单同步与本系统操作两条路径产生,禁止旁路 update
+ *     写入口三条(均显式列,禁旁路 update):
+ *     ①saveUnifiedOrder(#4 拉单唯一写口)——幂等靠 UNIQUE(shop_id, platform_order_id) ODKU
+ *       (docs/07 铁律 5,禁先查后插);
+ *     ②review(#29 订单域补课)——审核状态机 0/1/3 → 2/3,独立列独立条件更新(casReviewStatus 即守卫),
+ *       与 order_status 状态机不合并(计划书 §六红线);
+ *     ③内销录单在 ManualOrderService(合成单号 MAN-*,与拉单写口分离)。
+ *     审核列同步保护红线(#29):upsert 的 ODKU 清单显式排除 order_source 与 review_ / risk_flag 三列,
+ *     平台重拉不许冲掉人工审核结论;MANUAL 单被拉单撞 uk 时拒绝覆盖并发布 ManualOrderCollisionEvent。
+ *     状态只允许拉单同步与本系统操作两条路径产生(docs/04)
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ShopOrderService {
 
     private final ShopOrderMapper shopOrderMapper;
     private final ShopOrderItemMapper shopOrderItemMapper;
+    /** #29 风控判定器(地址完整性 + 留言关键词),拉单与内销录单两条入口共用 */
+    private final OrderRiskEvaluator orderRiskEvaluator;
+    /** #29 内销合成单号冲突告警事件发布(监听方在 erp-api,铁律 2) */
+    private final ApplicationEventPublisher eventPublisher;
+    /** #29 审核人回填;契约接口注入一律 @Lazy 断构造环(docs/07 §2.2) */
+    private final CurrentUserApi currentUserApi;
 
-    /** 分页查询(按下单时间倒序;过滤:店铺/平台/状态) */
+    public ShopOrderService(ShopOrderMapper shopOrderMapper,
+                            ShopOrderItemMapper shopOrderItemMapper,
+                            OrderRiskEvaluator orderRiskEvaluator,
+                            ApplicationEventPublisher eventPublisher,
+                            @Lazy CurrentUserApi currentUserApi) {
+        this.shopOrderMapper = shopOrderMapper;
+        this.shopOrderItemMapper = shopOrderItemMapper;
+        this.orderRiskEvaluator = orderRiskEvaluator;
+        this.eventPublisher = eventPublisher;
+        this.currentUserApi = currentUserApi;
+    }
+
+    /** 分页查询(按下单时间倒序;过滤:店铺/平台/订单状态/订单来源/审核状态,#29 扩两过滤) */
     public Page<ShopOrderResponse> page(ShopOrderQuery query) {
         LambdaQueryWrapper<ShopOrder> wrapper = new LambdaQueryWrapper<ShopOrder>()
                 .eq(query.getShopId() != null, ShopOrder::getShopId, query.getShopId())
                 .eq(StrUtil.isNotBlank(query.getPlatform()), ShopOrder::getPlatform, query.getPlatform())
                 .eq(StrUtil.isNotBlank(query.getOrderStatus()), ShopOrder::getOrderStatus, query.getOrderStatus())
+                .eq(StrUtil.isNotBlank(query.getOrderSource()), ShopOrder::getOrderSource, query.getOrderSource())
+                .eq(query.getReviewStatus() != null, ShopOrder::getReviewStatus, query.getReviewStatus())
                 .orderByDesc(ShopOrder::getOrderTime)
                 .orderByDesc(ShopOrder::getId);
         Page<ShopOrder> result = shopOrderMapper.selectPage(new Page<>(query.getPageNo(), query.pageSize()), wrapper);
@@ -112,6 +141,31 @@ public class ShopOrderService {
     }
 
     /**
+     * 订单审核(#29 订单域补课):独立列条件更新即守卫(WHERE review_status &lt;&gt; 2)。
+     * 允许的源态 = 待审核(1)/无需审核(0)/已驳回(3);2(已通过)为审核终态不可再改——
+     * 保留 3→2 复核使驳回单可解除发货拦截(否则驳回即永久卡死)。
+     * 审核人与审核时间服务端回填(CurrentUserApi / 库 NOW()),入参只带裁定结果与备注。
+     *
+     * @param id      订单ID(shop_order.id)
+     * @param approve true=通过(2) / false=驳回(3)
+     * @param remark  审核/风控备注(可空)
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void review(Long id, boolean approve, String remark) {
+        if (id == null) {
+            throw new BusinessException("订单ID不能为空");
+        }
+        int toStatus = approve ? OrderReviewConsts.REVIEW_APPROVED : OrderReviewConsts.REVIEW_REJECTED;
+        Long reviewer = currentUserApi.currentUserId();
+        int rows = shopOrderMapper.casReviewStatus(id, toStatus, StrUtil.trimToNull(remark), reviewer);
+        if (rows == 0) {
+            throw new BusinessException(approve
+                    ? "审核通过失败:订单不存在或已通过审核"
+                    : "审核驳回失败:订单不存在或已通过审核");
+        }
+    }
+
+    /**
      * 平台订单ID反查内部订单ID(#12 售后同步落库,经 erp-contract ShopOrderApi 暴露):
      * 按 uk(shop_id, platform_order_id) 等值反查,订单未入库返回 null(售后单跳过等下轮窗口重拉);
      * LIMIT 1 兜防御(selectOne 多行会抛)
@@ -120,18 +174,17 @@ public class ShopOrderService {
         if (shopId == null || StrUtil.isBlank(platformOrderId)) {
             return null;
         }
-        ShopOrder row = shopOrderMapper.selectOne(new LambdaQueryWrapper<ShopOrder>()
-                .eq(ShopOrder::getShopId, shopId)
-                .eq(ShopOrder::getPlatformOrderId, platformOrderId)
-                .last("LIMIT 1"));
+        ShopOrder row = findByUk(shopId, platformOrderId);
         return row == null ? null : row.getId();
     }
 
     /**
      * 拉单落库唯一写入口(#4):UnifiedOrder → shop_order/shop_order_item。
-     * 幂等流程:upsert 主表(uk 冲突即更新)→ 按 uk 反查 id → 明细先删后插(状态回传可能改行,
-     * 删插同事务保证一致)。sku_id 由调用方(erp-api 编排)按 shop_product_sku 映射传入,
-     * 未绑定的 seller_sku 保持 NULL,订单照常入库(docs/07 核心流程)。
+     * 幂等流程:防御检查(#29 MANUAL 单冲突)→ upsert 主表(uk 冲突即更新)→ 按 uk 反查 id →
+     * 明细先删后插(状态回传可能改行,删插同事务保证一致)。sku_id 由调用方(erp-api 编排)按
+     * shop_product_sku 映射传入,未绑定的 seller_sku 保持 NULL,订单照常入库(docs/07 核心流程)。
+     * #29:首落时按风控判定置 order_source=PLATFORM / review_status(命中=1 待审核,否则 0 直过)/
+     * risk_flag;审核三列与 order_source 不进 ODKU 更新清单,平台重拉不冲人工结论。
      *
      * @param skuIdBySellerSku seller_sku → 内部 sku_id(仅含已绑定行),null 视为无映射
      * @return 订单主表ID
@@ -147,17 +200,37 @@ public class ShopOrderService {
             throw new BusinessException(400, "订单字段缺失(平台/状态/下单时间/币种必填),platformOrderId="
                     + order.getPlatformOrderId());
         }
-        shopOrderMapper.upsert(toOrderEntity(shopId, order));
-        ShopOrder saved = shopOrderMapper.selectOne(new LambdaQueryWrapper<ShopOrder>()
-                .eq(ShopOrder::getShopId, shopId)
-                .eq(ShopOrder::getPlatformOrderId, order.getPlatformOrderId())
-                .last("LIMIT 1"));
+        // #29 防御位:拉单单号撞内销合成单号 MAN-*(理论不同源,不可达)——拒绝覆盖并告警
+        ShopOrder exist = findByUk(shopId, order.getPlatformOrderId());
+        if (exist != null && OrderReviewConsts.SOURCE_MANUAL.equals(exist.getOrderSource())) {
+            log.error("拉单单号与内销合成单号冲突,已拒绝覆盖: shop={} platformOrderId={} manualOrderId={}",
+                    shopId, order.getPlatformOrderId(), exist.getId());
+            eventPublisher.publishEvent(new ManualOrderCollisionEvent(shopId, order.getPlatformOrderId(), exist.getId()));
+            return exist.getId();
+        }
+        ShopOrder entity = toOrderEntity(shopId, order);
+        // #29 风控判定:命中进待审核(需人工放行),未命中直过;风险摘要仅作展示落库
+        String riskFlag = orderRiskEvaluator.evaluate(order.getBuyerMessage(), order.getReceiverName(),
+                order.getReceiverPhone(), order.getReceiverCountry(), order.getReceiverCity(),
+                order.getReceiverAddress(), order.getReceiverZip());
+        entity.setRiskFlag(riskFlag);
+        entity.setReviewStatus(riskFlag == null ? OrderReviewConsts.REVIEW_NONE : OrderReviewConsts.REVIEW_PENDING);
+        shopOrderMapper.upsert(entity);
+        ShopOrder saved = findByUk(shopId, order.getPlatformOrderId());
         if (saved == null) {
             // 理论不可达(upsert 后必存在),防御异常并发删单,避免明细挂空 orderId
             throw new BusinessException(500, "订单落库后按唯一键反查失败,platformOrderId=" + order.getPlatformOrderId());
         }
         replaceItems(saved.getId(), order, skuIdBySellerSku == null ? Map.of() : skuIdBySellerSku);
         return saved.getId();
+    }
+
+    /** 按 uk(shop_id, platform_order_id) 反查一行;LIMIT 1 兜防御 */
+    private ShopOrder findByUk(Long shopId, String platformOrderId) {
+        return shopOrderMapper.selectOne(new LambdaQueryWrapper<ShopOrder>()
+                .eq(ShopOrder::getShopId, shopId)
+                .eq(ShopOrder::getPlatformOrderId, platformOrderId)
+                .last("LIMIT 1"));
     }
 
     /** UnifiedOrder → ShopOrder 显式逐字段映射(禁反射拷贝,docs/07 §12);null 金额按库默认语义归零 */
@@ -188,6 +261,8 @@ public class ShopOrderService {
         entity.setOrderAmount(defaultZero(order.getTotalAmount()));
         entity.setShippingFee(defaultZero(order.getPostageAmount()));
         entity.setDiscountAmount(defaultZero(order.getDiscountAmount()));
+        // #29 订单来源固定平台拉单(review_status/risk_flag 在调用方按风控判定回填)
+        entity.setOrderSource(OrderReviewConsts.SOURCE_PLATFORM);
         // raw_json 必存(docs/07 §8):翻译出错可回溯重放
         entity.setRawJson(order.getRawJson());
         return entity;

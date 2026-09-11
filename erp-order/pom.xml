@@ -17,6 +17,12 @@
             <groupId>com.own.erp</groupId>
             <artifactId>erp-common</artifactId>
         </dependency>
+        <!-- #29 订单域补课：内销录单需查店铺平台(ShopQueryApi)、校验 SKU 存在(GoodsSkuApi)、
+             取风控词表(SystemConfigApi)、回填审核人(CurrentUserApi)；契约零实现收口 erp-api(铁律 2) -->
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-contract</artifactId>
+        </dependency>
         <!-- 仅依赖统一模型 UnifiedOrder 作为 saveUnifiedOrder 落库入参(docs/04 分层:Unified* → 业务模块落库);
              本模块不得调用平台 API(调用方仅限 erp-shop / erp-fulfill / erp-worker,docs/07 §2.2) -->
         <dependency>

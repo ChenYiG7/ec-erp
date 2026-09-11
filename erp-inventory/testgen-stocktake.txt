@@ -1,0 +1,24 @@
+# stocktake 盘点单状态机守卫测试 spec(仓内作业 2026-09-11,docs/plans/warehouse-ops.md)
+# 语法见 erp-codegen/README.md;语义对齐 StocktakeOrderService 状态动作(docs/07 §6.3 条件更新即守卫)
+# 改状态机(或 Mapper cas 实参)后:改本文件 → 重跑生成器 -Dforce=true → mvn -pl erp-inventory test
+module=inventory
+entity=StocktakeOrder
+var=stocktakeOrder
+constClass=com.own.erp.inventory.constant.StocktakeConsts
+mock=StocktakeOrderMapper
+mock=StocktakeItemMapper
+mock=com.own.erp.inventory.service.InventoryService
+mock=com.own.erp.contract.WarehouseApi
+mock=com.own.erp.contract.GoodsSkuApi
+mock=com.own.erp.contract.CurrentUserApi
+todoId=30
+manual=generateAdjust(复合事务:确认时点 re-diff + 逐行 ADJUST 动账 + 可用不足整单回滚)与 recordCounts/submit 明细校验不在生成射程,用例见 StocktakeOrderServiceTest;前端录实盘行编辑定制组件见 TODO#30
+fixture<<
+private StocktakeOrder order(String status) {
+    return StocktakeOrder.builder().id(ID).stocktakeNo("ST001").warehouseId(9L).status(status).build();
+}
+>>
+action=start | cas=casStatus | stub=ID, STATUS_DRAFT, STATUS_COUNTING | call=ID | fail=开始盘点失败 | verify
+action=submit | cas=casStatus | stub=ID, STATUS_COUNTING, STATUS_PENDING_ADJUST | call=ID | fail=提交盘点失败 | verify
+action=close | cas=casStatus | stub=ID, STATUS_ADJUSTED, STATUS_CLOSED | call=ID | fail=关闭失败 | verify
+action=cancel | cas=casStatus | stub=ID, STATUS_DRAFT, STATUS_CANCELED | call=ID | fail=取消失败 | preRead=order(STATUS_DRAFT) | missingMsg=盘点单不存在 | verify

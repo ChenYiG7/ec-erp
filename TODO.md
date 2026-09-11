@@ -36,15 +36,29 @@
 
 ### P2 —— 无外部依赖,数据就绪即可开工
 
+> 实施计划书(2026-09-10 拍板,自包含可直接投喂执行模型):#19→`docs/plans/19-profit-caliber.md`、订单域补课→`docs/plans/order-review-split.md`、仓内作业→`docs/plans/warehouse-ops.md`、FBA Shipment→`docs/plans/fba-shipment.md`、收付款/回款→`docs/plans/payment-receipt.md`、头程运费分摊→`docs/plans/first-mile-freight.md`、SSE→`docs/plans/sse-notify.md`、#6 Report tools→`docs/plans/06-report-tools.md`、#24→`docs/plans/24-adapter-playbook.md`、#25→`docs/plans/25-oss-storage.md`、#26→`docs/plans/26-frontend-audit.md`、#27→`docs/plans/27-rbac-enhance.md`、#28→`docs/plans/28-deploy-docker.md`;索引与执行顺序见 `docs/plans/README.md`。
+> 投喂方式:逐项现成执行提示词(含 2026-09-10 预拍板、一功能一会话的上下文协议)见 `docs/plans/execution-prompts.md`。
+
 - [ ] **#19 周期利润口径**:结算单口径与订单口径差值校准(三口径第二层,docs/02 §14);预估费用模型
       (平台费率表先行估算、结算回后校差,wimoor profitcfg/referralfee 费率表族思路);多币种折算完善。
-- [ ] **订单域补课**(docs/02 原规划未编号):订单审核(风控备注/地址校验)、拆合单(按仓/按物流)、内销订单录入。
-- [ ] **仓内作业**:盘点单、调拨单域(InventoryService.transfer() 原语已备)、库位/批次评估(二期规划)。
+- [ ] **#29 订单域补课**(计划书 `docs/plans/order-review-split.md`,代码 2026-09-11 落地):订单审核(风控判定 + 审核状态机)、
+      拆单增强(发货单按仓/按物流建多单,三列 #11 已备无需改结构)、内销订单手工录单(合成单号 MAN-*)。
+      余量(环境依赖,需真库/前端环境):①存量库执行 `docs/sql/01_schema_init.sql` 订单段 ALTER 六列 + idx_review,
+      重跑 sys_menu 901/902 与 sys_role_menu(1,901),(1,902) 段;②真库验证 ODKU 不冲审核列(拉单重拉后 review_status 不变)
+      与审核状态机 SQL;③前端 `pnpm api:sync` 重抓契约快照(当前 tools/openapi.json 为手改同步,以 api:sync 为准)+
+      门禁四件(type:check/lint/lint:stylelint/build);④拍板待定:全量待审 vs 风险命中才审(已按后者实现)、自动拆单建议算法(未做)。
+- [ ] **#30 仓内作业余量**(盘点单/调拨单 2026-09-11 已落地,计划书 `docs/plans/warehouse-ops.md`;主体含
+      盘点六态状态机 + 建单快照/确认时点双口径 + 差异 ADJUST 动账、调拨确认即达两腿动账 + biz_type 收口):
+      ①**调拨在途模式**(OUT 占用→到货 IN)未做——V1=确认即达(拍板点④),需求来自多仓地理分离时才硬;
+      ②**盘点冻结**(停机动账)明确不做;③**库存质量维度**良品/残品分账(三期,随残品列评估);
+      ④**前端录实盘行编辑**为生成器外定制组件(盘点单页面清单已在 `docs/sql/01_schema_init.sql` 种子 38/39 段登记);
+      ⑤**仓库删除引用校验**未纳入 stocktake_order/transfer_order(现仅 inventory + 采购两域计数);
+      ⑥**库位/批次:评估结论不做**(库级粒度牵动 uk/成本账/快照/对账/前端,无批次效期合规压力;
+      触发点=进口效期合规/库龄精细化报表/多库位拣货瓶颈,任一成真实痛点再按 add-domain 立项)。
 - [ ] **FBA Shipment**:发货计划生成/装箱信息/与平台对账(docs/02 三期规划,无硬阻塞可先行)。
 - [ ] **收付款/回款**:采购付款登记、平台回款记录、资金流追踪(docs/02 二期规划)。
 - [ ] **头程运费分摊**(利润口径第三层组件,docs/02 三期规划)。
 - [ ] **SSE 浏览器实时推送通知**(qihang 对标;前端现有 60s 轮询基础,erp-web 可承接)。
-- [ ] **#6 Report tools**:报表域取数契约化后 AI 工具第八类(报表数据面已就绪,ACOS 面卡 #20)。
 - [ ] **#24 其他电商平台 adapter 扩展**:在 P1 首个国内 adapter + 跨境第二平台 adapter 落地后,批量接入剩余平台——
       国内(淘宝/京东/拼多多/微信小店/快手/小红书)、跨境(eBay/Shopee/Lazada/TikTok/速卖通/Temu)。
       前置 = 各平台 ISV 资质/AppKey;防腐层 SPI 已就绪,单平台接入复用 `PlatformClient` 契约 + `Unified*` 模型,
@@ -65,14 +79,11 @@
       ③**部门组织架构**(部门树 + 用户归属,为数据权限和人员业绩核算铺路);
       ④**字段级权限**(敏感字段脱敏已部分落地,评估是否需按角色控制可见性)。
       前置:①依赖部门表新增 + 拦截器;②依赖审计表 + AOP;③依赖部门树 DDL;④随实际需求拍板粒度。
-- [ ] **#28 工程化部署(一键本地 + Docker)**:
-      **一键本地部署**:`scripts/` 下提供启动脚本(建库 → 配置检查 → 构建后端 → 启动 → 前端 dev/prod 一条龙),
-      降低新开发者上手成本;校验 ERP_JWT_SECRET / ERP_TOKEN_KEY 两个必填环境变量,缺失即友好报错。
-      **Docker 部署**:`Dockerfile`(多阶段构建:Maven 编译 → JRE 21 运行镜像)+ `docker-compose.yml` 编排
-      erp-api / MySQL / Redis / RustFS(#25)四服务,环境变量注入密钥,volume 挂载数据持久化;
-      前端独立 Nginx 镜像或嵌入 erp-api 静态资源(拍板)。目标:新环境 `docker compose up -d` 即跑通。
 
 ### P3 —— 拍板挂起(需真实使用数据/业务确认后拍板)
+
+> 实施计划书(2026-09-10,触发条件式——条件不满足不开工):#6 HIGH 推通知/同买家规则/预警扩容→`docs/plans/p3-alert-monitor-expansion.md`、#6 三工作流定时接线→`docs/plans/p3-ai-workflow-scheduling.md`、#6 聊天页体验→`docs/plans/p3-chat-ux.md`、#6 四期 AI 深化→`docs/plans/p3-ai-deepening.md`、#11 代发/海外仓/回传异步化→`docs/plans/p3-fulfill-extensions.md`、#12 超退上限→`docs/plans/p3-aftersale-refund-cap.md`、#17 四小项→`docs/plans/p3-goods-ai-extensions.md`。
+> **移动端(小程序/H5)与微信业绩推送:2026-09-10 拍板暂不考虑,不做规划**(重启时先补产品定位拍板)。
 
 - [ ] #6:HIGH 级异常推通知(随实际告警量评估);「同买家批量下单」规则(契约无 buyer 字段,PII 不出契约,随 V2 契约扩容)。
 - [ ] #6:采购/文案/选品三工作流定时接线(人工决策节奏,随实际使用拍板;补货/异常两工作流已接定时)。

@@ -1,0 +1,21 @@
+# transfer 调拨单状态机守卫测试 spec(仓内作业 2026-09-11,docs/plans/warehouse-ops.md)
+# 语法见 erp-codegen/README.md;语义对齐 TransferOrderService 状态动作(docs/07 §6.3 条件更新即守卫)
+# 改状态机(或 Mapper cas 实参)后:改本文件 → 重跑生成器 -Dforce=true → mvn -pl erp-inventory test
+module=inventory
+entity=TransferOrder
+var=transferOrder
+constClass=com.own.erp.inventory.constant.TransferConsts
+mock=TransferOrderMapper
+mock=TransferOrderItemMapper
+mock=com.own.erp.inventory.service.InventoryService
+mock=com.own.erp.contract.WarehouseApi
+mock=com.own.erp.contract.GoodsSkuApi
+mock=com.own.erp.contract.CurrentUserApi
+todoId=30
+manual=confirm(复合事务:逐行 InventoryService.transfer 两腿动账、调出仓可用不足整单回滚、重复确认被拦)不在生成射程,用例见 TransferOrderServiceTest;V1 无在途账,在途模式(OUT 占用→到货 IN)留 TODO#30 拍板
+fixture<<
+private TransferOrder order(String status) {
+    return TransferOrder.builder().id(ID).transferNo("TR001").fromWarehouseId(2L).toWarehouseId(3L).status(status).build();
+}
+>>
+action=cancel | cas=casStatus | stub=ID, STATUS_DRAFT, STATUS_CANCELED | call=ID | fail=取消失败 | preRead=order(STATUS_DRAFT) | missingMsg=调拨单不存在 | verify

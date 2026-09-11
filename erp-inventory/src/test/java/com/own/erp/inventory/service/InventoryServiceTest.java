@@ -339,7 +339,7 @@ class InventoryServiceTest {
             when(inventoryMapper.updateAvailableDelta(1L, 2L, -5)).thenReturn(1);
             when(inventoryMapper.updateAvailableDelta(1L, 3L, 5)).thenReturn(1);
 
-            inventoryService.transfer(1L, 2L, 3L, 5, "调拨", 9L);
+            inventoryService.transfer(1L, 2L, 3L, 5, "调拨", 9L, 77L);
 
             ArgumentCaptor<InventoryFlow> captor = ArgumentCaptor.forClass(InventoryFlow.class);
             verify(inventoryFlowMapper, times(2)).insert(captor.capture());
@@ -347,7 +347,8 @@ class InventoryServiceTest {
             assertEquals(2L, out.getWarehouseId());
             assertEquals(-5, out.getQuantity());
             assertEquals("TRANSFER_OUT", out.getFlowType());
-            assertEquals("INVENTORY_TRANSFER", out.getBizType());
+            assertEquals("TRANSFER_ORDER", out.getBizType());
+            assertEquals(77L, out.getBizId());
             assertEquals(9L, out.getCreatedBy());
             InventoryFlow in = captor.getAllValues().get(1);
             assertEquals(3L, in.getWarehouseId());
@@ -357,9 +358,9 @@ class InventoryServiceTest {
 
         @Test
         void rejectsSameWarehouseOrNonPositiveQuantity() {
-            assertThrows(BusinessException.class, () -> inventoryService.transfer(1L, 2L, 2L, 5, null, null));
-            assertThrows(BusinessException.class, () -> inventoryService.transfer(1L, 2L, 3L, 0, null, null));
-            assertThrows(BusinessException.class, () -> inventoryService.transfer(1L, null, 3L, 5, null, null));
+            assertThrows(BusinessException.class, () -> inventoryService.transfer(1L, 2L, 2L, 5, null, null, null));
+            assertThrows(BusinessException.class, () -> inventoryService.transfer(1L, 2L, 3L, 0, null, null, null));
+            assertThrows(BusinessException.class, () -> inventoryService.transfer(1L, null, 3L, 5, null, null, null));
             verifyNoInteractions(inventoryMapper, inventoryFlowMapper);
         }
     }
