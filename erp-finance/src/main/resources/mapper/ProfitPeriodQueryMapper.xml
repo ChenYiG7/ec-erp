@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.own.erp.finance.mapper.ProfitPeriodQueryMapper">
+
+    <!-- 结算侧分费种聚合(#19 周期口径):单份报告明细按 fee_type 分组 SUM(amount),报告原币带符号
+         (TRANSFER 正、COMMISSION/FBA 系负);报告级幂等(重拉先删后插),重算全量聚合无增量口径。
+         费种→周期列归类(TRANSFER 回款/COMMISSION 佣金/FBA_FEE+STORAGE FBA系/其余其他费)在 Service 层,
+         归类口径 #32 已拍板(④A:SALE 单列进收入差,REFUND/ADVERTISING/OTHER 归其他费);汇率折算不进 SQL(Service 按周期止 resolveRate 冻结) -->
+    <select id="sumSettlementFees" resultType="com.own.erp.finance.profit.SettlementFeeSum">
+        SELECT sd.fee_type AS feeType,
+               SUM(sd.amount) AS amount
+        FROM settlement_detail sd
+        WHERE sd.report_id = #{reportId}
+        GROUP BY sd.fee_type
+    </select>
+</mapper>

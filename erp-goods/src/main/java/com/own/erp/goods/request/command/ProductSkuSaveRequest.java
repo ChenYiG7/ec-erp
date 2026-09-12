@@ -35,6 +35,15 @@ public record ProductSkuSaveRequest(
         /** 重量(g) */
         Integer weightG,
 
+        /** 外长(mm),头程/FBA 装箱属性(#33) */
+        Integer lengthMm,
+
+        /** 外宽(mm),头程/FBA 装箱属性(#33) */
+        Integer widthMm,
+
+        /** 外高(mm),头程/FBA 装箱属性(#33) */
+        Integer heightMm,
+
         /** 海关 HS 编码 */
         String hsCode,
 
@@ -57,6 +66,9 @@ public record ProductSkuSaveRequest(
         sku.setAttrsJson(attrsJson);
         sku.setCostPrice(costPrice);
         sku.setWeightG(weightG);
+        sku.setLengthMm(lengthMm);
+        sku.setWidthMm(widthMm);
+        sku.setHeightMm(heightMm);
         sku.setHsCode(hsCode);
         sku.setDeclaredValue(declaredValue);
         sku.setBattery(battery);

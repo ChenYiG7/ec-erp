@@ -1,6 +1,7 @@
 package com.own.erp.contract.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.OrderQueryApi;
 import com.own.erp.contract.QueryPage;
 import com.own.erp.order.request.query.ShopOrderQuery;
@@ -33,12 +34,15 @@ import static org.mockito.Mockito.when;
 class OrderQueryApiImplTest {
 
     private ShopOrderService shopOrderService;
+    private CurrentUserApi currentUserApi;
     private OrderQueryApi orderQueryApi;
 
     @BeforeEach
     void setUp() {
         shopOrderService = mock(ShopOrderService.class);
-        orderQueryApi = new OrderQueryApiImpl(shopOrderService);
+        currentUserApi = mock(CurrentUserApi.class);
+        when(currentUserApi.currentShopIds()).thenReturn(null);
+        orderQueryApi = new OrderQueryApiImpl(shopOrderService, currentUserApi);
     }
 
     private ShopOrderResponse order() {
@@ -96,6 +100,20 @@ class OrderQueryApiImplTest {
         verify(shopOrderService).page(captor.capture());
         assertEquals(1, captor.getValue().getPageNo());
         assertEquals(20, captor.getValue().getPageSize());
+    }
+
+    @Test
+    void pageOrdersForcesShopScopeOverCallerSuppliedValue() {
+        // 数据权限(#27①):调用方自带 shopIds 一律被 currentShopIds() 覆盖
+        when(currentUserApi.currentShopIds()).thenReturn(List.of(7L, 8L));
+        when(shopOrderService.page(any())).thenReturn(new Page<>(1, 20, 0));
+
+        orderQueryApi.pageOrders(OrderQueryApi.OrderFilter.builder()
+                .shopId(2L).shopIds(List.of(99L)).build());
+
+        ArgumentCaptor<ShopOrderQuery> captor = ArgumentCaptor.forClass(ShopOrderQuery.class);
+        verify(shopOrderService).page(captor.capture());
+        assertEquals(List.of(7L, 8L), captor.getValue().getShopIds());
     }
 
     @Test

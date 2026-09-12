@@ -1,0 +1,36 @@
+# FBA发货单 spec(gen:page 拍板表;fba-shipment 2026-09-12,docs/plans/fba-shipment.md)
+# 字段名以 openapi 快照为准(本域快照为手改同步,后端起后以 api:sync 为准重核)
+# 状态机动作 box/ship/receive/close/cancel 由快照端点自动生成 api 函数;
+# 建单表单(计划行子表+装箱子表行编辑)、收货登记弹窗、详情抽屉(计划行/装箱树/diff 行)为生成器外定制组件。
+# 写侧后端不限 admin(同发货单口径),按钮 permKey fulfill:fba:* 前端收口
+module=fulfill
+domain=fbaShipment
+base=fulfill/fba-shipments
+entity=FbaShipment
+nameZh=FBA发货单
+permPrefix=fulfill:fba
+todoId=35
+menuParent=8
+menuId=46
+path=/fulfill/fba-shipments
+component=fulfill/fba-shipment/index
+icon=Box
+menuSort=5
+
+field=shipmentNo       role=column label=FBA单号   width=160
+field=shopId           role=all    label=店铺       width=140
+field=marketplace      role=column label=站点       width=80
+field=warehouseId      role=all    label=发货仓     width=130
+field=platformShipmentId role=column label=平台ShipmentId width=180
+field=status           role=column label=状态       width=110  tag enum=DRAFT:草稿:info|BOXED:已装箱:warning|SHIPPED:已发出:primary|RECEIVING:收货登记中:warning|CLOSED:已关闭:success|CANCELED:已取消:danger
+field=shippedAt        role=column label=发出时间   width=170
+field=receivedAt       role=column label=收货登记   width=170
+field=remark           role=all    label=备注       width=180
+field=createdAt        role=column label=创建时间   width=170
+
+# 页面级动作槽位(生成器只产 api 函数,按钮按状态机裁剪人工补到 index):
+todo=box:DRAFT→BOXED 装箱完成(至少1箱有件且逐SKU=计划量,预检),确认弹窗后调用,完成刷新
+todo=ship:BOXED→SHIPPED 确认发出(复合事务:勾稽+逐SKU OUT_SHIP 动账,可用不足整单回滚),确认弹窗强提示
+todo=receive:SHIPPED/RECEIVING 收货登记,FbaReceiveDialog 定制弹窗(按SKU录平台收货量,发出SKU必须全部在列),生成 SHORT/EXTRA/OK
+todo=close:RECEIVING→CLOSED 关闭(diff 冻结),确认弹窗后调用
+todo=cancel:DRAFT/BOXED→CANCELED 取消(已发出起库存已动账禁取消),确认弹窗后调用

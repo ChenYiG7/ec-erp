@@ -19,9 +19,9 @@
           >新建入库单</el-button
         >
       </template>
-      <!-- 收货明细展开行(懒加载详情 items,见 InboundItems) -->
+      <!-- 收货明细展开行(懒加载详情 items,见 InboundItems;v-if 判 id 拦 el-table hidden-columns 空对象行的预渲染) -->
       <template #expand="scope">
-        <InboundItems :row="scope.row" />
+        <InboundItems v-if="scope.row?.id != null" :row="scope.row" />
       </template>
       <!-- 操作列(ProTable v2:type:'operation' 列必须提供本插槽;PENDING 才可操作,越权拦截在后端) -->
       <template #operation="scope">

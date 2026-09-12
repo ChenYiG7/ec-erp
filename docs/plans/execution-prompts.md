@@ -1,6 +1,10 @@
 # 执行提示词集 —— 配合 docs/plans/ 计划书逐项投喂
 
-> 2026-09-10 生成。用法:每开工一项,**清空上下文(/clear 或新会话)后整段复制对应提示词**投喂执行模型。
+> 2026-09-10 生成。**2026-09-12 起大部分条目为存档**:06-report-tools/25-oss-storage/28-deploy-docker/
+> order-review-split/warehouse-ops/payment-receipt/first-mile-freight/sse-notify/27-rbac-enhance 九项已实施
+> (计划书见 `archive/` 或本目录头部实施标注,devlog 见 docs/devlog/),对应提示词仅存档不再投喂;
+> 仍可投喂的仅剩 fba-shipment、24-adapter-playbook(卡资质)、26-frontend-audit 与 P3 七项(按触发条件)。
+> 用法:每开工一项,**清空上下文(/clear 或新会话)后整段复制对应提示词**投喂执行模型。
 > 各计划书的「拍板点」已由用户于 2026-09-10 预拍板,固化在各条「预拍板」中——执行模型**按拍板执行,不再停下来询问**;
 > 仅两处例外需要用户补充业务输入(p3-fulfill 的代发四问、p3-ai-deepening 的客服定位),已在对应条目留填写槽。
 > 执行模型遇「计划书/提示词与代码现状冲突」:停下报告差异,不得自行改设计。
@@ -35,7 +39,7 @@
 ### 1) #25 OSS 对象存储(仓库根开会话)
 
 ```text
-实现 docs/plans/25-oss-storage.md(#25 OSS 对象存储 RustFS)。
+实现 docs/plans/archive/25-oss-storage.md(#25 OSS 对象存储 RustFS)。
 必读:根 CLAUDE.md(铁律)→ 计划书全文 → docs/07 §7(安全红线:sys_config 凭证边界)。
 会话目录:仓库根。只做本计划书范围;与代码现状冲突即停并报告。
 预拍板(2026-09-10,不再询问):
@@ -51,7 +55,7 @@
 ### 2) #28 一键部署 + Docker(仓库根)
 
 ```text
-实现 docs/plans/28-deploy-docker.md(#28 一键本地部署 + Docker)。
+实现 docs/plans/archive/28-deploy-docker.md(#28 一键本地部署 + Docker)。
 必读:根 CLAUDE.md → 计划书全文 → 根 README.md 手工启动步骤段(脚本化蓝本)。
 会话目录:仓库根。
 预拍板(2026-09-10,不再询问):
@@ -164,7 +168,7 @@
 ### 9) SSE 实时推送(仓库根,跨栈)
 
 ```text
-实现 docs/plans/sse-notify.md(SSE 浏览器实时推送通知,后端 + 前端接线)。
+实现 docs/plans/archive/sse-notify.md(SSE 浏览器实时推送通知,后端 + 前端接线)。
 必读:根 CLAUDE.md → 计划书全文 → docs/09(动 erp-web 前必读)。
 会话目录:仓库根。
 预拍板(2026-09-10,不再询问):
@@ -180,7 +184,7 @@
 ### 10) #6 Report tools(仓库根)
 
 ```text
-实现 docs/plans/06-report-tools.md(报表取数契约化 + AI 第八类工具)。
+实现 docs/plans/archive/06-report-tools.md(报表取数契约化 + AI 第八类工具)。
 必读:根 CLAUDE.md → 计划书全文 → docs/07 §9(AI 代码规范)。
 会话目录:仓库根。
 预拍板(2026-09-10,不再询问):
@@ -221,12 +225,12 @@
 本会话只做这一项,输出交付摘要即停。
 ```
 
-### 13) #27 权限增强(仓库根;拆三次会话,按序)
+### 13) #27 权限增强(仓库根;拆三次会话,按序)——✅ 已全部实施(13a/13b 2026-09-12,13c 2026-09-12,devlog 见 docs/devlog/TODO27-权限增强(数据权限店铺轴收口).md)
 
 **13a 部门组织架构(先做)**
 
 ```text
-实现 docs/plans/27-rbac-enhance.md 的「部门组织架构」部分(对应 TODO #27-③)。
+实现 docs/plans/archive/27-rbac-enhance.md 的「部门组织架构」部分(对应 TODO #27-③)。
 必读:根 CLAUDE.md → 计划书全文 → docs/07 §6(建表)。
 会话目录:仓库根。
 预拍板(2026-09-10,不再询问):
@@ -239,7 +243,7 @@
 **13b 操作审计**
 
 ```text
-实现 docs/plans/27-rbac-enhance.md 的「操作审计」部分(对应 TODO #27-②)。前置:部门部分已实施。
+实现 docs/plans/archive/27-rbac-enhance.md 的「操作审计」部分(对应 TODO #27-②)。前置:部门部分已实施。
 必读:根 CLAUDE.md → 计划书全文 → docs/07 §11(AFTER_COMMIT)。
 会话目录:仓库根。
 预拍板(2026-09-10,不再询问):
@@ -253,7 +257,7 @@
 **13c 数据权限 + 字段级评估收口**
 
 ```text
-实现 docs/plans/27-rbac-enhance.md 的「数据权限」部分(对应 TODO #27-①),并顺带产出「字段级权限」评估结论(#27-④)收口整项。前置:部门、审计已实施。
+实现 docs/plans/archive/27-rbac-enhance.md 的「数据权限」部分(对应 TODO #27-①),并顺带产出「字段级权限」评估结论(#27-④)收口整项。前置:部门、审计已实施。
 必读:根 CLAUDE.md → 计划书全文 → docs/07 §2.2(模块边界)。
 会话目录:仓库根。
 预拍板(2026-09-10,不再询问):

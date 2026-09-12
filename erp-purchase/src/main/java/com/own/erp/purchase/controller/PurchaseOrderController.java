@@ -1,6 +1,7 @@
 package com.own.erp.purchase.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.common.api.OperLog;
 import com.own.erp.common.api.Result;
 import com.own.erp.purchase.request.query.PurchaseOrderQuery;
 import com.own.erp.purchase.request.command.PurchaseOrderSaveRequest;
@@ -68,6 +69,7 @@ public class PurchaseOrderController {
     }
 
     @Operation(summary = "审核采购单", description = "状态机:草稿→已审核,审核后可创建入库单")
+    @OperLog(module = "purchase", action = "audit")
     @PreAuthorize("hasRole('admin')")
     @PostMapping("/{id}/audit")
     public Result<Void> audit(@PathVariable Long id) {
@@ -76,6 +78,7 @@ public class PurchaseOrderController {
     }
 
     @Operation(summary = "关闭采购单", description = "状态机:已审核/部分入库/已入库→已关闭,剩余未收量作废;草稿单请走删除")
+    @OperLog(module = "purchase", action = "close")
     @PreAuthorize("hasRole('admin')")
     @PostMapping("/{id}/close")
     public Result<Void> close(@PathVariable Long id) {

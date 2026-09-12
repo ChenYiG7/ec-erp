@@ -29,6 +29,9 @@ public record SysUserResponse(
         /** 手机号 */
         String phone,
 
+        /** 部门ID(sys_dept.id,#27③;NULL=未分配部门) */
+        Long deptId,
+
         /** 1=启用 0=禁用 */
         Integer status,
 
@@ -47,6 +50,7 @@ public record SysUserResponse(
                 .nickname(user.getNickname())
                 .email(user.getEmail())
                 .phone(user.getPhone())
+                .deptId(user.getDeptId())
                 .status(user.getStatus())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())

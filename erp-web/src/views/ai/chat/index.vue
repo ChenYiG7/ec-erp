@@ -33,7 +33,7 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'ai-chat-index' })
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { ElButton, ElEmpty, ElMessage, ElScrollbar } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import MessageList from '@/components/chat/MessageList.vue'
@@ -53,8 +53,14 @@ const loadSessions = async () => {
   sessions.value = list
 }
 
+// 会话切换竞态序号:连点两个会话时,旧会话慢响应不得覆盖当前会话消息(#26 二轮走查)
+let loadSeq = 0
 const loadMessages = async (sessionId: number) => {
-  messages.value = await aiChatApi.listMessages(sessionId)
+  const seq = ++loadSeq
+  const list = await aiChatApi.listMessages(sessionId)
+  if (seq === loadSeq) {
+    messages.value = list
+  }
 }
 
 const onSelectSession = async (session: AiChatSessionResponse) => {
@@ -81,6 +87,10 @@ const onNewSession = async () => {
 }
 
 // 首条消息自动建会话;流式 chunk 追加到占位 AI 行;结束/失败都以服务端历史回读兜底
+// 当前流的中止器:页面卸载时断流(避免离开页面后 fetch 继续拉取,#26 二轮走查)
+let streamController: AbortController | null = null
+onUnmounted(() => streamController?.abort())
+
 const onSend = async (text: string) => {
   if (sending.value) {
     return
@@ -103,12 +113,22 @@ const onSend = async (text: string) => {
       streaming: true,
     }
     messages.value.push(placeholder)
-    await aiChatApi.chatStream(sessionId, text, chunk => {
-      placeholder.content += chunk
-    })
+    // 经响应式数组取回 proxy 引用再追加:直接改 raw 占位对象不触发渲染,回复会"冻结"到结束才出现(#26 二轮走查)
+    const streamingRow = messages.value[messages.value.length - 1]
+    streamController = new AbortController()
+    await aiChatApi.chatStream(
+      sessionId,
+      text,
+      chunk => {
+        streamingRow.content += chunk
+      },
+      streamController.signal
+    )
   } catch (error) {
-    // SSE 通道错误在 chatStream 单点收口抛出,这里补提示(拦截器管不到 fetch)
-    ElMessage.error(error instanceof Error ? error.message : '回复失败,请稍后重试')
+    // SSE 通道错误在 chatStream 单点收口抛出,这里补提示(拦截器管不到 fetch);页面卸载主动断流不提示
+    if (!streamController?.signal.aborted) {
+      ElMessage.error(error instanceof Error ? error.message : '回复失败,请稍后重试')
+    }
   } finally {
     sending.value = false
     messages.value.forEach(msg => (msg.streaming = false))

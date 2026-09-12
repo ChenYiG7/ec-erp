@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.own.erp.finance.mapper.FirstLegQueryMapper">
+
+    <!-- 头程发货单分页(#33):主单为正本,双仓名两次 LEFT JOIN warehouse(跨域只读 join,同 PaymentQueryMapper 先例;
+         按 docs/07 §6.4 拍板 join 不滤已删——仓库删后历史单据仍显名);CANCELED 不默认排除(单据状态非作废制,列表照常显) -->
+    <select id="pageRows" resultType="com.own.erp.finance.response.FirstLegShipmentResponse">
+        SELECT fl.id,
+               fl.shipment_no        AS shipmentNo,
+               fl.from_warehouse_id  AS fromWarehouseId,
+               fl.to_warehouse_id    AS toWarehouseId,
+               wf.wh_name            AS fromWarehouseName,
+               wt.wh_name            AS toWarehouseName,
+               fl.carrier,
+               fl.waybill_no         AS waybillNo,
+               fl.charge_weight      AS chargeWeight,
+               fl.volume_weight      AS volumeWeight,
+               fl.freight_amount     AS freightAmount,
+               fl.currency,
+               fl.exchange_rate      AS exchangeRate,
+               fl.freight_cny        AS freightCny,
+               fl.shipped_at         AS shippedAt,
+               fl.allocate_strategy  AS allocateStrategy,
+               fl.alloc_remark       AS allocRemark,
+               fl.allocated_at       AS allocatedAt,
+               fl.status,
+               fl.remark,
+               fl.created_by         AS createdBy,
+               fl.created_at         AS createdAt,
+               fl.updated_at         AS updatedAt
+        FROM first_leg_shipment fl
+                 LEFT JOIN warehouse wf ON fl.from_warehouse_id = wf.id
+                 LEFT JOIN warehouse wt ON fl.to_warehouse_id = wt.id
+        <where>
+            <if test="query.shipmentNo != null and query.shipmentNo != ''">
+                AND fl.shipment_no LIKE CONCAT('%', #{query.shipmentNo}, '%')
+            </if>
+            <if test="query.status != null and query.status != ''">AND fl.status = #{query.status}</if>
+            <if test="query.fromWarehouseId != null">AND fl.from_warehouse_id = #{query.fromWarehouseId}</if>
+            <if test="query.toWarehouseId != null">AND fl.to_warehouse_id = #{query.toWarehouseId}</if>
+        </where>
+        ORDER BY fl.id DESC
+    </select>
+
+    <!-- SKU 维度头程费用汇总(#33 查询面,利润第三层聚合源):
+         只计 ALLOCATED/CLOSED 主单(CANCELED 无分摊;DRAFT/BOXED/SHIPPED 尚无 first_leg_alloc 行);
+         join product_sku 取编码(不滤已删,同 §6.4 口径);金额 CNY,原币折算在落分摊时已完成 -->
+    <select id="listSkuAllocSummary" resultType="com.own.erp.finance.response.FirstLegSkuAllocRow">
+        SELECT a.sku_id                          AS skuId,
+               ps.sku_code                       AS skuCode,
+               COUNT(DISTINCT a.shipment_id)     AS shipmentCount,
+               SUM(a.alloc_amount)               AS allocAmountCny
+        FROM first_leg_alloc a
+                 JOIN first_leg_shipment fl ON a.shipment_id = fl.id
+                     AND fl.status IN ('ALLOCATED', 'CLOSED')
+                 LEFT JOIN product_sku ps ON a.sku_id = ps.id
+        <where>
+            <if test="skuId != null">AND a.sku_id = #{skuId}</if>
+            <if test="shippedFrom != null">AND fl.shipped_at &gt;= #{shippedFrom}</if>
+            <if test="shippedTo != null">AND fl.shipped_at &lt;= #{shippedTo}</if>
+        </where>
+        GROUP BY a.sku_id, ps.sku_code
+        ORDER BY allocAmountCny DESC, a.sku_id ASC
+    </select>
+</mapper>

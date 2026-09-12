@@ -62,10 +62,21 @@
             <artifactId>jjwt-jackson</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- TODO#27② 操作审计:@Aspect 切面。Boot 4 BOM 已移除 spring-boot-starter-aop 模块,
+             AopAutoConfiguration 仍在 spring-boot-autoconfigure(检测到 aspectjweaver 即自动代理,版本走 Boot BOM) -->
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+        </dependency>
         <!-- TODO#14 邮件通知渠道:JavaMailSender(jakarta.mail;SMTP 参数走 sys_config 热更,非 yml 装配) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+        <!-- 通知 SSE 推送(SSE 订阅端点返 Flux,同 erp-ai chat 先例;版本 Boot BOM 管理) -->
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
         </dependency>
         <!-- 单测(Mockito/JUnit,标准栈对齐 2026-09-04 随 #14 补齐) -->
         <dependency>

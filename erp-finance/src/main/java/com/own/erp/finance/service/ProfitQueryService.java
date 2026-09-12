@@ -7,9 +7,11 @@ import com.own.erp.contract.OrderProfitSummary;
 import com.own.erp.contract.ProfitDailyTrendRow;
 import com.own.erp.contract.ProfitSkuRankRow;
 import com.own.erp.contract.QueryPage;
+import com.own.erp.finance.entity.PlatformFeeRate;
 import com.own.erp.finance.mapper.ProfitQueryMapper;
 import com.own.erp.finance.profit.OrderProfitAmountGroup;
 import com.own.erp.finance.profit.OrderProfitLine;
+import com.own.erp.platform.unified.UnifiedSettlement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -32,10 +34,12 @@ import java.util.TreeMap;
  *     订单行粒度 利润 = 售价(CNY) − 出库成本(CNY) − 平台佣金(CNY),不落库实时算(小时级新鲜度天然满足)。
  *     组装三路数据:①主查询(订单行 join 订单,已支付态三态)分页/全量(XML ProfitQueryMapper);
  *     ②出库成本批量聚合(OUT_SHIP 移动加权快照,未出库=NULL 不猜);
- *     ③平台佣金批量归集(settlement_detail COMMISSION 按店铺+平台订单行,无结算数据=NULL 禁费率猜算);
+ *     ③平台佣金批量归集(settlement_detail COMMISSION 按店铺+平台订单行);无实际佣金时按
+ *     platform_fee_rate 费率估算(2026-09-11 #19 预估模型:实际优先,估算 −售价CNY×费率,
+ *     行级 commissionEstimated 标志,无费率仍 NULL 不猜;FBA 仓储类无费率不估);
  *     ④汇率逐行按下单日回溯 resolveRate 唯一口径(CNY 短路;缺报价折 NULL 禁猜)。
  *     缺口不静默归零:missing 标志进行模型/汇总单独计数(费用事实纪律同 #19② 勾稽);
- *     profitCny:缺成本/缺汇率→NULL,仅缺佣金→售价−成本(毛利,标志位区分)。
+ *     profitCny:缺成本/缺汇率→NULL,佣金缺实际且无预估→售价−成本(毛利,标志位区分),有佣金(实际/预估)→扣佣。
  *     全量汇总 SQL 硬 LIMIT 20000 防御,量级增长落库方案随 V2 周期口径
  */
 @Service
@@ -49,19 +53,26 @@ public class ProfitQueryService {
 
     private final ProfitQueryMapper profitQueryMapper;
     private final ExchangeRateService exchangeRateService;
+    /** #19 预估费用模型:佣金缺口按费率表估算(实际佣金优先,无费率不猜) */
+    private final PlatformFeeRateService platformFeeRateService;
 
-    /** 订单行利润分页(下单时间倒序) */
+    /** 订单行利润分页(下单时间倒序)。
+     *  数据权限(#27①):shopIds 由 ProfitQueryApiImpl 强制装配,null=不过滤;空列表=不可见任何店铺(短路零结果) */
     public QueryPage<OrderProfitRow> page(OrderProfitQuery query) {
+        if (shopScopeEmpty(query)) {
+            return QueryPage.of(List.of(), 0);
+        }
         Page<OrderProfitLine> page = profitQueryMapper.selectProfitLines(
                 new Page<>(query.pageNoOrDefault(), query.pageSizeOrDefault()),
-                query.shopId(), query.platform(), query.skuId(), query.dateFrom(), query.dateTo());
+                query.shopId(), query.platform(), query.skuId(), query.dateFrom(), query.dateTo(), query.shopIds());
         return QueryPage.of(assemble(page.getRecords()), page.getTotal());
     }
 
-    /** 同条件汇总(全量行聚合,与行口径一致;缺口单独计数不静默归零) */
+    /** 同条件汇总(全量行聚合,与行口径一致;缺口单独计数不静默归零);空授权集短路 = 全零汇总 */
     public OrderProfitSummary summarize(OrderProfitQuery query) {
-        List<OrderProfitRow> rows = assemble(profitQueryMapper.selectProfitLinesAll(
-                query.shopId(), query.platform(), query.skuId(), query.dateFrom(), query.dateTo()));
+        List<OrderProfitRow> rows = shopScopeEmpty(query) ? List.of()
+                : assemble(profitQueryMapper.selectProfitLinesAll(
+                        query.shopId(), query.platform(), query.skuId(), query.dateFrom(), query.dateTo(), query.shopIds()));
         return new OrderProfitSummary(
                 rows.size(),
                 sumOf(rows, OrderProfitRow::salesCny),
@@ -75,8 +86,9 @@ public class ProfitQueryService {
 
     /** 利润日趋势(#21):全量行按下单日聚合,口径与 summarize 同源(同一装配管线,非独立 SQL);日期升序 */
     public List<ProfitDailyTrendRow> listDailyTrend(OrderProfitQuery query) {
-        List<OrderProfitRow> rows = assemble(profitQueryMapper.selectProfitLinesAll(
-                query.shopId(), query.platform(), query.skuId(), query.dateFrom(), query.dateTo()));
+        List<OrderProfitRow> rows = shopScopeEmpty(query) ? List.of()
+                : assemble(profitQueryMapper.selectProfitLinesAll(
+                        query.shopId(), query.platform(), query.skuId(), query.dateFrom(), query.dateTo(), query.shopIds()));
         Map<LocalDate, List<OrderProfitRow>> byDate = new TreeMap<>();
         for (OrderProfitRow row : rows) {
             byDate.computeIfAbsent(row.orderTime().toLocalDate(), k -> new ArrayList<>()).add(row);
@@ -96,8 +108,9 @@ public class ProfitQueryService {
     /** SKU 利润排行(#21):按内部 SKU 聚合(仅已绑定行,未绑定行无 SKU 维度不参与),利润降序,topN 钳制 1..100 */
     public List<ProfitSkuRankRow> listSkuProfitRank(OrderProfitQuery query, int topN) {
         int limit = Math.max(1, Math.min(topN, 100));
-        List<OrderProfitRow> rows = assemble(profitQueryMapper.selectProfitLinesAll(
-                query.shopId(), query.platform(), query.skuId(), query.dateFrom(), query.dateTo()));
+        List<OrderProfitRow> rows = shopScopeEmpty(query) ? List.of()
+                : assemble(profitQueryMapper.selectProfitLinesAll(
+                        query.shopId(), query.platform(), query.skuId(), query.dateFrom(), query.dateTo(), query.shopIds()));
         Map<Long, List<OrderProfitRow>> bySku = new LinkedHashMap<>();
         for (OrderProfitRow row : rows) {
             if (row.skuId() != null) {
@@ -123,18 +136,31 @@ public class ProfitQueryService {
         return skuRows.stream().map(OrderProfitRow::productName).filter(Objects::nonNull).findFirst().orElse("");
     }
 
-    /** 组装:主查询行 → 批量补成本/佣金 → 逐行汇率回溯折算(分页 ≤200 行逐行 LIMIT 1 查询可接受) */
+    /** 组装:主查询行 → 批量补成本/佣金/费率索引 → 逐行汇率回溯折算(分页 ≤200 行逐行 LIMIT 1 查询可接受) */
     private List<OrderProfitRow> assemble(List<OrderProfitLine> lines) {
         if (lines.isEmpty()) {
             return List.of();
         }
         Map<Long, BigDecimal> costByItem = loadCosts(lines);
         Map<String, BigDecimal> commissionByKey = loadCommissions(lines);
+        // 佣金费率一次性全量载入(费率表量级小)按平台分组,内存回溯挑选,禁逐行查库 N+1
+        Map<String, List<PlatformFeeRate>> commissionRateIndex = loadCommissionRateIndex();
         List<OrderProfitRow> rows = new ArrayList<>(lines.size());
         for (OrderProfitLine line : lines) {
-            rows.add(toRow(line, costByItem, commissionByKey));
+            rows.add(toRow(line, costByItem, commissionByKey, commissionRateIndex));
         }
         return rows;
+    }
+
+    /** 预估佣金费率索引:全站点 COMMISSION 费率按平台分组(费率表量级小;空表返回空 Map) */
+    private Map<String, List<PlatformFeeRate>> loadCommissionRateIndex() {
+        List<PlatformFeeRate> rates = platformFeeRateService.listGlobalRates(
+                UnifiedSettlement.FeeType.COMMISSION.name());
+        Map<String, List<PlatformFeeRate>> index = new HashMap<>();
+        for (PlatformFeeRate rate : rates) {
+            index.computeIfAbsent(rate.getPlatform(), k -> new ArrayList<>()).add(rate);
+        }
+        return index;
     }
 
     /** 出库成本:按内部订单行归集(未命中的行=未出库,NULL 语义) */
@@ -166,26 +192,44 @@ public class ProfitQueryService {
     }
 
     private OrderProfitRow toRow(OrderProfitLine line, Map<Long, BigDecimal> costByItem,
-                                 Map<String, BigDecimal> commissionByKey) {
+                                 Map<String, BigDecimal> commissionByKey,
+                                 Map<String, List<PlatformFeeRate>> commissionRateIndex) {
         BigDecimal rate = exchangeRateService.resolveRate(line.currency(), line.orderTime());
         BigDecimal salesCny = rate == null || line.itemAmount() == null ? null
                 : line.itemAmount().multiply(rate).setScale(2, RoundingMode.HALF_UP);
         BigDecimal costCny = costByItem.get(line.orderItemId());
+        // 实际佣金优先:结算报告 COMMISSION 归集(V1 原值口径,报告原币未折 CNY——已知边界:
+        // 跨境行级折算待真实结算数据校准后立项,拍板范围见 TODO#32 devlog 补篇遗留节;预估佣金已按 CNY 估算)
         BigDecimal commissionCny = line.platformOrderItemId() == null ? null
                 : commissionByKey.get(line.shopId() + COMMISSION_KEY_DELIMITER + line.platformOrderItemId());
         boolean costMissing = costCny == null;
         boolean commissionMissing = commissionCny == null;
-        // 利润=售价−成本+佣金(佣金报告原值带符号为负,加负即扣减;佣金缺失退化为毛利,标志位区分);
+        // 无实际佣金且售价可折 CNY 时,按平台费率表估佣金(−售价×费率,报告符号为负);无费率不猜保持 NULL
+        boolean commissionEstimated = false;
+        if (commissionMissing && salesCny != null) {
+            PlatformFeeRate feeRate = PlatformFeeRateService.pickFeeRate(
+                    commissionRateIndex.get(line.platform()), line.orderTime().toLocalDate());
+            if (feeRate != null) {
+                commissionCny = salesCny.multiply(feeRate.getRate()).negate().setScale(2, RoundingMode.HALF_UP);
+                commissionEstimated = true;
+            }
+        }
+        // 利润=售价−成本+佣金(佣金带符号为负,加负即扣减;实际/预估都缺退化为毛利,标志位区分);
         // 缺成本或缺汇率→NULL(禁把缺口静默算成满利润)
         BigDecimal profitCny = salesCny == null || costMissing ? null
-                : salesCny.subtract(costCny).add(commissionMissing ? ZERO : commissionCny);
+                : salesCny.subtract(costCny).add(commissionCny == null ? ZERO : commissionCny);
         return new OrderProfitRow(line.orderItemId(), line.orderId(), line.platformOrderId(), line.platform(),
                 line.orderTime(), line.shopId(), line.platformOrderItemId(), line.platformSku(), line.productName(),
                 line.skuId(), line.quantity(), line.itemAmount(), line.currency(), rate, salesCny, costCny,
-                commissionCny, profitCny, costMissing, commissionMissing);
+                commissionCny, profitCny, costMissing, commissionMissing, commissionEstimated);
     }
 
     private BigDecimal sumOf(List<OrderProfitRow> rows, java.util.function.Function<OrderProfitRow, BigDecimal> getter) {
         return rows.stream().map(getter).filter(Objects::nonNull).reduce(ZERO, BigDecimal::add);
+    }
+
+    /** 数据权限空授权集判定(#27①):shopIds 非 null 且空 = 不可见任何店铺,四方法统一短路零结果 */
+    private boolean shopScopeEmpty(OrderProfitQuery query) {
+        return query.shopIds() != null && query.shopIds().isEmpty();
     }
 }

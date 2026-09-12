@@ -29,6 +29,13 @@ public interface GoodsQueryApi {
      */
     List<SkuView> listSkusByProductId(Long productId);
 
+    /**
+     * SKU 批量按 ID 查全量属性(#33 头程运费分摊 2026-09-11 扩容,只加方法不改语义):
+     * 头程 WEIGHT/AMOUNT 分摊取 weight_g/cost_price 的唯一跨域口(铁律 2,erp-finance 禁横向依赖 erp-goods);
+     * 查无的 ID 不在返回中(调用方按缺 SKU 拦截),ids 为空返回空列表;不过滤 status(历史单据需取数)
+     */
+    List<SkuView> findSkusByIds(java.util.Collection<Long> skuIds);
+
     /** 品牌名称精确查(brand 直连 Mapper 纯配置域口径;不存在返回 null)——文案生成 prompt 材料 */
     String findBrandNameById(Long brandId);
 

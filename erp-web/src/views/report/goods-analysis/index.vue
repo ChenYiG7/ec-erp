@@ -127,13 +127,18 @@ const windowLabel = computed(() => {
   return trend.length === 0 ? '-' : `${trend[0].statDate} ~ ${trend[trend.length - 1].statDate}`
 })
 
+// 请求序号守卫:连续切换 SKU 点查询,旧响应后到不得覆盖新结果(#26 二轮走查)
+let trendSeq = 0
 const fetchTrend = () => {
   if (filter.skuId == null) {
     return
   }
-  reportApi
-    .goodsTrend({ skuId: filter.skuId, dateFrom: range.value?.[0], dateTo: range.value?.[1] })
-    .then(r => (resp.value = r))
+  const seq = ++trendSeq
+  reportApi.goodsTrend({ skuId: filter.skuId, dateFrom: range.value?.[0], dateTo: range.value?.[1] }).then(r => {
+    if (seq === trendSeq) {
+      resp.value = r
+    }
+  })
 }
 const applyFilter = fetchTrend
 const resetFilter = () => {
@@ -218,9 +223,9 @@ const xLabels = computed(() => {
 }
 .summary-row {
   display: flex;
-  align-items: center;
-  gap: 36px;
   flex-wrap: wrap;
+  gap: 36px;
+  align-items: center;
 }
 .summary-item {
   display: flex;
@@ -254,8 +259,8 @@ const xLabels = computed(() => {
 }
 .legend {
   display: inline-flex;
-  align-items: center;
   gap: 6px;
+  align-items: center;
   font-size: 12px;
   color: var(--el-text-color-secondary);
 }
@@ -269,8 +274,8 @@ const xLabels = computed(() => {
 .legend-line {
   display: inline-block;
   width: 16px;
-  border-top: 2px dashed var(--el-color-success);
   margin-left: 8px;
+  border-top: 2px dashed var(--el-color-success);
 }
 .trend-svg {
   width: 100%;
@@ -282,7 +287,7 @@ const xLabels = computed(() => {
 }
 .chart-empty {
   padding: 40px 0;
-  text-align: center;
   color: var(--el-text-color-secondary);
+  text-align: center;
 }
 </style>

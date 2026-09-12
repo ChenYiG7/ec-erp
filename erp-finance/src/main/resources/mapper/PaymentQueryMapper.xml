@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.own.erp.finance.mapper.PaymentQueryMapper">
+
+    <!-- 流水列表(#31 查询面①):payment_record 为正本,往来方名按 party_type 分别 LEFT JOIN
+         supplier/shop(跨域只读 join,同 RefundReconciliationMapper 先例,不滤已删——往来方删后名仍可审计);
+         默认滤 VOIDED(日常流水口径),includeVoided=true 含作废(对账口径,前端注明) -->
+    <select id="pageRows" resultType="com.own.erp.finance.response.PaymentRecordResponse">
+        SELECT pr.id,
+               pr.payment_no    AS paymentNo,
+               pr.direction,
+               pr.biz_type      AS bizType,
+               pr.party_type    AS partyType,
+               pr.party_id      AS partyId,
+               pr.amount,
+               pr.currency,
+               pr.exchange_rate AS exchangeRate,
+               pr.amount_cny    AS amountCny,
+               pr.paid_at       AS paidAt,
+               pr.method,
+               pr.ref_type      AS refType,
+               pr.ref_id        AS refId,
+               pr.status,
+               pr.remark,
+               pr.created_by    AS createdBy,
+               pr.created_at    AS createdAt,
+               pr.updated_at    AS updatedAt,
+               CASE pr.party_type
+                   WHEN 'SUPPLIER' THEN s.name
+                   WHEN 'PLATFORM' THEN sh.shop_name
+                   END            AS partyName
+        FROM payment_record pr
+                 LEFT JOIN supplier s ON pr.party_type = 'SUPPLIER' AND pr.party_id = s.id
+                 LEFT JOIN shop sh ON pr.party_type = 'PLATFORM' AND pr.party_id = sh.id
+        WHERE pr.deleted = 0
+        <if test="direction != null and direction != ''">AND pr.direction = #{direction}</if>
+        <if test="bizType != null and bizType != ''">AND pr.biz_type = #{bizType}</if>
+        <if test="partyType != null and partyType != ''">AND pr.party_type = #{partyType}</if>
+        <if test="partyId != null">AND pr.party_id = #{partyId}</if>
+        <if test="paidFrom != null">AND pr.paid_at &gt;= #{paidFrom}</if>
+        <if test="paidTo != null">AND pr.paid_at &lt;= #{paidTo}</if>
+        <if test="includeVoided == null or includeVoided == false">AND pr.status = 'NORMAL'</if>
+        ORDER BY pr.paid_at DESC, pr.id DESC
+    </select>
+
+    <!-- 采购单已付聚合(#31 采购单资金视图):Σ payment_alloc 关联 NORMAL 流水;
+         VOIDED 流水的分摊经 join 状态条件自然失效(行保留做审计,不物理删);
+         join purchase_order 取总额,待付在 SQL 侧 DECIMAL 计算(前端金额 string 禁浮点);
+         无分摊的单不在返回中,调用方缺键按 0 -->
+    <select id="sumPaidByPoIds" resultType="com.own.erp.finance.response.PurchasePaidRow">
+        SELECT po.id                    AS poId,
+               po.total_amount          AS totalAmount,
+               COALESCE(SUM(a.amount), 0) AS paidAmount,
+               po.total_amount - COALESCE(SUM(a.amount), 0) AS unpaidAmount
+        FROM purchase_order po
+                 JOIN payment_alloc a ON a.alloc_biz_id = po.id AND a.alloc_biz_type = 'PURCHASE'
+                 JOIN payment_record pr ON a.payment_id = pr.id
+        WHERE pr.status = 'NORMAL'
+          AND pr.deleted = 0
+          AND po.id IN
+        <foreach collection="poIds" item="poId" open="(" separator="," close=")">
+            #{poId}
+        </foreach>
+        GROUP BY po.id, po.total_amount
+    </select>
+
+    <!-- 供应商应付视图(#31 查询面②):应付=Σ非DRAFT采购单总额(DRAFT 不构成负债);
+         已付=Σ NORMAL 采购付款分摊(经 purchase_order 归属供应商,预付/挂账未分摊部分无单归属不进本视图);
+         外层派生表过滤全无业务的供应商;unpaidAmount=应付−已付由外层 SELECT 补列输出
+         (MyBatis 构造器映射按列序对齐 SupplierPayableRow 六参,列数必须一致,2026-09-12 走查修复) -->
+    <select id="pageSupplierPayables" resultType="com.own.erp.finance.response.SupplierPayableRow">
+        SELECT t.supplierId,
+               t.supplierName,
+               t.settleDays,
+               t.payableAmount,
+               t.paidAmount,
+               t.payableAmount - t.paidAmount AS unpaidAmount
+        FROM (
+                 SELECT s.id                                                           AS supplierId,
+                        s.name                                                         AS supplierName,
+                        s.settle_days                                                  AS settleDays,
+                        (SELECT COALESCE(SUM(po.total_amount), 0)
+                         FROM purchase_order po
+                         WHERE po.supplier_id = s.id
+                           AND po.status &lt;&gt; 'DRAFT')                                AS payableAmount,
+                        (SELECT COALESCE(SUM(a.amount), 0)
+                         FROM payment_alloc a
+                                  JOIN payment_record pr ON a.payment_id = pr.id
+                                  JOIN purchase_order po2 ON a.alloc_biz_id = po2.id
+                         WHERE a.alloc_biz_type = 'PURCHASE'
+                           AND pr.status = 'NORMAL'
+                           AND pr.deleted = 0
+                           AND po2.supplier_id = s.id)                                AS paidAmount
+                 FROM supplier s
+                 WHERE s.deleted = 0
+             ) t
+        WHERE t.payableAmount &gt; 0
+           OR t.paidAmount &gt; 0
+        ORDER BY t.supplierId DESC
+    </select>
+
+    <!-- 平台回款视图(#31 查询面②):按店铺聚合 INCOME/PLATFORM 流水(结算派生+面向平台手工登记);
+         跨店铺多币种时原币 SUM 仅混合参考,精确口径看 amountCny;缺汇率行金额不进 CNY 合计只计数 -->
+    <select id="listPlatformReceipts" resultType="com.own.erp.finance.response.PlatformReceiptRow">
+        SELECT pr.party_id AS shopId,
+               sh.shop_name AS shopName,
+               COUNT(*) AS receiptCount,
+               COALESCE(SUM(pr.amount), 0) AS amount,
+               COALESCE(SUM(CASE WHEN pr.amount_cny IS NOT NULL THEN pr.amount_cny ELSE 0 END), 0) AS amountCny,
+               COALESCE(SUM(CASE WHEN pr.amount_cny IS NULL THEN 1 ELSE 0 END), 0) AS missingRateCount
+        FROM payment_record pr
+                 LEFT JOIN shop sh ON pr.party_id = sh.id
+        WHERE pr.deleted = 0
+          AND pr.status = 'NORMAL'
+          AND pr.direction = 'INCOME'
+          AND pr.party_type = 'PLATFORM'
+        <if test="paidFrom != null">AND pr.paid_at &gt;= #{paidFrom}</if>
+        <if test="paidTo != null">AND pr.paid_at &lt;= #{paidTo}</if>
+        GROUP BY pr.party_id, sh.shop_name
+        ORDER BY amountCny DESC, shopId DESC
+    </select>
+
+    <!-- 期间资金汇总(#31 查询面③):CNY 口径收付净额;缺汇率行进 missingRateCount 且金额不进合计(缺口纪律) -->
+    <select id="summary" resultType="com.own.erp.finance.response.PaymentSummaryRow">
+        SELECT COALESCE(SUM(CASE WHEN direction = 'INCOME' AND amount_cny IS NOT NULL THEN amount_cny ELSE 0 END), 0)  AS incomeCny,
+               COALESCE(SUM(CASE WHEN direction = 'EXPENSE' AND amount_cny IS NOT NULL THEN amount_cny ELSE 0 END), 0) AS expenseCny,
+               COUNT(*)                                                                                              AS totalCount,
+               COALESCE(SUM(CASE WHEN amount_cny IS NULL THEN 1 ELSE 0 END), 0)                                       AS missingRateCount
+        FROM payment_record
+        WHERE deleted = 0
+          AND status = 'NORMAL'
+        <if test="paidFrom != null">AND paid_at &gt;= #{paidFrom}</if>
+        <if test="paidTo != null">AND paid_at &lt;= #{paidTo}</if>
+    </select>
+</mapper>

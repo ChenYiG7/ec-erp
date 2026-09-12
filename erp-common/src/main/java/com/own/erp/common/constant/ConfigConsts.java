@@ -9,7 +9,8 @@ import java.util.Set;
  *     键名 = yml relaxed-binding 键同名(erp.ai.system-prompt),DB 无行 = 消费侧走代码默认值;
  *     消费侧写法收口各域 runtime 配置类(erp-ai AiRuntimeProperties 等),禁业务代码散落读键。
  *     凭证类键(openai api-key 等)禁入 sys_config——安全红线 docs/07 §7,凭证只走环境变量/local.properties;
- *     ⚠️ 唯一范围例外:SMTP 授权码(KEY_MAIL_PASSWORD,SECRET 类型,#14 邮箱渠道 2026-09-08 拍板)——
+ *     ⚠️ 范围例外(SECRET 类型):SMTP 授权码(KEY_MAIL_PASSWORD,#14 邮箱渠道 2026-09-08 拍板)+
+ *     OSS SecretKey(KEY_OSS_SECRET_KEY,#25 对象存储 2026-09-11 拍板扩容)——
  *     读侧回显固定脱敏 SECRET_MASK,真值不出后端,DB 明文存储已知悉(单管理员内部系统)
  */
 public final class ConfigConsts {
@@ -29,8 +30,12 @@ public final class ConfigConsts {
     /** 参数组:订单审核风控(#29 订单域补课,风控关键词热更) */
     public static final String GROUP_ORDER_REVIEW = "ORDER_REVIEW";
 
+    /** 参数组:对象存储(#25 RustFS,S3 兼容;endpoint/bucket/密钥热更,OssService 监听失效重建) */
+    public static final String GROUP_OSS = "OSS";
+
     /** 合法组词表(保存校验用) */
-    public static final Set<String> GROUPS = Set.of(GROUP_AI, GROUP_ALERT, GROUP_SALES, GROUP_NOTIFY, GROUP_ORDER_REVIEW);
+    public static final Set<String> GROUPS = Set.of(GROUP_AI, GROUP_ALERT, GROUP_SALES, GROUP_NOTIFY,
+            GROUP_ORDER_REVIEW, GROUP_OSS);
 
     /** SECRET 类型键回显掩码(listByGroup 对 SECRET 非空值统一替换;saveGroup 收到此值 = 未改动跳过) */
     public static final String SECRET_MASK = "******";
@@ -234,6 +239,28 @@ public final class ConfigConsts {
 
     /** 订单审核组合法键全集 */
     public static final Set<String> ORDER_REVIEW_KEYS = Set.of(KEY_ORDER_REVIEW_RISK_KEYWORDS);
+
+    /** ── 对象存储键(GROUP_OSS,#25 RustFS S3 兼容)── */
+
+    /** 对象存储:总开关(false 时 OssService 调用即抛"未启用",业务方走原链路,保护性默认关) */
+    public static final String KEY_OSS_ENABLED = "erp.oss.enabled";
+
+    /** 对象存储:S3 兼容端点(如 http://localhost:9000,local compose RustFS) */
+    public static final String KEY_OSS_ENDPOINT = "erp.oss.endpoint";
+
+    /** 对象存储:桶名 */
+    public static final String KEY_OSS_BUCKET = "erp.oss.bucket";
+
+    /** 对象存储:AccessKey */
+    public static final String KEY_OSS_ACCESS_KEY = "erp.oss.access-key";
+
+    /** 对象存储:SecretKey(SECRET 类型:读侧回显脱敏 SECRET_MASK,docs/07 §7 例外扩容 #25) */
+    public static final String KEY_OSS_SECRET_KEY = "erp.oss.secret-key";
+
+    /** 对象存储组合法键全集 */
+    public static final Set<String> OSS_KEYS = Set.of(
+            KEY_OSS_ENABLED, KEY_OSS_ENDPOINT, KEY_OSS_BUCKET,
+            KEY_OSS_ACCESS_KEY, KEY_OSS_SECRET_KEY);
 
     /** 参数值上限(与表列 VARCHAR(1024) 对齐) */
     public static final int VALUE_MAX_LENGTH = 1024;

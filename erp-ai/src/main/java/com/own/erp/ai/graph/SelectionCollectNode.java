@@ -230,7 +230,7 @@ public class SelectionCollectNode implements NodeAction {
         try {
             return profitQueryApi.listSkuProfitRank(
                     new OrderProfitQuery(null, null, null,
-                            now.minusDays(SCORE_WINDOW_DAYS), now, null, null),
+                            now.minusDays(SCORE_WINDOW_DAYS), now, null, null, null),
                     PROFIT_RANK_TOP_N)
                     .stream()
                     .collect(Collectors.toMap(ProfitSkuRankRow::skuId, row -> row, (a, b) -> a));

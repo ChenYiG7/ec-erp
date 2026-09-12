@@ -1,0 +1,27 @@
+# 平台费率 spec(gen:page 拍板表;#19 周期利润口径 2026-09-11,docs/plans/19-profit-caliber.md)
+# 契约:GET/POST/PUT/DELETE /api/finance/fee-rates(写侧后端 @PreAuthorize admin 双闸 + 本 permKey 前端收口)
+# 维度:平台×费种起步(marketplace/category_path 列预留,写侧不开放,故不入 SaveRequest/表单);
+#   V1 费种白名单仅 COMMISSION(FBA 仓储类无费率不估);source 服务端固定 MANUAL 只展示。
+# 金额(费率 DECIMAL(8,6))前端 string 直存直显(docs/09 §6);生效区间 effTo 可空=长期,Service 校验不倒挂。
+module=finance
+domain=fee-rate
+base=finance/fee-rates
+entity=PlatformFeeRate
+nameZh=平台费率
+permPrefix=finance:fee-rate
+todoId=19
+menuParent=31
+menuId=41
+path=/finance/fee-rates
+component=finance/fee-rate/index
+icon=Percent
+menuSort=5
+
+field=platform role=all    label=平台   dict=shop_platform width=120 required
+field=feeType  role=all    label=费种   enum=COMMISSION:佣金:warning width=100 required tag
+field=rate     role=all    label=费率   money width=110 required
+field=effFrom  role=all    label=生效起 width=130 required
+field=effTo    role=form    label=生效止(空=长期)
+field=source   role=column label=来源   enum=MANUAL:手工|CRAWLED:抓取 width=90
+field=remark   role=all    label=备注   width=200
+field=createdAt role=column label=创建时间 width=170

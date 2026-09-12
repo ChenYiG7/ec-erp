@@ -21,9 +21,9 @@
         >
       </template>
 
-      <!-- 订单明细展开行(懒加载详情 items,见 OrderItems;#16 人工槽) -->
+      <!-- 订单明细展开行(懒加载详情 items,见 OrderItems;#16 人工槽;v-if 判 id 拦 el-table hidden-columns 空对象行的预渲染) -->
       <template #expand="scope">
-        <OrderItems :row="scope.row" />
+        <OrderItems v-if="scope.row?.id != null" :row="scope.row" />
       </template>
 
       <!-- 操作列(#29):待审核/无需审核/已驳回可裁定(已通过为审核终态);内销单待发货可改 -->

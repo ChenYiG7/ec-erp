@@ -20,6 +20,7 @@ import java.util.List;
  * @Description : PurchaseQueryApi 实现(#6 tools 扩容,编排胶水收口 erp-api,docs/07 §2.2):
  *         erp-ai 工具取数委托 erp-purchase PurchaseOrderService,过滤/分页参数在域 Query 侧沿用既有钳制;
  *         entity→契约 record 显式逐字段映射(经域 Response 中转,禁反射拷贝)
+ *         数据权限(#27①):显式不注入——采购挂供应商/仓库轴不挂店铺轴(计划书拍板)
  */
 @Component
 @RequiredArgsConstructor
@@ -59,6 +60,13 @@ public class PurchaseQueryApiImpl implements PurchaseQueryApi {
                 .toList();
     }
 
+    @Override
+    public List<PurchasePayableView> findPurchasePayables(Collection<Long> poIds) {
+        return purchaseOrderService.listByIds(poIds).stream()
+                .map(PurchaseQueryApiImpl::toPayableView)
+                .toList();
+    }
+
     /** 域投影行 → 契约视图显式逐字段映射(漏字段编译期可见,禁反射拷贝) */
     private static SkuSupplierView toSkuSupplierView(SkuSupplierRow row) {
         return SkuSupplierView.builder()
@@ -91,6 +99,17 @@ public class PurchaseQueryApiImpl implements PurchaseQueryApi {
                 .quantity(i.quantity())
                 .arrivedQty(i.arrivedQty())
                 .purchasePrice(i.purchasePrice())
+                .build();
+    }
+
+    /** Response → 付款校验视图显式逐字段映射(#31,漏字段编译期可见) */
+    private static PurchasePayableView toPayableView(PurchaseOrderResponse po) {
+        return PurchasePayableView.builder()
+                .id(po.id())
+                .poNo(po.poNo())
+                .supplierId(po.supplierId())
+                .status(po.status())
+                .totalAmount(po.totalAmount())
                 .build();
     }
 }

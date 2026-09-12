@@ -89,8 +89,11 @@
         <span v-else>{{ row.costCny }}</span>
       </template>
       <template #commissionCny="{ row }">
-        <el-tag v-if="row.commissionMissing" type="warning" size="small">待结算</el-tag>
-        <span v-else>{{ row.commissionCny }}</span>
+        <el-tag v-if="row.commissionEstimated" type="info" size="small">预估</el-tag>
+        <el-tag v-else-if="row.commissionMissing" type="warning" size="small">待结算</el-tag>
+        <span v-if="row.commissionCny != null" :class="row.commissionEstimated ? 'commission-estimated' : ''">
+          {{ row.commissionCny }}
+        </span>
       </template>
       <template #profitCny="{ row }">
         <span v-if="row.profitCny == null" class="profit-missing">-</span>
@@ -196,9 +199,9 @@ const refreshTable = () => proTableRef.value?.getTableList()
 }
 .summary-row {
   display: flex;
-  align-items: center;
-  gap: 36px;
   flex-wrap: wrap;
+  gap: 36px;
+  align-items: center;
 }
 .summary-item {
   display: flex;
@@ -228,6 +231,12 @@ const refreshTable = () => proTableRef.value?.getTableList()
   color: var(--el-color-danger);
 }
 .profit-missing {
+  color: var(--el-text-color-secondary);
+}
+
+/* 费率估算佣金与实际结算视觉区分(预估,结算回后自动覆盖) */
+.commission-estimated {
+  font-style: italic;
   color: var(--el-text-color-secondary);
 }
 </style>

@@ -7,6 +7,7 @@ import com.own.erp.ai.entity.AiKbDocument;
 import com.own.erp.ai.mapper.AiKbChunkMapper;
 import com.own.erp.ai.mapper.AiKbDocumentMapper;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.common.oss.OssService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.document.Document;
@@ -15,10 +16,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
@@ -43,6 +46,7 @@ class KbIngestServiceTest {
     private AiKbDocumentMapper documentMapper;
     private AiKbChunkMapper chunkMapper;
     private KbVectorIndex vectorIndex;
+    private OssService ossService;
     private KbIngestService service;
 
     @BeforeEach
@@ -50,7 +54,8 @@ class KbIngestServiceTest {
         documentMapper = mock(AiKbDocumentMapper.class);
         chunkMapper = mock(AiKbChunkMapper.class);
         vectorIndex = mock(KbVectorIndex.class);
-        service = new KbIngestService(documentMapper, chunkMapper, vectorIndex, new ErpAiProperties());
+        ossService = mock(OssService.class);
+        service = new KbIngestService(documentMapper, chunkMapper, vectorIndex, new ErpAiProperties(), ossService);
         ReflectionTestUtils.setField(service, "apiKey", "test-key");
         // MP insert/updateById 存在 T 与 Collection<T> 双 overload,匹配器须显式类型消歧
         doAnswer(inv -> {
@@ -106,7 +111,7 @@ class KbIngestServiceTest {
     void ingestRejectsOverlongContent() {
         ErpAiProperties props = new ErpAiProperties();
         props.getKb().setMaxDocumentChars(10);
-        service = new KbIngestService(documentMapper, chunkMapper, vectorIndex, props);
+        service = new KbIngestService(documentMapper, chunkMapper, vectorIndex, props, ossService);
         ReflectionTestUtils.setField(service, "apiKey", "test-key");
         assertThrows(BusinessException.class,
                 () -> service.ingest(null, AiConsts.KB_SOURCE_TEXT, null, TEXT, USER_ID));
@@ -141,6 +146,41 @@ class KbIngestServiceTest {
         assertEquals("内容", document.getText());
         assertEquals("3", document.getMetadata().get(AiConsts.KB_META_DOCUMENT_ID));
         assertEquals("标题", document.getMetadata().get(AiConsts.KB_META_TITLE));
+    }
+
+    @Test
+    void uploadArchivesOriginalToOss() {
+        byte[] original = TEXT.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        when(ossService.kbKey(101L, "规则.md")).thenReturn("kb/101/规则.md");
+
+        AiKbDocument doc = service.ingest(null, AiConsts.KB_SOURCE_UPLOAD, "规则.md", TEXT, USER_ID, original);
+
+        verify(ossService).upload(org.mockito.ArgumentMatchers.eq("kb/101/规则.md"),
+                org.mockito.ArgumentMatchers.eq(original), anyString());
+        assertEquals("kb/101/规则.md", doc.getOriginalFileKey());
+        assertEquals((long) original.length, doc.getOriginalFileSize());
+    }
+
+    @Test
+    void uploadSkipsArchiveSilentlyWhenOssDisabled() {
+        // OSS 未启用 = OssService 抛业务异常:存档静默跳过,接入主链路不受影响(拍板口径)
+        when(ossService.kbKey(anyLong(), anyString())).thenReturn("kb/101/规则.md");
+        doThrow(new BusinessException("对象存储未启用")).when(ossService)
+                .upload(anyString(), any(byte[].class), anyString());
+
+        AiKbDocument doc = service.ingest(null, AiConsts.KB_SOURCE_UPLOAD, "规则.md", TEXT, USER_ID,
+                TEXT.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        assertEquals(AiConsts.KB_STATUS_READY, doc.getStatus());
+        assertNull(doc.getOriginalFileKey());
+        assertNull(doc.getOriginalFileSize());
+    }
+
+    @Test
+    void pasteTextNeverArchives() {
+        AiKbDocument doc = service.ingest("退货规则", AiConsts.KB_SOURCE_TEXT, null, TEXT, USER_ID);
+        verify(ossService, never()).upload(anyString(), any(byte[].class), anyString());
+        assertNull(doc.getOriginalFileKey());
     }
 
     private void verifyNoVectorInteractions() {

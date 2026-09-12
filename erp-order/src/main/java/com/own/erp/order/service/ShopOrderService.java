@@ -69,10 +69,15 @@ public class ShopOrderService {
         this.currentUserApi = currentUserApi;
     }
 
-    /** 分页查询(按下单时间倒序;过滤:店铺/平台/订单状态/订单来源/审核状态,#29 扩两过滤) */
+    /** 分页查询(按下单时间倒序;过滤:店铺/平台/订单状态/订单来源/审核状态,#29 扩两过滤)。
+     *  数据权限(#27①):shopIds 服务器权威装配,null=不过滤;空列表=不可见任何店铺(短路零结果) */
     public Page<ShopOrderResponse> page(ShopOrderQuery query) {
+        if (query.getShopIds() != null && query.getShopIds().isEmpty()) {
+            return new Page<>(query.getPageNo(), query.pageSize());
+        }
         LambdaQueryWrapper<ShopOrder> wrapper = new LambdaQueryWrapper<ShopOrder>()
                 .eq(query.getShopId() != null, ShopOrder::getShopId, query.getShopId())
+                .in(query.getShopIds() != null, ShopOrder::getShopId, query.getShopIds())
                 .eq(StrUtil.isNotBlank(query.getPlatform()), ShopOrder::getPlatform, query.getPlatform())
                 .eq(StrUtil.isNotBlank(query.getOrderStatus()), ShopOrder::getOrderStatus, query.getOrderStatus())
                 .eq(StrUtil.isNotBlank(query.getOrderSource()), ShopOrder::getOrderSource, query.getOrderSource())

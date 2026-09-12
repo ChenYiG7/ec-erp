@@ -244,10 +244,8 @@ const formatBytes = (bytes: number) => {
 .hidden-input {
   display: none;
 }
-
 .chunk-block {
   margin-top: 14px;
-
   .chunk-title {
     margin-bottom: 6px;
     font-size: 12px;

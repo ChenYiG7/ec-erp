@@ -26,6 +26,10 @@ export const aiChatApi = {
    * 帧解析/鉴权/错误收口 utils/sse(postSse,#6 agent 域接入时沉淀复用);
    * 错误/帧形态差异随 #3 联调校准 TODO(#6)
    */
-  chatStream: async (sessionId: number, message: string, onChunk: (text: string) => void): Promise<void> =>
-    postSse(`/api/ai/chat/sessions/${sessionId}/chat`, { message }, onChunk),
+  chatStream: async (
+    sessionId: number,
+    message: string,
+    onChunk: (text: string) => void,
+    signal?: AbortSignal
+  ): Promise<void> => postSse(`/api/ai/chat/sessions/${sessionId}/chat`, { message }, onChunk, signal),
 }

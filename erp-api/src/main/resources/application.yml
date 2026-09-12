@@ -25,6 +25,11 @@ spring:
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
+  mvc:
+    async:
+      # SSE 长连接(通知订阅 /api/system/notifications/subscribe)静默期无写流量,Tomcat 默认 30s
+      # 异步超时会杀空闲连接——置 -1 关闭超时,保活交给 30s 心跳帧(erp.notify.sse)
+      request-timeout: -1
   ai:
     # OpenAI 兼容接口,按需切换 DeepSeek / 通义 / GLM:
     # 密钥/地址/模型走环境变量或 local.properties——OPENAI_BASE_URL(如 DashScope 兼容模式
@@ -60,6 +65,21 @@ erp:
     # 无默认值:本地值在 local.properties,生产用环境变量 ERP_JWT_SECRET(≥32字节,HS256)
     secret: ${ERP_JWT_SECRET}
     expire-hours: 24
+  notify:
+    sse:
+      # 通知 SSE 实时推送(SSE 计划书):站内通知 AFTER_COMMIT 推帧到在线浏览器,默认开;
+      # 置 false = 整通道降级到前端 60s 轮询(订阅端点 404,不报错);多实例跨进程广播为 TODO(#34) 槽位
+      enabled: true
+    webhook:
+      # Webhook 通知渠道(#14 后续渠道 V1,2026-09-08):站内通知 pushAllUsers 出口外推群机器人,
+      # 三渠道 钉钉(markdown,加签)/飞书(text,加签)/企微(markdown,免签);AFTER_COMMIT 相位
+      # (事务提交后才外推),失败只记日志不回滚站内通知。四键同域部署级配置不进 sys_config——
+      # url/secret 凭证类(hook 地址内嵌 token,docs/07 §7 红线)走 local.properties/环境变量:
+      # ERP_NOTIFY_WEBHOOK_URL / ERP_NOTIFY_WEBHOOK_SECRET;enabled 默认 false(外呼渠道保护性默认关)
+      enabled: false
+      # type: DINGTALK                # DINGTALK / FEISHU / WECOM(枚举,非法值启动即 fail-fast)
+      # url: ${ERP_NOTIFY_WEBHOOK_URL:}
+      # secret: ${ERP_NOTIFY_WEBHOOK_SECRET:}   # 钉钉(SEC 开头)/飞书 加签密钥;企微留空
   pull:
     # 拉单调度(#4):fixedDelay 间隔(上一轮结束再计时,15分钟);首次拉取(无成功游标)回溯天数(docs/04 新店铺全量近90天)
     order-interval-ms: 900000
@@ -92,6 +112,31 @@ erp:
       enabled: true
       # interval-ms: 86400000        # 每日一扫(fixedDelay,上一轮结束再计时)
       # quiet-hours: 24              # 静默期(小时):同类型告警全局去重窗口(同 #6 口径)
+    # 周期利润兜底重算(#19 三口径第二层):PARSED 报告同事务派生之外的每日全量重算;
+    # 默认开(#32 校差算法 2026-09-12 落地 + PARSED 钩子接线;无 PARSED 报告空转零噪音)
+    profit-period:
+      enabled: true
+      # interval-ms: 86400000        # 每日低频(fixedDelay)
+  fulfill:
+    fba-reconciliation:
+      # FBA 收货对账提醒(fba-shipment V1 骨架 2026-09-12):每日扫 SHIPPED/RECEIVING 超期未关闭单
+      # 聚合一告警经 #14 站内通知扇出;默认关——V1 收货登记全人工,数据量起来后再开;
+      # 自动取数(SP-API getShipments 报告)随 V2 TODO(#35,卡 #3 真凭证)
+      enabled: false
+      # interval-ms: 86400000        # 每日一扫(fixedDelay,上一轮结束再计时)
+      # quiet-hours: 24              # 静默期(小时):同类型告警全局去重窗口(同 #6 口径)
+      # overdue-days: 14             # 超期阈值(天):发出超 N 天未关闭即提醒
+  oss:
+    # 对象存储(#25 RustFS,S3 兼容,2026-09-11):OssService(erp-common)收口上传/下载/预签名;
+    # 读取顺序 sys_config GROUP_OSS(系统设置页热更)→ 本段兜底(local.properties/环境变量可覆盖,
+    # 键=环境变量名);两处都未配置时 OssService 调用即报"对象存储未启用",不静默。
+    # 本地一键起存储:docker compose --profile oss up -d rustfs(RustFS 控制台 :9001)
+    enabled: ${ERP_OSS_ENABLED:false}
+    endpoint: ${ERP_OSS_ENDPOINT:}
+    bucket: ${ERP_OSS_BUCKET:}
+    access-key: ${ERP_OSS_ACCESS_KEY:}
+    # 凭证走环境变量/local.properties(docs/07 §7 同款口径;sys_config 侧走 SECRET 掩码例外)
+    secret-key: ${ERP_OSS_SECRET_KEY:}
   report:
     # 经营简报定时推送(#23 智能报表 V1,四期 BI):erp-api ReportDigestJob 按 cron 生成日/周/月报
     # 走 #14 出口扇出(pushAllUsers → 站内通知 + 邮箱 + Webhook 三渠道,后两者各自开关且默认关);
@@ -102,6 +147,9 @@ erp:
       # daily-cron: "0 0 8 * * ?"        # 每日 08:00 昨日日报(销量日表 01:00 聚合后数据已就位)
       # weekly-cron: "0 30 8 ? * MON"    # 每周一 08:30 上周周报
       # monthly-cron: "0 0 9 1 * ?"      # 每月 1 日 09:00 上月月报
+    # 导出归档(#25 方案 A,2026-09-11):导出字节同步存 OSS 并附 X-Archive-Key 响应头,
+    # 流式下载体验不变前端零改造;默认 false(行为与现状逐字节一致);开启而 OSS 未配置 = 导出报错
+    # export-archive: false
   ai:
     # AI 工作流参数默认值收口 ErpAiProperties(yml 可覆盖):replenish 补货 / anomaly 订单异常检测(#6);
     # 定时接线(2026-09-07 拍板):每日低峰 cron 触发(与补货错峰)+ enabled 开关,
@@ -186,6 +234,11 @@ erp:
       role-session-name: erp-pull
       sts-base-url: https://sts.amazonaws.com
       sts-region: us-east-1
+    # 结算报告拉取(#19 周期口径):遍历启用店铺拉平台已生成结算报告落库(无窗口,uk 幂等);
+    # 默认关——卡 #3 SP-API 真凭证,就绪后置 true(false→true 不改代码);未实现平台静默跳过
+    settlement-pull:
+      enabled: false
+      # interval-ms: 86400000        # 每日低频(报告 14 天一份,fixedDelay)
   rate:
     # 平台 API 调用限流(#3 PlatformRateGuard):按 platform+shop+bucket 令牌桶,
     # 窗口状态持久化 Redis(Redisson RRateLimiter)防重启丢;无 Redisson Bean 时整体直通
@@ -197,17 +250,6 @@ erp:
     amazon:
       # SP-API 拉单保守默认;真值以响应头 x-amzn-RateLimit-Limit 为准,随 #3 SigV4 实调校准
       pull-interval-ms: 2000
-  notify:
-    webhook:
-      # Webhook 通知渠道(#14 后续渠道 V1,2026-09-08):站内通知 pushAllUsers 出口外推群机器人,
-      # 三渠道 钉钉(markdown,加签)/飞书(text,加签)/企微(markdown,免签);AFTER_COMMIT 相位
-      # (事务提交后才外推),失败只记日志不回滚站内通知。四键同域部署级配置不进 sys_config——
-      # url/secret 凭证类(hook 地址内嵌 token,docs/07 §7 红线)走 local.properties/环境变量:
-      # ERP_NOTIFY_WEBHOOK_URL / ERP_NOTIFY_WEBHOOK_SECRET;enabled 默认 false(外呼渠道保护性默认关)
-      enabled: false
-      # type: DINGTALK                # DINGTALK / FEISHU / WECOM(枚举,非法值启动即 fail-fast)
-      # url: ${ERP_NOTIFY_WEBHOOK_URL:}
-      # secret: ${ERP_NOTIFY_WEBHOOK_SECRET:}   # 钉钉(SEC 开头)/飞书 加签密钥;企微留空
 
 logging:
   pattern:

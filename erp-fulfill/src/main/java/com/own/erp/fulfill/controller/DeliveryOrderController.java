@@ -1,7 +1,9 @@
 package com.own.erp.fulfill.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.common.api.OperLog;
 import com.own.erp.common.api.Result;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.fulfill.request.query.DeliveryOrderQuery;
 import com.own.erp.fulfill.request.command.DeliveryOrderSaveRequest;
 import com.own.erp.fulfill.response.DeliveryOrderResponse;
@@ -34,10 +36,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class DeliveryOrderController {
 
     private final DeliveryOrderService deliveryOrderService;
+    private final CurrentUserApi currentUserApi;
 
-    @Operation(summary = "分页查询发货单")
+    @Operation(summary = "分页查询发货单", description = "数据权限(#27①):按当前用户授权店铺集过滤(GET 绑定后强制覆盖),admin 不限")
     @GetMapping
     public Result<Page<DeliveryOrderResponse>> page(DeliveryOrderQuery query) {
+        query.setShopIds(currentUserApi.currentShopIds());
         return Result.ok(deliveryOrderService.page(query));
     }
 
@@ -61,6 +65,7 @@ public class DeliveryOrderController {
     }
 
     @Operation(summary = "确认发货", description = "PENDING→SHIPPED,同事务逐行出库扣减库存(OUT_SHIP),全部订单明细发足时推进订单 WAIT_SHIP→SHIPPED")
+    @OperLog(module = "fulfill", action = "ship")
     @PostMapping("/{id}/ship")
     public Result<Void> ship(@PathVariable Long id) {
         deliveryOrderService.ship(id);
@@ -68,6 +73,7 @@ public class DeliveryOrderController {
     }
 
     @Operation(summary = "取消发货单", description = "仅待发货状态可取消;已发货库存已动账走售后退货(#12)")
+    @OperLog(module = "fulfill", action = "cancel")
     @PostMapping("/{id}/cancel")
     public Result<Void> cancel(@PathVariable Long id) {
         deliveryOrderService.cancel(id);
@@ -82,6 +88,7 @@ public class DeliveryOrderController {
     }
 
     @Operation(summary = "删除发货单", description = "一期硬删;已发货/已签收禁删(库存已动账)")
+    @OperLog(module = "fulfill", action = "delete")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         deliveryOrderService.delete(id);

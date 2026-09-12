@@ -27,6 +27,13 @@ public interface PurchaseQueryApi {
     PurchaseOrderDetail getPurchaseOrderDetail(Long poId);
 
     /**
+     * 采购单付款只读校验视图(#31 收付款/回款):资金域登记采购付款时存在性/总额/状态/供应商只读取数
+     * (铁律 2,erp-finance 禁横向依赖 erp-purchase);按 id 批量返回,不存在的 id 不在返回中(调用方自行判缺)。
+     * 全 record 只带资金勾稽所需字段,poIds 为空返回空列表
+     */
+    List<PurchasePayableView> findPurchasePayables(Collection<Long> poIds);
+
+    /**
      * SKU→最新供应商映射(#17 采购建议工作流取数,2026-09-08 扩容,只加方法不改语义):
      * 每 SKU 取最近一笔非 DRAFT 采购单的明细行(供应商/最新单价/单号/时间);
      * 无采购历史的 SKU 不在返回中(调用方按"无法定位供应商"自行处理);skuIds 为空返回空列表
@@ -133,7 +140,6 @@ public interface PurchaseQueryApi {
      */
     @Builder
     record SkuSupplierView(
-
             /** SKU ID(product_sku.id) */
             Long skuId,
 
@@ -151,6 +157,30 @@ public interface PurchaseQueryApi {
 
             /** 最近采购单创建时间 */
             LocalDateTime lastPoAt
+    ) {
+    }
+
+    /**
+     * 采购单付款只读校验视图(#31 收付款/回款):资金域登记/勾稽采购付款的唯一取数口,
+     * 字段 = 存在性(id/poNo)+ 资金勾稽(totalAmount 本位币)+ 状态守卫(status)+ 往来方(supplierId)
+     */
+    @Builder
+    record PurchasePayableView(
+
+            /** 采购单ID(purchase_order.id) */
+            Long id,
+
+            /** 采购单号(分摊回填/错误文案可读) */
+            String poNo,
+
+            /** 供应商ID(payment_record.party_id 取此值,防客户端串供) */
+            Long supplierId,
+
+            /** DRAFT草稿/AUDITED已审核/PARTIAL_RECEIVED部分入库/RECEIVED已入库/CLOSED已关闭 */
+            String status,
+
+            /** 采购总金额(本位币;按单"已付+本次≤总额"超额拦截基准) */
+            BigDecimal totalAmount
     ) {
     }
 }

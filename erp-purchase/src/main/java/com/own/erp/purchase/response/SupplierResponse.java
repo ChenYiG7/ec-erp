@@ -29,6 +29,9 @@ public record SupplierResponse(
         /** 结算方式,走 sys_dict(预付/月结等) */
         String settleType,
 
+        /** 账期天数(V1仅展示,到期提醒留 TODO#31) */
+        Integer settleDays,
+
         /** 备注 */
         String remark,
 
@@ -50,6 +53,7 @@ public record SupplierResponse(
                 .contact(entity.getContact())
                 .phone(entity.getPhone())
                 .settleType(entity.getSettleType())
+                .settleDays(entity.getSettleDays())
                 .remark(entity.getRemark())
                 .status(entity.getStatus())
                 .createdAt(entity.getCreatedAt())

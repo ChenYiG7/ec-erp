@@ -20,7 +20,7 @@ public record OrderProfitSummary(
         /** 出库成本合计(CNY,未出库行跳过) */
         BigDecimal costCny,
 
-        /** 佣金合计(CNY,待结算行跳过) */
+        /** 佣金合计(CNY,实际结算佣金优先,缺口行按 platform_fee_rate 估算计入;无实际也无估算跳过) */
         BigDecimal commissionCny,
 
         /** 利润合计(CNY,Σ行级 profitCny——与行口径一致:缺成本/缺汇率行不计) */
@@ -32,7 +32,7 @@ public record OrderProfitSummary(
         /** 未出库行数(无成本快照) */
         long costMissingCount,
 
-        /** 待结算行数(无佣金归集) */
+        /** 缺实际佣金行数(无结算归集;费率估算命中的行仍计本数,2026-09-11 #19 预估模型) */
         long commissionMissingCount
 ) {
 }

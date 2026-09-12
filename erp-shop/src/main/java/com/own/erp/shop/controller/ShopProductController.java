@@ -2,6 +2,7 @@ package com.own.erp.shop.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.api.Result;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.shop.request.query.ShopProductQuery;
 import com.own.erp.shop.response.ShopProductResponse;
 import com.own.erp.shop.service.ShopProductService;
@@ -17,7 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
  * @author : chenyi
  * @Date : 2026/9/3
  * @Description : 店铺商品(listing)查询:ShopProduct 域整域收口,一律走 ShopProductService(docs/07 §2.1)
- *     listing 由拉取任务同步写入(#5),只读;SPU 绑定关系由匹配流程维护
+ *     listing 由拉取任务同步写入(#5),只读;SPU 绑定关系由匹配流程维护。
+ *     数据权限(#27①):列表按当前用户授权店铺集过滤(GET 绑定后强制覆盖,防越权传参)
  */
 @Tag(name = "店铺商品", description = "店铺 listing 查询(平台商品 ↔ 内部SPU)")
 @RestController
@@ -26,10 +28,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class ShopProductController {
 
     private final ShopProductService shopProductService;
+    private final CurrentUserApi currentUserApi;
 
-    @Operation(summary = "分页查询店铺商品")
+    @Operation(summary = "分页查询店铺商品", description = "数据权限(#27①):按当前用户授权店铺集过滤,admin 不限")
     @GetMapping
     public Result<Page<ShopProductResponse>> page(ShopProductQuery query) {
+        query.setShopIds(currentUserApi.currentShopIds());
         return Result.ok(shopProductService.page(query));
     }
 

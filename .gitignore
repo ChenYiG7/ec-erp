@@ -33,3 +33,9 @@ local.properties
 
 # WorkBuddy 本地工作数据(不入仓库)
 .workbuddy/
+
+# 运行时生成数据(AI 知识库向量索引缓存等,启动自建)
+data/
+
+# Python 字节码缓存(验证脚本运行产物)
+__pycache__/

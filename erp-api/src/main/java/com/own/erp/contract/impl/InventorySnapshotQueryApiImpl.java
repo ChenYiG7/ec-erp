@@ -15,6 +15,7 @@ import java.util.List;
  * @Description : InventorySnapshotQueryApi 实现(接口模块方案编排胶水,收口 erp-api,#6 库存快照数据面):
  *         erp-ai/报表域取数委托 erp-inventory InventorySnapshotDailyService.listSeries,
  *         entity→契约 record 显式逐字段映射(禁反射拷贝,漏字段编译期可见)
+ *         数据权限(#27①):显式不注入——库存快照挂仓库轴不挂店铺轴(计划书拍板)
  */
 @Component
 @RequiredArgsConstructor

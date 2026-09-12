@@ -1,6 +1,7 @@
 package com.own.erp.contract.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.QueryPage;
 import com.own.erp.contract.ShopQueryApi;
 import com.own.erp.shop.request.query.ShopQuery;
@@ -15,19 +16,23 @@ import org.springframework.stereotype.Component;
  * @Description : ShopQueryApi 实现(#6 tools 扩容,编排胶水收口 erp-api,docs/07 §2.2):
  *         erp-ai 工具取数委托 erp-shop ShopService 读出口(pageShops/getShopById,自带脱敏);
  *         entity→契约 record 显式逐字段映射(经域 Response 中转,禁反射拷贝)。
- *         契约 ShopView 不收 Response 的 appKey/accessToken 字段——凭证对模型零消费场景,编译期即不出契约
+ *         契约 ShopView 不收 Response 的 appKey/accessToken 字段——凭证对模型零消费场景,编译期即不出契约。
+ *         数据权限(#27①):pageShops 强制装配 CurrentUserApi.currentShopIds()(按店铺ID IN 过滤);
+ *         getShop 按 ID 直取不在本期注入面(#27 余量登记)
  */
 @Component
 @RequiredArgsConstructor
 public class ShopQueryApiImpl implements ShopQueryApi {
 
     private final ShopService shopService;
+    private final CurrentUserApi currentUserApi;
 
     @Override
     public QueryPage<ShopView> pageShops(ShopFilter filter) {
         ShopQuery query = new ShopQuery();
         query.setPlatform(filter.platform());
         query.setStatus(filter.status());
+        query.setShopIds(currentUserApi.currentShopIds());
         query.setPageNo(filter.page());
         query.setPageSize(filter.size());
         Page<ShopResponse> page = shopService.pageShops(query);

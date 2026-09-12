@@ -1,0 +1,51 @@
+package com.own.erp.system.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+/**
+ * @author : chenyi
+ * @Date : 2026/9/12
+ * @Description : 部门组织架构(#27③,sys_dept):parentId 自关联成树,数据权限/业绩核算铺路。
+ *     uk(parent_id, dept_name, deleted) 同名同级排他;逻辑删除人工域口径见 TODO#7
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@TableName("sys_dept")
+public class SysDept {
+
+    @TableId(type = IdType.AUTO)
+    private Long id;
+
+    /** 父部门ID,根节点为 0 */
+    private Long parentId;
+
+    /** 部门名称 */
+    private String deptName;
+
+    /** 同级排序,小在前 */
+    private Integer sort;
+
+    /** 1=启用 0=禁用 */
+    private Integer status;
+
+    /** created_at/updated_at 由数据库 DEFAULT CURRENT_TIMESTAMP / ON UPDATE 维护,实体不填 */
+    private LocalDateTime createdAt;
+
+    /** 更新时间 */
+    private LocalDateTime updatedAt;
+
+    /** 逻辑删除:0=正常,非0=已删(值=被删行id);delval=id 配合唯一键含 deleted,删后同键可重建(TODO#7) */
+    @TableLogic(value = "0", delval = "id")
+    private Long deleted;
+}

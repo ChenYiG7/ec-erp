@@ -4,9 +4,12 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.system.entity.SysDept;
 import com.own.erp.system.entity.SysUser;
+import com.own.erp.system.mapper.SysDeptMapper;
 import com.own.erp.system.mapper.SysUserMapper;
 import com.own.erp.system.mapper.SysUserRoleMapper;
+import com.own.erp.system.mapper.SysUserShopMapper;
 import com.own.erp.system.request.command.SysUserSaveRequest;
 import com.own.erp.system.request.query.SysUserQuery;
 import com.own.erp.system.response.SysUserResponse;
@@ -35,14 +38,17 @@ public class SysUserService {
 
     private final SysUserMapper userMapper;
     private final SysUserRoleMapper userRoleMapper;
+    private final SysUserShopMapper userShopMapper;
+    private final SysDeptMapper deptMapper;
     private final PasswordEncoder passwordEncoder;
 
-    /** 创建用户:用户名唯一 + 密码 BCrypt 加密落库(禁明文) */
+    /** 创建用户:用户名唯一 + 密码 BCrypt 加密落库(禁明文);deptId 传了必须存在(#27③,防悬挂归属) */
     public Long createUser(SysUserSaveRequest request) {
         if (StrUtil.isBlank(request.password())) {
             throw new BusinessException("初始密码不能为空");
         }
         checkUsernameUnique(request.username(), null);
+        requireDeptUsable(request.deptId());
         SysUser user = request.toEntity();
         user.setPassword(passwordEncoder.encode(request.password()));
         userMapper.insert(user);
@@ -52,9 +58,20 @@ public class SysUserService {
     /** 更新用户基础信息:改用户名时校验唯一;password 不在 toEntity 映射内,只能走专用改密方法 */
     public void updateUser(Long id, SysUserSaveRequest request) {
         checkUsernameUnique(request.username(), id);
+        requireDeptUsable(request.deptId());
         SysUser user = request.toEntity();
         user.setId(id);
         userMapper.updateById(user);
+    }
+
+    /** 部门归属可用性(#27③):未传放行(NULL=未分配);传了必须存在,禁挂到已删/不存在的部门 */
+    private void requireDeptUsable(Long deptId) {
+        if (deptId == null) {
+            return;
+        }
+        if (deptMapper.selectById(deptId) == null) {
+            throw new BusinessException("部门不存在: " + deptId);
+        }
     }
 
     /** 分页查询(用户域整域走 Service):出参走 SysUserResponse,password 无出参字段即物理隔离 */
@@ -94,11 +111,12 @@ public class SysUserService {
         resetPassword(userId, newPassword);
     }
 
-    /** 删除用户:同事务清理用户-角色绑定,防孤儿关联 */
+    /** 删除用户:同事务清理用户-角色/用户-店铺授权绑定,防孤儿关联(#27① 授权表随删) */
     @Transactional(rollbackFor = Exception.class)
     public void deleteUser(Long userId) {
         userMapper.deleteById(userId);
         userRoleMapper.deleteByUserId(userId);
+        userShopMapper.deleteByUserId(userId);
     }
 
     /** 启用用户ID列表(#14 站内通知扇出等系统广播场景用);不改密码等敏感列,全列读取即可 */

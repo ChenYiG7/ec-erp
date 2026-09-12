@@ -241,4 +241,14 @@ public class AmazonClient implements PlatformClient {
     public String fetchWaybill(ShopSession session, String platformOrderId) {
         throw new UnsupportedOperationException("Amazon 无电子面单取号(跨境直发走物流商)");
     }
+
+    // TODO(#35): SP-API Fulfillment Inbound 客户端方法族(fba-shipment V2,#3 真凭证后实现):
+    //   1) createInboundShipmentPlan——按 SKU 清单/目的仓生成平台发货计划(拆分建议+目的地 FBA 仓),
+    //      回填 fba_shipment.platform_shipment_id 与平台侧装箱建议;
+    //   2) putTransportContent——板箱信息(箱数/重量/尺寸/物流)回传;
+    //   3) getShipments/getShipmentItems——平台收货状态拉取,驱动 fba_shipment_diff 自动对账
+    //      (替代 FbaReconciliationJob 人工登记口径,保留 Job 作兜底提醒)。
+    //   实现纪律:报文翻译零业务 if(docs/07 §8),新客户端仿 SpApiOrdersClient 形态入 amazon 包,
+    //   翻译断言用真报文脱敏 fixture;凭证一律走 ShopSession,禁直读店铺表。
+    //   领域侧数据面(fba_shipment 五表/状态机/动账)已于 2026-09-12 落地 erp-fulfill。
 }

@@ -1,0 +1,37 @@
+# 资金流水 spec(gen:page 拍板表;收付款/回款 2026-09-11,docs/plans/payment-receipt.md)
+# 契约:GET /api/finance/payments + GET /{id} + POST /{id}/void(动作,仅 NORMAL)
+#       登记端点 POST /purchase /manual /purchase-paid、查询 GET /summary /parties/* 为非 RESTful 额外端点,
+#       生成器不识别(只警告),由人工补 api 函数与登记表单(付款登记/手工登记为定制组件)。
+# 金额 DECIMAL(12,4) 前端 string 直存直显(docs/09 §6);默认滤 VOIDED,含作废为对账口径(人工补开关)。
+# 后端财务写操作 admin 双闸(@PreAuthorize + 本 permKey 前端收口)
+module=finance
+domain=payment
+base=finance/payments
+entity=PaymentRecord
+nameZh=资金流水
+permPrefix=finance:payment
+todoId=31
+menuParent=31
+menuId=40
+path=/finance/payments
+component=finance/payment/index
+icon=CreditCard
+menuSort=4
+
+field=paymentNo  role=column label=流水号    width=170
+field=direction  role=all    label=方向      enum=EXPENSE:付款:danger|INCOME:回款:success  width=90  tag
+field=bizType    role=all    label=类型      enum=PURCHASE_PAYMENT:采购付款:warning|SETTLEMENT_RECEIPT:结算回款:success|MANUAL_ADJUST:手工调整:info  width=120  tag
+field=partyType  role=all    label=往来方类型 enum=SUPPLIER:供应商|PLATFORM:平台|OTHER:其他  width=110
+field=partyName  role=column label=往来方    width=160
+field=amount     role=column label=原币金额  money  width=130
+field=currency   role=column label=币种      width=80
+field=amountCny  role=column label=折算CNY   money  width=130
+field=paidAt     role=column label=收付款时间 width=170
+field=method     role=column label=结算方式  width=110
+field=status     role=column label=状态      enum=NORMAL:正常:success|VOIDED:已作废:danger  width=100  tag
+field=remark     role=column label=备注      width=180
+field=createdAt  role=column label=创建时间  width=170
+
+# 页面级动作槽位(void api 已生成,按钮人工补:仅 NORMAL 显示,确认弹窗后调用);
+# 采购付款登记/手工登记按钮+表单、期间/含作废筛选、缺汇率标记为人工槽位
+todo=void:NORMAL→VOIDED 作废留痕(禁物理删),确认弹窗后调用,分摊随作废失效,完成刷新

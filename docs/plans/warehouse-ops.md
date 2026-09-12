@@ -1,6 +1,7 @@
 # 仓内作业(盘点单/调拨单域/库位批次评估)实施计划书
 
-> **已于 2026-09-11 实施**,devlog 见 `docs/devlog/`(#30 仓内作业);余量见 TODO.md #30。
+> **已于 2026-09-11 实施**,devlog 见 `docs/devlog/`(#30 仓内作业);余量见 TODO.md #30
+> (余量④仓库删除引用校验纳入盘点/调拨两域已于 2026-09-12 收口:WarehouseApiImpl 四域合计 + 单测绿)。
 > 实施口径:盘点单六态状态机(DRAFT→COUNTING→PENDING_ADJUST→ADJUSTED→CLOSED,CANCELED 旁路)+
 > 建单快照/确认时点双口径 + 差异 ADJUST 动账(biz_type=STOCKTAKE);调拨单 DRAFT→CONFIRMED/CANCELED
 > 确认即达两腿动账(transfer() biz_type 由 INVENTORY_TRANSFER 收口为 TRANSFER_ORDER);库位/批次评估结论=不做。

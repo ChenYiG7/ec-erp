@@ -7,6 +7,7 @@ import com.own.erp.aftersale.request.command.AftersaleReturnReceiveRequest;
 import com.own.erp.aftersale.request.query.AftersaleOrderQuery;
 import com.own.erp.aftersale.response.AftersaleOrderResponse;
 import com.own.erp.aftersale.service.AftersaleOrderService;
+import com.own.erp.contract.CurrentUserApi;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -33,10 +34,13 @@ import jakarta.validation.Valid;
 public class AftersaleOrderController {
 
     private final AftersaleOrderService aftersaleOrderService;
+    private final CurrentUserApi currentUserApi;
 
-    @Operation(summary = "分页查询售后单", description = "支持 shopId/status/type/orderId 精确过滤")
+    @Operation(summary = "分页查询售后单", description = "支持 shopId/status/type/orderId 精确过滤;"
+            + "数据权限(#27①):按当前用户授权店铺集过滤(GET 绑定后强制覆盖),admin 不限")
     @GetMapping
     public Result<Page<AftersaleOrderResponse>> page(AftersaleOrderQuery query) {
+        query.setShopIds(currentUserApi.currentShopIds());
         return Result.ok(aftersaleOrderService.page(query));
     }
 

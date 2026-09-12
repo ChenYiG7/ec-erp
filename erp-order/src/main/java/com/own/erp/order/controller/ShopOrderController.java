@@ -1,7 +1,9 @@
 package com.own.erp.order.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.common.api.OperLog;
 import com.own.erp.common.api.Result;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.order.request.command.ManualOrderSaveRequest;
 import com.own.erp.order.request.command.ShopOrderReviewCommand;
 import com.own.erp.order.request.query.ShopOrderQuery;
@@ -38,10 +40,13 @@ public class ShopOrderController {
 
     private final ShopOrderService shopOrderService;
     private final ManualOrderService manualOrderService;
+    private final CurrentUserApi currentUserApi;
 
-    @Operation(summary = "分页查询平台订单", description = "过滤:店铺/平台/订单状态/订单来源/审核状态(#29 扩两过滤)")
+    @Operation(summary = "分页查询平台订单", description = "过滤:店铺/平台/订单状态/订单来源/审核状态(#29 扩两过滤);"
+            + "数据权限(#27①):按当前用户授权店铺集过滤(GET 绑定后强制覆盖),admin 不限")
     @GetMapping
     public Result<Page<ShopOrderResponse>> page(ShopOrderQuery query) {
+        query.setShopIds(currentUserApi.currentShopIds());
         return Result.ok(shopOrderService.page(query));
     }
 
@@ -53,6 +58,7 @@ public class ShopOrderController {
 
     @Operation(summary = "订单审核", description = "状态机:待审核(1)/无需审核(0)/已驳回(3) → 通过(2)/驳回(3);"
             + "已通过为审核终态;审核人/时间服务端回填,remark 落审核备注(#29)")
+    @OperLog(module = "order", action = "review")
     @PostMapping("/{id}/review")
     public Result<Void> review(@PathVariable Long id, @Valid @RequestBody ShopOrderReviewCommand command) {
         shopOrderService.review(id, command.approve(), command.remark());

@@ -42,6 +42,9 @@ public class SysUser {
     /** 手机号 */
     private String phone;
 
+    /** 部门ID(sys_dept.id,#27③;NULL=未分配部门) */
+    private Long deptId;
+
     /** 1=启用 0=禁用 */
     private Integer status;
 

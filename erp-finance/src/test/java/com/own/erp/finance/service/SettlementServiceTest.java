@@ -40,13 +40,17 @@ class SettlementServiceTest {
 
     private SettlementReportMapper reportMapper;
     private SettlementDetailMapper detailMapper;
+    private PaymentRecordService paymentRecordService;
+    private ProfitPeriodReportService profitPeriodReportService;
     private SettlementService service;
 
     @BeforeEach
     void setUp() {
         reportMapper = mock(SettlementReportMapper.class);
         detailMapper = mock(SettlementDetailMapper.class);
-        service = new SettlementService(reportMapper, detailMapper);
+        paymentRecordService = mock(PaymentRecordService.class);
+        profitPeriodReportService = mock(ProfitPeriodReportService.class);
+        service = new SettlementService(reportMapper, detailMapper, paymentRecordService, profitPeriodReportService);
     }
 
     /** 勾稽平样板:SALE 29.99 + COMMISSION -4.50 + TRANSFER 100.00 → Σ=125.49=报告头 */
@@ -97,6 +101,11 @@ class SettlementServiceTest {
         assertEquals(0, new BigDecimal("100.00").compareTo(report.getTransferAmount()));
         assertEquals(SettlementService.STATUS_PARSED, report.getStatus());
         verify(detailMapper, times(3)).insert(any(SettlementDetail.class));
+        // #31 PARSED 且有回款净额 → 同事务派生资金流水(depositDate 样本未设,传 null 由派生侧取当前时间)
+        verify(paymentRecordService).deriveSettlementReceipt(any(SettlementReport.class),
+                org.mockito.ArgumentMatchers.nullable(Instant.class));
+        // #32 PARSED 新增路径同事务派生周期行(mock 环境无 MP 主键回填,断言触发即可)
+        verify(profitPeriodReportService).rebuildForReport(any());
     }
 
     @Test
@@ -113,6 +122,11 @@ class SettlementServiceTest {
         verify(reportMapper).insert(captor.capture());
         assertEquals(SettlementService.STATUS_FAILED, captor.getValue().getStatus());
         verify(detailMapper, times(3)).insert(any(SettlementDetail.class));
+        // #31 FAILED 暂存态不派生回款,待重拉转 PARSED 后补派生
+        verify(paymentRecordService, never()).deriveSettlementReceipt(any(SettlementReport.class),
+                org.mockito.ArgumentMatchers.nullable(Instant.class));
+        // #32 FAILED 暂存态不派生周期行
+        verify(profitPeriodReportService, never()).rebuildForReport(any());
     }
 
     @Test
@@ -128,6 +142,11 @@ class SettlementServiceTest {
         verify(reportMapper, never()).updateById(any(SettlementReport.class));
         verify(detailMapper, never()).delete(any(LambdaQueryWrapper.class));
         verify(detailMapper, never()).insert(any(SettlementDetail.class));
+        // #31 幂等跳过路径不触碰回款派生
+        verify(paymentRecordService, never()).deriveSettlementReceipt(any(SettlementReport.class),
+                org.mockito.ArgumentMatchers.nullable(Instant.class));
+        // #32 幂等跳过路径不触碰周期利润派生
+        verify(profitPeriodReportService, never()).rebuildForReport(any());
     }
 
     @Test
@@ -145,6 +164,11 @@ class SettlementServiceTest {
         assertEquals(SettlementService.STATUS_PARSED, captor.getValue().getStatus());
         verify(detailMapper).delete(any(LambdaQueryWrapper.class));
         verify(detailMapper, times(3)).insert(any(SettlementDetail.class));
+        // #31 FAILED 重拉转 PARSED:覆盖路径同事务补派生回款
+        verify(paymentRecordService).deriveSettlementReceipt(any(SettlementReport.class),
+                org.mockito.ArgumentMatchers.nullable(Instant.class));
+        // #32 FAILED 重拉转 PARSED:覆盖路径同事务补派生周期行(existing.id=5)
+        verify(profitPeriodReportService).rebuildForReport(5L);
     }
 
     @Test

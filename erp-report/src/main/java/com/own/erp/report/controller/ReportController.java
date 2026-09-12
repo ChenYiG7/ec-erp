@@ -1,6 +1,7 @@
 package com.own.erp.report.controller;
 
 import com.own.erp.common.api.Result;
+import com.own.erp.common.oss.OssService;
 import com.own.erp.report.report.InventorySnapshotRow;
 import com.own.erp.report.report.ReportDigest;
 import com.own.erp.report.report.SalesDailyRow;
@@ -31,7 +32,11 @@ import java.util.List;
  * @Description : 报表中心接口(#20 报表域 V1,四期 BI 起点):销量/库存两个日快照数据面的聚合查询 + Excel 导出,
  *     #22 商品分析 SKU 下钻;#23 经营简报预览(定时推送在 erp-api ReportDigestJob,走 #14 出口三渠道),
  *     只读报表登录即可(经营数据,行级权限随多商户四期);导出 xlsx 流式返回(Content-Disposition 文件名 ASCII,
- *     前端 axios blob 落盘)。AI 工具若需取数再契约化(落位表注记),当前仅前端消费不进 erp-contract
+ *     前端 axios blob 落盘)。AI 工具若需取数再契约化(落位表注记),当前仅前端消费不进 erp-contract。
+ *     导出归档(#25,2026-09-11 拍板方案 A):erp.report.export-archive=true 时导出字节同步上传 OSS
+ *     (report/{yyyyMM}/{文件名})并在响应头附 X-Archive-Key,流式下载体验不变、前端零改造;
+ *     URL 化下载模式(差距 G10)挂压测后拍板。归档开启而 OSS 未配置/上传失败 = 导出整体报错
+ *     (开关是显式运维意图,禁静默吞档);开关关闭行为与现状逐字节一致
  */
 @Tag(name = "报表中心", description = "销售日报/周报/SKU明细与库存快照聚合,Excel 导出(数据面=销量日表+库存日快照)")
 @RestController
@@ -41,6 +46,11 @@ public class ReportController {
 
     private final ReportService reportService;
     private final ReportDigestService reportDigestService;
+    private final OssService ossService;
+
+    /** 导出归档开关(#25 方案 A):默认 false = 与既有流式导出行为完全一致 */
+    @org.springframework.beans.factory.annotation.Value("${erp.report.export-archive:false}")
+    private boolean exportArchive;
 
     @Operation(summary = "销售日报", description = "按统计日聚合(支付日口径);窗口缺省近 30 天,上限 366 天")
     @PreAuthorize("isAuthenticated()")
@@ -119,11 +129,19 @@ public class ReportController {
         return Result.ok(reportDigestService.digest(ReportDigestService.Period.parse(period)));
     }
 
+    private static final String XLSX_MEDIA_TYPE =
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
     private ResponseEntity<byte[]> xlsx(String filename, byte[] body) {
-        return ResponseEntity.ok()
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.parseMediaType(
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .body(body);
+                .contentType(MediaType.parseMediaType(XLSX_MEDIA_TYPE));
+        // 归档(#25 方案 A):开关开启才上传,OSS 未配置直接报错(显式意图禁静默吞档)
+        if (exportArchive) {
+            String key = ossService.reportKey(filename);
+            ossService.upload(key, body, XLSX_MEDIA_TYPE);
+            builder.header("X-Archive-Key", key);
+        }
+        return builder.body(body);
     }
 }

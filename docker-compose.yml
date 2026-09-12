@@ -95,18 +95,21 @@ services:
       erp-api:
         condition: service_started
 
-  # 对象存储(#25 RustFS 预留,compose 片段吸收自 docs/plans/25-oss-storage.md §2.5):
-  # docker compose --profile oss up -d 启用;OSS 业务面随 #25 落地,当前仅基础设施先行
+  # 对象存储(#25 RustFS,S3 兼容,2026-09-11 随 OSS 业务面落地收口):
+  # docker compose --profile oss up -d 启用;凭证经根 .env 的 RUSTFS_ACCESS_KEY/RUSTFS_SECRET_KEY
+  # 覆盖(默认 rustfsadmin/rustfsadmin,仅限本地;控制台与 S3 API 同端口 9000,浏览器开 http://localhost:9000)
   rustfs:
     image: rustfs/rustfs:latest
     container_name: ec-erp-rustfs
     profiles: ["oss"]
     environment:
       TZ: Asia/Shanghai
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
     volumes:
       - rustfs-data:/data
     ports:
-      - "9000:9000"   # S3 兼容 API;控制台端口随 #25 落地补
+      - "9000:9000"   # S3 兼容 API + Web 控制台同端口
 
 volumes:
   mysql-data:

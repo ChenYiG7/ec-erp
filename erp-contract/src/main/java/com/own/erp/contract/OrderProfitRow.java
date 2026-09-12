@@ -9,9 +9,10 @@ import java.time.LocalDateTime;
  * @Description : 实时销售利润行(#19③,订单行粒度):利润 = 售价(CNY) − 出库成本(CNY) − 平台佣金(CNY)。
  *         折算口径拍板(docs/03 §6.1):售价×下单日回溯汇率(resolveRate,禁取表内最新,CNY 短路=1,
  *         缺报价 rate/salesCny 为 NULL 禁猜);成本=OUT_SHIP 移动加权快照按订单行聚合,未出库 NULL;
- *         佣金=settlement_detail COMMISSION 归集,无结算数据 NULL(禁费率猜算)。
- *         profitCny:成本缺失 → NULL;仅佣金缺失 → 售价−成本(毛利,commissionMissing 标志),
- *         三者齐 → 售价−成本−佣金
+ *     佣金=settlement_detail COMMISSION 归集,无结算数据时按 platform_fee_rate 费率估算
+ *     (commissionEstimated=ESTIMATED,2026-09-11 #19 预估模型;无费率仍 NULL 不猜),实际佣金优先。
+ *     profitCny:成本缺失 → NULL;佣金缺失且无预估 → 售价−成本(毛利,commissionMissing 标志);
+ *     有预估/实际佣金 → 售价−成本−佣金(预估参与时 commissionEstimated=true)
  */
 public record OrderProfitRow(
 
@@ -72,7 +73,10 @@ public record OrderProfitRow(
         /** true=未出库(无成本快照) */
         boolean costMissing,
 
-        /** true=待结算(无佣金归集) */
-        boolean commissionMissing
+        /** true=待结算(无实际佣金归集;费率估算命中时仍为 true,与 commissionEstimated 同时置位) */
+        boolean commissionMissing,
+
+        /** true=佣金来自 platform_fee_rate 费率估算(无实际结算佣金;结算回后实际优先,本标志回 false) */
+        boolean commissionEstimated
 ) {
 }

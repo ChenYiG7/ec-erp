@@ -68,6 +68,6 @@ public class ProfitController {
     /** 域内 GET 入参 → 契约查询模型(pageNo/pageSize 语义一致,钳制随契约) */
     private OrderProfitQuery toContract(OrderProfitPageQuery query) {
         return new OrderProfitQuery(query.getShopId(), query.getPlatform(), query.getSkuId(),
-                query.getDateFrom(), query.getDateTo(), query.getPageNo(), query.getPageSize());
+                query.getDateFrom(), query.getDateTo(), query.getPageNo(), query.getPageSize(), null);
     }
 }

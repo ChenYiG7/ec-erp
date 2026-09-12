@@ -26,6 +26,7 @@ import java.util.List;
  *         ProductService;findCategoryNameById 委托 ProductCategoryService(类目域整域收口 Service);
  *         findBrandNameById 直连 BrandMapper——brand 为纯配置域,直连 Mapper 即该域合规口径(docs/07 §2.1,
  *         同 BrandController 先例),无 Service 可委托
+ *         数据权限(#27①):显式不注入——商品库(product/product_sku/类目/品牌)无店铺轴,全局档案
  */
 @Component
 @RequiredArgsConstructor
@@ -68,6 +69,16 @@ public class GoodsQueryApiImpl implements GoodsQueryApi {
             return List.of();
         }
         List<ProductSkuResponse> skus = productService.listSkusByProductId(productId);
+        return CollUtil.isEmpty(skus) ? List.of()
+                : skus.stream().map(GoodsQueryApiImpl::toSkuView).toList();
+    }
+
+    @Override
+    public List<SkuView> findSkusByIds(java.util.Collection<Long> skuIds) {
+        if (CollUtil.isEmpty(skuIds)) {
+            return List.of();
+        }
+        List<ProductSkuResponse> skus = productService.listSkusByIds(skuIds);
         return CollUtil.isEmpty(skus) ? List.of()
                 : skus.stream().map(GoodsQueryApiImpl::toSkuView).toList();
     }

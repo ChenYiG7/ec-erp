@@ -209,4 +209,11 @@ class TransferOrderServiceTest {
         assertTrue(assertThrows(BusinessException.class, () -> transferOrderService.delete(1L))
                 .getMessage().contains("禁止删除"));
     }
+
+    @Test
+    void countByWarehouseIdDelegatesToMapperAndNullIsZero() {
+        when(transferOrderMapper.selectCount(any())).thenReturn(2L);
+        assertEquals(2L, transferOrderService.countByWarehouseId(2L));
+        assertEquals(0L, transferOrderService.countByWarehouseId(null));
+    }
 }

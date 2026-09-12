@@ -35,6 +35,15 @@ public record ProductSkuResponse(
         /** 重量(g) */
         Integer weightG,
 
+        /** 外长(mm),头程/FBA 装箱属性(#33) */
+        Integer lengthMm,
+
+        /** 外宽(mm),头程/FBA 装箱属性(#33) */
+        Integer widthMm,
+
+        /** 外高(mm),头程/FBA 装箱属性(#33) */
+        Integer heightMm,
+
         /** 海关 HS 编码 */
         String hsCode,
 
@@ -64,6 +73,9 @@ public record ProductSkuResponse(
                 .attrsJson(sku.getAttrsJson())
                 .costPrice(sku.getCostPrice())
                 .weightG(sku.getWeightG())
+                .lengthMm(sku.getLengthMm())
+                .widthMm(sku.getWidthMm())
+                .heightMm(sku.getHeightMm())
                 .hsCode(sku.getHsCode())
                 .declaredValue(sku.getDeclaredValue())
                 .battery(sku.getBattery())

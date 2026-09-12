@@ -40,6 +40,12 @@ public interface DeliveryQueryApi {
             /** 店铺ID(shop.id,精确,可空) */
             Long shopId,
 
+            /**
+             * 数据权限授权店铺集(#27①,可空=null=不限;非空=IN 过滤;空列表=不可见任何店铺数据)。
+             * 实现层强制装配 CurrentUserApi.currentShopIds(),AI/调用方自带值被覆盖
+             */
+            List<Long> shopIds,
+
             /** 发货单状态:PENDING/SHIPPED/DELIVERED/CANCELLED(精确,可空) */
             String status,
 

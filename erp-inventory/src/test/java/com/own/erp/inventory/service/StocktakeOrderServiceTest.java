@@ -288,4 +288,11 @@ class StocktakeOrderServiceTest {
                 .getMessage().contains("禁止删除"));
         verify(stocktakeOrderMapper, never()).deleteById(1L);
     }
+
+    @Test
+    void countByWarehouseIdDelegatesToMapperAndNullIsZero() {
+        when(stocktakeOrderMapper.selectCount(any())).thenReturn(3L);
+        assertEquals(3L, stocktakeOrderService.countByWarehouseId(9L));
+        assertEquals(0L, stocktakeOrderService.countByWarehouseId(null));
+    }
 }

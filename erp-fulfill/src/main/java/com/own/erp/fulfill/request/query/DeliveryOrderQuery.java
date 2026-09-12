@@ -14,6 +14,13 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 public class DeliveryOrderQuery extends PageQuery {
 
+    /**
+     * 数据权限授权店铺集(#27① 店铺轴):服务器权威装配——Controller/契约实现层在 GET 绑定后
+     * 强制覆盖为 CurrentUserApi.currentShopIds()(不信任前端自带值);
+     * null=不限(admin);非空=店铺 IN 过滤;空列表=不可见任何店铺数据(Service 短路零结果)
+     */
+    private java.util.List<Long> shopIds;
+
     /** 发货单号,模糊匹配 */
     private String deliveryNo;
 

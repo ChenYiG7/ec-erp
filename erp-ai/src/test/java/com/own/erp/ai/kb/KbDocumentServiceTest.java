@@ -9,6 +9,7 @@ import com.own.erp.ai.mapper.AiKbDocumentMapper;
 import com.own.erp.ai.request.query.AiKbDocumentQuery;
 import com.own.erp.ai.response.AiKbDocumentResponse;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.common.oss.OssService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -41,6 +42,7 @@ class KbDocumentServiceTest {
     private AiKbChunkMapper chunkMapper;
     private KbVectorIndex vectorIndex;
     private KbIngestService ingestService;
+    private OssService ossService;
     private KbDocumentService service;
 
     @BeforeEach
@@ -49,7 +51,8 @@ class KbDocumentServiceTest {
         chunkMapper = mock(AiKbChunkMapper.class);
         vectorIndex = mock(KbVectorIndex.class);
         ingestService = mock(KbIngestService.class);
-        service = new KbDocumentService(documentMapper, chunkMapper, vectorIndex, ingestService);
+        ossService = mock(OssService.class);
+        service = new KbDocumentService(documentMapper, chunkMapper, vectorIndex, ingestService, ossService);
     }
 
     private AiKbDocument doc(long id, String status) {

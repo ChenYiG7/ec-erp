@@ -1,0 +1,23 @@
+# 调拨单 spec(gen:page 拍板表;仓内作业 docs/plans/warehouse-ops.md,TODO#30)
+# 字段名以后端 openapi 快照为准,跑 gen:page 会核账(不在响应 schema 的字段会警告)
+# 确认/取消动作由快照端点自动生成 api 函数;明细子表行编辑与详情弹窗为生成器外定制(TransferOrderForm/Detail)
+module=inventory
+domain=transfer
+base=inventory/transfer-orders
+entity=TransferOrder
+nameZh=调拨单
+permPrefix=inventory:transfer
+todoId=30
+menuParent=17
+menuId=39
+menuSort=5
+path=/inventory/transfer-orders
+component=inventory/transfer/index
+icon=Switch
+
+field=transferNo      role=all    label=调拨单号      width=180  required
+field=fromWarehouseId role=column label=调出仓        width=120
+field=toWarehouseId   role=column label=调入仓        width=120
+field=status          role=column label=状态          enum=DRAFT:草稿:info|CONFIRMED:已确认:success|CANCELED:已取消:danger  width=110
+field=remark          role=column label=备注
+field=createdAt       role=column label=创建时间      width=170

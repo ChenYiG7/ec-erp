@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
  * @Description : 仓库服务:warehouse 域整域收口,Controller 不直连 Mapper(docs/07 §2.1)
  *     API 模型收口(docs/07 §1):读入参 query/XxxQuery、写入参 command/XxxSaveRequest(CQRS 分包),出参 response/XxxResponse,entity 不出本层
  *     #7 收口(2026-09-04):删除前引用拦截(库存/采购,经 erp-contract WarehouseApi,实现收口 erp-api);
+ *     #30 余量(2026-09-12):引用计数扩容盘点/调拨两域;
  *     名称唯一性未做(warehouse 无业务唯一键列,同 supplier 需业务确认后改表,TODO.md #7)
  */
 @Service
@@ -77,12 +78,13 @@ public class WarehouseService {
     /**
      * 删除(一期硬删)。#7 收口(2026-09-04,同 #10 遗留条目):库存/采购单任一引用即禁删——
      * 库存行有数量轨迹、采购单是业务凭证,删仓致账实无法追溯,引导改状态停用;
+     * #30 余量收口(2026-09-12):计数扩容盘点单/调拨单两域(实现收口 erp-api,四域合计);
      * 计数经 erp-contract WarehouseApi(实现收口 erp-api,本域禁横向依赖 inventory/purchase,铁律 2)
      */
     public void delete(Long id) {
         long refs = warehouseApi.countWarehouseRefs(id);
         if (refs > 0) {
-            throw new BusinessException("仓库被库存/采购单引用共 " + refs + " 条,禁删,可改状态停用");
+            throw new BusinessException("仓库被库存/采购/盘点/调拨单引用共 " + refs + " 条,禁删,可改状态停用");
         }
         warehouseMapper.deleteById(id);
     }

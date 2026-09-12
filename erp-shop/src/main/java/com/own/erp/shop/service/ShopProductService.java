@@ -35,10 +35,15 @@ public class ShopProductService {
     private final ShopProductMapper shopProductMapper;
     private final ShopProductSkuMapper shopProductSkuMapper;
 
-    /** 分页查询(过滤:店铺/绑定SPU/平台商品ID) */
+    /** 分页查询(过滤:店铺/绑定SPU/平台商品ID)。
+     *  数据权限(#27①):shopIds 服务器权威装配,null=不过滤;空列表=不可见任何店铺(短路零结果) */
     public Page<ShopProductResponse> page(ShopProductQuery query) {
+        if (query.getShopIds() != null && query.getShopIds().isEmpty()) {
+            return new Page<>(query.getPageNo(), query.pageSize());
+        }
         LambdaQueryWrapper<ShopProduct> wrapper = new LambdaQueryWrapper<ShopProduct>()
                 .eq(query.getShopId() != null, ShopProduct::getShopId, query.getShopId())
+                .in(query.getShopIds() != null, ShopProduct::getShopId, query.getShopIds())
                 .eq(query.getProductId() != null, ShopProduct::getProductId, query.getProductId())
                 .eq(StrUtil.isNotBlank(query.getPlatformProductId()), ShopProduct::getPlatformProductId, query.getPlatformProductId())
                 .orderByDesc(ShopProduct::getId);

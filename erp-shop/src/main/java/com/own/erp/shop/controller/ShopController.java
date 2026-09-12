@@ -2,6 +2,7 @@ package com.own.erp.shop.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.api.Result;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.shop.request.query.ShopQuery;
 import com.own.erp.shop.request.command.ShopSaveRequest;
 import com.own.erp.shop.response.ShopResponse;
@@ -44,11 +45,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class ShopController {
 
     private final ShopService shopService;
+    private final CurrentUserApi currentUserApi;
 
     @Operation(summary = "分页查询店铺", description = "platform/status 过滤(可选);"
-            + "accessToken 只回密文前 6 位掩码,appSecret/refreshToken 不在出参模型内")
+            + "accessToken 只回密文前 6 位掩码,appSecret/refreshToken 不在出参模型内。"
+            + "数据权限(#27①):按当前用户授权店铺集过滤,admin 不限")
     @GetMapping
     public Result<Page<ShopResponse>> page(ShopQuery query) {
+        query.setShopIds(currentUserApi.currentShopIds());
         return Result.ok(shopService.pageShops(query));
     }
 

@@ -19,9 +19,9 @@
           >新建发货单</el-button
         >
       </template>
-      <!-- 发货明细展开行(懒加载详情 items,见 DeliveryItems) -->
+      <!-- 发货明细展开行(懒加载详情 items,见 DeliveryItems;v-if 判 id 拦 el-table hidden-columns 空对象行的预渲染) -->
       <template #expand="scope">
-        <DeliveryItems :row="scope.row" />
+        <DeliveryItems v-if="scope.row?.id != null" :row="scope.row" />
       </template>
       <!-- 操作列(ProTable v2:type:'operation' 列必须提供本插槽;按钮按状态机裁剪,越权拦截在后端) -->
       <template #operation="scope">

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.own.erp.finance.mapper.ProfitPeriodReportMapper">
+
+    <!-- 周期行幂等 upsert(#19 三口径第二层,校差算法 #32):uk(shop_id,settlement_id) 冲突即整行覆盖
+         (重算刷新不重复建行);MySQL 9.7.2 原生形态——VALUES 行别名 AS new(8.0.19+),ODKU 内列引用
+         必须全限定 new. 前缀(未限定一律 1052 歧义,TODO 红线);created_at/updated_at 不在列清单,
+         交库默认值与 ON UPDATE CURRENT_TIMESTAMP 兜底;单语句原子,重试安全 -->
+    <insert id="upsertPeriod">
+        INSERT INTO profit_period_report
+            (shop_id, settlement_id, period_start, period_end, currency, rate_used, rate_missing,
+             order_income, settle_income, settle_commission, fba_fee, other_fee, order_commission, order_profit,
+             diff_income, diff_commission, diff_flag, diff_remark, status)
+        VALUES (#{shopId}, #{settlementId}, #{periodStart}, #{periodEnd}, #{currency}, #{rateUsed}, #{rateMissing},
+                #{orderIncome}, #{settleIncome}, #{settleCommission}, #{fbaFee}, #{otherFee},
+                #{orderCommission}, #{orderProfit}, #{diffIncome}, #{diffCommission}, #{diffFlag}, #{diffRemark}, #{status})
+        AS new
+        ON DUPLICATE KEY UPDATE
+            period_start      = new.period_start,
+            period_end        = new.period_end,
+            currency          = new.currency,
+            rate_used         = new.rate_used,
+            rate_missing      = new.rate_missing,
+            order_income      = new.order_income,
+            settle_income     = new.settle_income,
+            settle_commission = new.settle_commission,
+            fba_fee           = new.fba_fee,
+            other_fee         = new.other_fee,
+            order_commission  = new.order_commission,
+            order_profit      = new.order_profit,
+            diff_income       = new.diff_income,
+            diff_commission   = new.diff_commission,
+            diff_flag         = new.diff_flag,
+            diff_remark       = new.diff_remark,
+            status            = new.status
+    </insert>
+</mapper>

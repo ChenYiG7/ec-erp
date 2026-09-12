@@ -12,6 +12,7 @@ import com.own.erp.ai.request.query.AiKbDocumentQuery;
 import com.own.erp.ai.response.AiKbChunkResponse;
 import com.own.erp.ai.response.AiKbDocumentResponse;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.common.oss.OssService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Service;
@@ -22,7 +23,8 @@ import java.util.List;
 /**
  * @author : chenyi
  * @Date : 2026/9/8
- * @Description : 知识库文档管理服务(#6 RAG V1):分页/详情/分块预览/删除/全量重建。
+ * @Description : 知识库文档管理服务(#6 RAG V1):分页/详情/分块预览/删除/全量重建;
+ *     原文下载链接(#25 OSS,2026-09-11):仅 UPLOAD 且已存档文档,预签名 URL 30 分钟有效。
  *     删除次序(拍板):先删向量索引(失败即中止,DB 不动,防"正本已删而向量残留"脏检索),
  *     后删 DB 正本(事务);索引文件持久化由 KbVectorIndex 内部尽力而为。
  *     重建 = 清空索引按 ai_kb_chunk 正本(READY 文档)重嵌入,换 embedding 模型/索引文件丢失后手动触发
@@ -35,15 +37,18 @@ public class KbDocumentService {
     private final AiKbChunkMapper chunkMapper;
     private final KbVectorIndex vectorIndex;
     private final KbIngestService ingestService;
+    private final OssService ossService;
 
     public KbDocumentService(AiKbDocumentMapper documentMapper,
                              AiKbChunkMapper chunkMapper,
                              KbVectorIndex vectorIndex,
-                             KbIngestService ingestService) {
+                             KbIngestService ingestService,
+                             OssService ossService) {
         this.documentMapper = documentMapper;
         this.chunkMapper = chunkMapper;
         this.vectorIndex = vectorIndex;
         this.ingestService = ingestService;
+        this.ossService = ossService;
     }
 
     /** 文档分页(过滤:标题模糊/状态;按 id 倒序) */
@@ -113,6 +118,15 @@ public class KbDocumentService {
         int count = vectorIndex.rebuild(documents);
         log.info("知识库向量索引全量重建完成:文档 {} 个 / 分块 {} 条", readyDocs.size(), count);
         return readyDocs.size();
+    }
+
+    /** 原文预签名下载 URL(#25):仅 UPLOAD 且已存档文档可用,30 分钟有效 */
+    public String presignOriginalUrl(Long id) {
+        AiKbDocument doc = requireExists(id);
+        if (StrUtil.isBlank(doc.getOriginalFileKey())) {
+            throw new BusinessException("该文档未存档原文(粘贴文本,或 OSS 未启用/存档失败期间的上传)");
+        }
+        return ossService.presignGetUrl(doc.getOriginalFileKey());
     }
 
     private AiKbDocument requireExists(Long id) {

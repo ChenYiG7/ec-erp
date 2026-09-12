@@ -27,7 +27,7 @@ import java.util.List;
  *     无人工 CRUD 写接口;通知类型/业务类型常量收口本类,拉单告警接线见 OrderPullJob/ProductPullJob(#4/#5)
  *     渠道扩展拍板(2026-09-04"不提前抽象")落地:Webhook 群机器人(钉钉/飞书/企微)V1 已挂本出口——
  *     pushAllUsers 发布 NotifyPushedEvent,WebhookPushService AFTER_COMMIT 消费外推(2026-09-08);
- *     邮件/短信后续同款各挂监听,不做渠道接口抽象
+ *     邮件/短信后续同款各挂监听,不做渠道接口抽象;SSE 浏览器实时推送同款(2026-09-12,NotificationSseService)
  */
 @Service
 @RequiredArgsConstructor
@@ -65,7 +65,7 @@ public class SysNotificationService {
                 sysNotificationMapper.insert(build(userId, notifyType, title, content, bizType, bizId));
             }
         }
-        eventPublisher.publishEvent(new NotifyPushedEvent(notifyType, title, content));
+        eventPublisher.publishEvent(new NotifyPushedEvent(notifyType, title, content, bizType, bizId));
         return userIds.size();
     }
 

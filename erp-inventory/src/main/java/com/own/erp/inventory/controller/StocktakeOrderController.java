@@ -1,6 +1,7 @@
 package com.own.erp.inventory.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.common.api.OperLog;
 import com.own.erp.common.api.Result;
 import com.own.erp.inventory.request.command.StocktakeCountRequest;
 import com.own.erp.inventory.request.command.StocktakeOrderSaveRequest;
@@ -84,6 +85,7 @@ public class StocktakeOrderController {
     }
 
     @Operation(summary = "生成调整", description = "PENDING_ADJUST→ADJUSTED;按确认时点账面 re-diff,差异行经 InventoryService.change(ADJUST) 动账,可用不足整单回滚")
+    @OperLog(module = "inventory", action = "stocktake-adjust")
     @PostMapping("/{id}/adjust")
     public Result<Void> adjust(@PathVariable Long id) {
         stocktakeOrderService.generateAdjust(id);

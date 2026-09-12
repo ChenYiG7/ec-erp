@@ -45,6 +45,12 @@ public class AiKbDocument {
     /** 分块数(与 ai_kb_chunk 行数一致) */
     private Integer chunkCount;
 
+    /** OSS 对象键(原文存储,#25;NULL=未存原文:粘贴文本或 OSS 未启用/存档失败) */
+    private String originalFileKey;
+
+    /** 原文字节数(#25,与 originalFileKey 成对) */
+    private Long originalFileSize;
+
     /** 状态:READY可检索/FAILED向量化失败(词表 AiConsts.KB_STATUS_*) */
     private String status;
 

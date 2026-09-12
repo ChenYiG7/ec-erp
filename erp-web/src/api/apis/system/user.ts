@@ -5,6 +5,7 @@ import type {
   SysUserSaveRequest,
   SysUserQuery,
   SysUserRolesRequest,
+  SysUserShopsRequest,
   SysUserPasswordRequest,
 } from '@/api/interface/system/user'
 
@@ -31,6 +32,10 @@ export const sysUserApi = {
   getRoles: (id: number) => http.get<number[]>(`/api/system/users/${id}/roles`),
   /** 保存用户角色分配(PUT /api/system/users/{id}/roles) */
   putRoles: (id: number, data: SysUserRolesRequest) => http.put<void>(`/api/system/users/${id}/roles`, data),
+  /** 用户已授权店铺 id 列表(GET /api/system/users/{id}/shops,#27① 数据权限) */
+  getShops: (id: number) => http.get<number[]>(`/api/system/users/${id}/shops`),
+  /** 保存用户-店铺授权(PUT /api/system/users/{id}/shops,先删后插全量重绑;空列表=清空授权) */
+  putShops: (id: number, data: SysUserShopsRequest) => http.put<void>(`/api/system/users/${id}/shops`, data),
   /** 管理员重置密码(PUT /api/system/users/{id}/password) */
   password: (id: number, data: SysUserPasswordRequest) => http.put<void>(`/api/system/users/${id}/password`, data),
 }

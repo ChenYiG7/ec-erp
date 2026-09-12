@@ -5,6 +5,7 @@ import com.own.erp.aftersale.request.query.AftersaleOrderQuery;
 import com.own.erp.aftersale.response.AftersaleOrderResponse;
 import com.own.erp.aftersale.service.AftersaleOrderService;
 import com.own.erp.contract.AftersaleQueryApi;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.QueryPage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -16,18 +17,21 @@ import java.util.List;
  * @Date : 2026/9/6
  * @Description : AftersaleQueryApi 实现(#6 三期 AI 地基,编排胶水收口 erp-api,docs/07 §2.2):
  *         erp-ai 工具取数委托 erp-aftersale AftersaleOrderService.page;entity→契约 record
- *         显式逐字段映射(经域 Response 中转,禁反射拷贝);本契约只读,售后处理动作不经此
+ *         显式逐字段映射(经域 Response 中转,禁反射拷贝);本契约只读,售后处理动作不经此。
+ *         数据权限(#27①):pageAftersales 强制装配 CurrentUserApi.currentShopIds()
  */
 @Component
 @RequiredArgsConstructor
 public class AftersaleQueryApiImpl implements AftersaleQueryApi {
 
     private final AftersaleOrderService aftersaleOrderService;
+    private final CurrentUserApi currentUserApi;
 
     @Override
     public QueryPage<AftersaleView> pageAftersales(AftersaleFilter filter) {
         AftersaleOrderQuery query = new AftersaleOrderQuery();
         query.setShopId(filter.shopId());
+        query.setShopIds(currentUserApi.currentShopIds());
         query.setStatus(filter.status());
         query.setType(filter.type());
         query.setOrderId(filter.orderId());

@@ -237,7 +237,6 @@ const refreshTable = () => proTableRef.value?.getTableList()
     line-height: 1.6;
     color: var(--el-text-color-secondary);
   }
-
   .suggest-qty {
     font-weight: 600;
     color: var(--el-color-primary);

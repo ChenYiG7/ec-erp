@@ -16,6 +16,10 @@
       <el-form-item label="结算方式" prop="settleType">
         <el-input v-model="formData.settleType" placeholder="请输入结算方式" clearable />
       </el-form-item>
+      <!-- TODO(#31) 账期天数 V1 仅展示,到期提醒随预警引擎评估 -->
+      <el-form-item label="账期天数" prop="settleDays">
+        <el-input-number v-model="formData.settleDays" :min="0" :controls="false" placeholder="选填,如 30" />
+      </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-select v-model="formData.status" clearable placeholder="请选择状态">
           <el-option label="启用" :value="1" />
@@ -34,7 +38,17 @@
 </template>
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
+import {
+  ElButton,
+  ElDialog,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElOption,
+  ElSelect,
+} from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { supplierApi } from '@/api/apis/purchase/supplier'
 import type { SupplierSaveRequest, SupplierResponse } from '@/api/interface/purchase/supplier'

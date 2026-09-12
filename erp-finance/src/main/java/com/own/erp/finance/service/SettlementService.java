@@ -44,6 +44,16 @@ public class SettlementService {
 
     private final SettlementReportMapper settlementReportMapper;
     private final SettlementDetailMapper settlementDetailMapper;
+    /**
+     * #31 回款派生:报告落 PARSED 同事务派生 INCOME 流水(禁 AFTER_COMMIT 追赶记,资金数据原子);
+     * 同模块直接注入无环(PaymentRecordService 只依赖 mapper/ExchangeRateService/契约)
+     */
+    private final PaymentRecordService paymentRecordService;
+    /**
+     * #32 周期利润派生:报告落 PARSED 同事务生成/刷新周期行(同模块直接注入无环,
+     * ProfitPeriodReportService 只依赖 mapper/ExchangeRateService/ProfitQueryService)
+     */
+    private final ProfitPeriodReportService profitPeriodReportService;
 
     /**
      * 结算报告落库(事务:正本 upsert + 明细先删后插同事务)。
@@ -68,6 +78,7 @@ public class SettlementService {
                 return false;
             }
             overwrite(existing, settlement, sum, status);
+            deriveOnParsed(existing, settlement, status);
             return true;
         }
         SettlementReport report = SettlementReport.builder()
@@ -85,7 +96,24 @@ public class SettlementService {
         insertDetails(report.getId(), shopId, settlement);
         log.info("结算报告入库 settlement={} 明细={} status={}",
                 settlement.getSettlementId(), settlement.getLines().size(), status);
+        deriveOnParsed(report, settlement, status);
         return true;
+    }
+
+    /**
+     * PARSED 派生钩子(#31 回款 + #32 周期利润):PARSED 同事务派生/刷新,FAILED 暂存态不派生
+     * ——待重拉转 PARSED 后经 overwrite 路径补派生(禁 AFTER_COMMIT 追赶记,资金/周期数据原子)
+     */
+    private void deriveOnParsed(SettlementReport persisted, UnifiedSettlement settlement, String status) {
+        if (STATUS_PARSED.equals(status)) {
+            if (persisted.getTransferAmount() != null
+                    && persisted.getTransferAmount().compareTo(BigDecimal.ZERO) > 0) {
+                paymentRecordService.deriveSettlementReceipt(persisted, settlement.getDepositDate());
+            }
+            // #32 周期利润:PARSED 两路径(新增/FAILED 覆盖)都经本钩子同事务生成/刷新周期行,
+            // rebuildForReport REQUIRED 加入本事务(口径同回款派生,禁 AFTER_COMMIT)
+            profitPeriodReportService.rebuildForReport(persisted.getId());
+        }
     }
 
     /** FAILED 重拉覆盖:正本逐列更新 + 明细先删后插(FAILED 行是可修正的暂存态,不重复建行) */

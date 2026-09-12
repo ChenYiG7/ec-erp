@@ -185,12 +185,12 @@ onMounted(() => {
   padding: 8px;
   margin: 4px;
   cursor: pointer;
-  border: 1px solid #dcdfe6;
+  border: 1px solid var(--el-border-color);
   border-radius: 4px;
   transition: all 0.3s;
 }
 .icon-grid-item:hover {
-  border-color: #4080ff;
+  border-color: var(--el-color-primary);
   transform: scale(1.2);
 }
 </style>

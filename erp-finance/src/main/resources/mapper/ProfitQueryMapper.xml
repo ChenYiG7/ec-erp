@@ -26,6 +26,11 @@
             <if test="shopId != null">
                 AND so.shop_id = #{shopId}
             </if>
+            <!-- 数据权限店铺集(#27①):非空 IN 过滤;空集=不可见任何店铺,由调用方短路,禁落 SQL(防空 IN ()) -->
+            <if test="shopIds != null and shopIds.size() > 0">
+                AND so.shop_id IN
+                <foreach collection="shopIds" item="scopeShopId" open="(" separator="," close=")">#{scopeShopId}</foreach>
+            </if>
             <if test="platform != null and platform != ''">
                 AND so.platform = #{platform}
             </if>

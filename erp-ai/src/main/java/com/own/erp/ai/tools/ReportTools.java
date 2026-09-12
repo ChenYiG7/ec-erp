@@ -108,7 +108,7 @@ public class ReportTools {
                 dateFrom == null ? null : dateFrom.atStartOfDay(),
                 // 契约 dateTo 语义为「不含」,工具面对模型暴露「含首含尾」的日期语义,此处 +1 天补齐
                 dateTo == null ? null : dateTo.plusDays(1).atStartOfDay(),
-                null, null));
+                null, null, null));
     }
 
     /** 归一表格类页大小:未传按上限 20,超出钳到 20(工具面硬上限,契约侧另有 ≤100 兜底) */

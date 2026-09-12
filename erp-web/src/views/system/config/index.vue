@@ -71,12 +71,20 @@ const GROUPS = [
   { name: 'ALERT', label: '库存预警' },
   { name: 'SALES', label: '销量统计' },
   { name: 'NOTIFY', label: '邮件通知' },
+  { name: 'ORDER_REVIEW', label: '订单审核风控' },
+  { name: 'OSS', label: '对象存储' },
 ] as const
 
 /** 布尔键词表(与后端 SystemConfigService.ValueType.BOOL 对齐) */
-const BOOL_KEYS = new Set(['erp.alert.enabled', 'erp.sales.enabled', 'erp.mail.enabled', 'erp.mail.ssl'])
+const BOOL_KEYS = new Set([
+  'erp.alert.enabled',
+  'erp.sales.enabled',
+  'erp.mail.enabled',
+  'erp.mail.ssl',
+  'erp.oss.enabled',
+])
 /** 敏感键词表(与后端 ValueType.SECRET 对齐:password 输入框;后端回显固定 ******,原样提交=未改动) */
-const SECRET_KEYS = new Set(['erp.mail.password'])
+const SECRET_KEYS = new Set(['erp.mail.password', 'erp.oss.secret-key'])
 /** 多行 prompt 键(渲染 textarea 4 行) */
 const PROMPT_KEYS = new Set([
   'erp.ai.system-prompt',
@@ -256,6 +264,20 @@ const CONFIG_ITEMS: Record<string, { label: string; desc?: string; def?: string 
   },
   'erp.mail.from': { label: '发件人(From)', desc: '留空回落 SMTP 账号' },
   'erp.mail.ssl': { label: 'SSL 加密', desc: '465 端口典型开启;587 STARTTLS 场景关闭', def: 'true' },
+  // —— ORDER_REVIEW 组:订单审核风控(#29;2026-09-11 补登——后端组与词表已上线但前端 tab 漏登,同修存量缺口)——
+  'erp.order.review.risk-keywords': {
+    label: '风控关键词',
+    desc: '买家留言命中任一关键词置待审核(英文逗号分隔);空 = 仅按地址不完整规则判定',
+  },
+  // —— OSS 组:对象存储(#25 RustFS)——
+  'erp.oss.enabled': { label: '总开关', desc: '关闭时对象存储调用直接报"未启用",业务方走原链路(保护性默认关)' },
+  'erp.oss.endpoint': { label: 'S3 端点', desc: '如本地 RustFS http://localhost:9000(compose --profile oss)' },
+  'erp.oss.bucket': { label: '桶名', desc: '需预先创建(RustFS 控制台或 S3 SDK)' },
+  'erp.oss.access-key': { label: 'AccessKey', desc: '本地 RustFS 默认 rustfsadmin' },
+  'erp.oss.secret-key': {
+    label: 'SecretKey',
+    desc: '保存后回显固定 ******,原样提交 = 未改动,清空提交 = 清除;与 SMTP 授权码同 SECRET 口径',
+  },
 }
 
 const activeGroup = ref<string>('AI')
@@ -330,10 +352,17 @@ const tagOf = (row: SysConfig) => {
   return value && value !== item.def ? '已修改' : '默认值'
 }
 
+// 组切换竞态守卫:快速切 tab 时旧组慢响应不得覆盖新组 rows/textValues(#26 二轮走查)
+let groupSeq = 0
 const loadGroup = async () => {
+  const seq = ++groupSeq
   loading.value = true
   try {
-    rows.value = (await SystemConfigApi.listByGroup(activeGroup.value)) || []
+    const list = (await SystemConfigApi.listByGroup(activeGroup.value)) || []
+    if (seq !== groupSeq) {
+      return
+    }
+    rows.value = list
     activeSection.value = 'base'
     textValuesClear()
     rows.value.forEach(row => {
@@ -344,7 +373,9 @@ const loadGroup = async () => {
       }
     })
   } finally {
-    loading.value = false
+    if (seq === groupSeq) {
+      loading.value = false
+    }
   }
 }
 

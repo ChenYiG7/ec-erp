@@ -115,6 +115,17 @@ export interface SysNotificationResponse {
   updatedAt: string
 }
 
+/** 站内通知 SSE 推送帧(POST /api/system/notifications/subscribe):通知帧五字段 + 心跳帧 {type} */
+export interface NotificationFrame {
+  /** 心跳帧标识(HEARTBEAT),通知帧无此字段 */
+  type?: string
+  notifyType?: string
+  title?: string
+  content?: string | null
+  bizType?: string | null
+  bizId?: number | null
+}
+
 export interface SysConfig {
   id: number | null
   /** 参数组:AI=大模型与AI工作流 ALERT=库存预警 SALES=销量统计 */

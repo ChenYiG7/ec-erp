@@ -1,6 +1,7 @@
 package com.own.erp.contract;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * @author : chenyi
@@ -30,7 +31,14 @@ public record OrderProfitQuery(
         Integer pageNo,
 
         /** 页大小(≤200) */
-        Integer pageSize
+        Integer pageSize,
+
+        /**
+         * 数据权限授权店铺集(#27①,可空=null=不限;非空=IN 过滤;空列表=不可见任何店铺数据)。
+         * HTTP 链路由 ProfitQueryApiImpl 强制装配 CurrentUserApi.currentShopIds()(AI/前端自带值被覆盖);
+         * 系统内部调用(ProfitPeriodReportService 等)保持 null 不受数据权限约束
+         */
+        List<Long> shopIds
 ) {
 
     public int pageNoOrDefault() {

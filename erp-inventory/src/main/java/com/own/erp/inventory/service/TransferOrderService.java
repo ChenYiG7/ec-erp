@@ -183,6 +183,21 @@ public class TransferOrderService {
         transferOrderMapper.deleteById(id);
     }
 
+    /**
+     * 仓库调拨单引用数(#30 余量,仓库删除校验经 erp-contract WarehouseApi 暴露):调出/调入任一腿引用即计数。
+     * 调出仓 ≠ 调入仓(validateRefs 拦),单行不会双计;已确认单库存已动账,草稿单是业务凭证,均禁删仓
+     */
+    public long countByWarehouseId(Long warehouseId) {
+        if (warehouseId == null) {
+            return 0;
+        }
+        Long count = transferOrderMapper.selectCount(new LambdaQueryWrapper<TransferOrder>()
+                .and(w -> w.eq(TransferOrder::getFromWarehouseId, warehouseId)
+                        .or()
+                        .eq(TransferOrder::getToWarehouseId, warehouseId)));
+        return count == null ? 0L : count;
+    }
+
     /** 明细实体列表(同模块内取数,entity 不出本模块;按 id 升序稳定排序) */
     private List<TransferOrderItem> listItems(Long transferId) {
         return transferOrderItemMapper.selectList(new LambdaQueryWrapper<TransferOrderItem>()

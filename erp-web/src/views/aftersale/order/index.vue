@@ -13,9 +13,9 @@
       :columns="columns"
       :request-api="aftersaleOrderApi.page"
     >
-      <!-- 退货明细展开行(懒加载详情 returnItems,见 AftersaleReturnItems) -->
+      <!-- 退货明细展开行(懒加载详情 returnItems,见 AftersaleReturnItems;v-if 判 id 拦 el-table hidden-columns 空对象行的预渲染) -->
       <template #expand="scope">
-        <AftersaleReturnItems :row="scope.row" />
+        <AftersaleReturnItems v-if="scope.row?.id != null" :row="scope.row" />
       </template>
       <!-- 操作列(ProTable v2:type:'operation' 列必须提供本插槽;按钮按状态机裁剪,越权拦截在后端) -->
       <template #operation="scope">

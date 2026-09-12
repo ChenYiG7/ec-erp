@@ -25,6 +25,9 @@ public record SupplierSaveRequest(
         /** 结算方式,走 sys_dict(预付/月结等) */
         String settleType,
 
+        /** 账期天数(V1仅展示,到期提醒留 TODO#31;非空须 ≥0) */
+        Integer settleDays,
+
         /** 备注 */
         String remark,
 
@@ -39,6 +42,7 @@ public record SupplierSaveRequest(
         entity.setContact(contact);
         entity.setPhone(phone);
         entity.setSettleType(settleType);
+        entity.setSettleDays(settleDays);
         entity.setRemark(remark);
         entity.setStatus(status);
         return entity;

@@ -135,6 +135,18 @@ public class ProductService {
     }
 
     /**
+     * 批量按 ID 查 SKU 全量属性(#33 头程分摊取重量/成本价,GoodsQueryApi.findSkusByIds 委托落点):
+     * selectByIds 走 BaseMapper 内建(规避 LambdaWrapper.in() 急切解析坑,docs/07 §10);
+     * 查无的 ID 不在结果中(调用方自行判缺);不过滤 status——禁用 SKU 的历史单据仍需取数
+     */
+    public List<ProductSkuResponse> listSkusByIds(Collection<Long> ids) {
+        if (CollUtil.isEmpty(ids)) {
+            return List.of();
+        }
+        return skuMapper.selectByIds(ids).stream().map(ProductSkuResponse::from).toList();
+    }
+
+    /**
      * 内部SKU编码 → ID 映射(#5 自动匹配编排用,erp-api 调用):
      * seller_sku == sku_code 精确匹配的 goods 侧查询;in 分批 ≤1000(docs/07 §5);
      * 同码重复取先到(uk_sku 唯一,理论不重复,防御兜底)。不过滤 status:启停由人工决策,历史映射保留

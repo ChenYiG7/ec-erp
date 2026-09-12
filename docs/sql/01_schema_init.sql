@@ -4,6 +4,8 @@
 -- 规约:表/列必须带 COMMENT 中文释义(erp-codegen 以 COMMENT 生成实体 javadoc)
 -- 与已生成 CRUD 对齐的表:sys_user/sys_role/sys_dict/shop/brand/
 --   product_category/product/product_sku;其余为 docs/03 设计的核心表
+-- 已建库对齐(2026-09-12):python scripts/replay_schema_migration.py —— 幂等重放本脚本
+--   (引号感知切分)+ 各"已建库手工补齐"历史加列 information_schema 判存补齐,重跑安全
 -- =====================================================================
 
 CREATE DATABASE IF NOT EXISTS erp DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
@@ -17,12 +19,48 @@ CREATE TABLE IF NOT EXISTS sys_user (
     nickname    VARCHAR(64)  NULL COMMENT '昵称',
     email       VARCHAR(128) NULL COMMENT '邮箱',
     phone       VARCHAR(32)  NULL COMMENT '手机号',
+    dept_id     BIGINT       NULL COMMENT '部门ID(sys_dept.id,#27③)',
     status      TINYINT      NOT NULL DEFAULT 1 COMMENT '1启用0禁用',
     created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     deleted     BIGINT       NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
     UNIQUE KEY uk_username (username, deleted)
 ) COMMENT '系统用户';
+
+-- 部门组织架构(#27③ 2026-09-12:树形,parent_id 自关联;数据权限/业绩核算铺路,计划书 docs/plans/27-rbac-enhance.md)
+-- 已建库手工补齐 = ALTER TABLE sys_user ADD COLUMN dept_id BIGINT NULL COMMENT '部门ID(sys_dept.id,#27③)'; + 重跑 sys_menu 44/4401~4403 段与 sys_role_menu (1,44),(1,4401),(1,4402),(1,4403) 段
+CREATE TABLE IF NOT EXISTS sys_dept (
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    parent_id  BIGINT      NOT NULL DEFAULT 0 COMMENT '父部门ID,0=根',
+    dept_name  VARCHAR(64) NOT NULL COMMENT '部门名称',
+    sort       INT         NOT NULL DEFAULT 0 COMMENT '同级排序,小在前',
+    status     TINYINT     NOT NULL DEFAULT 1 COMMENT '1启用 0禁用',
+    created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted    BIGINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
+    UNIQUE KEY uk_dept (parent_id, dept_name, deleted)
+) COMMENT '部门组织架构(#27③,数据权限/业绩核算铺路)';
+
+-- 操作审计日志(#27② 2026-09-12:人工业务动作审计,@OperLog AOP 切面落库;系统 Job 不记——那是系统行为,
+--   traceId+应用日志已覆盖;只增不改不删,无逻辑删除列)
+CREATE TABLE IF NOT EXISTS sys_oper_log (
+    id            BIGINT       AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    user_id       BIGINT       NULL COMMENT '操作人ID(sys_user.id),快照写入后不随用户变动',
+    username      VARCHAR(64)  NULL COMMENT '操作人登录名快照(防用户删除后断链)',
+    module        VARCHAR(32)  NOT NULL COMMENT '业务模块:order/inventory/fulfill/purchase/finance',
+    action        VARCHAR(32)  NOT NULL COMMENT '动作标识,@OperLog 声明,如 review/ship/audit',
+    biz_type      VARCHAR(32)  NULL COMMENT '关联业务类型,本期默认同 module',
+    biz_id        BIGINT       NULL COMMENT '关联业务主键(路径变量 id)',
+    params_json   TEXT         NULL COMMENT '方法参数 JSON(截断 2KB,凭证类字段名脱敏)',
+    result_status VARCHAR(8)   NOT NULL COMMENT '结果:OK/FAIL',
+    error_msg     VARCHAR(500) NULL COMMENT '异常摘要(result_status=FAIL 时,截断)',
+    ip            VARCHAR(64)  NULL COMMENT '操作人 IP(X-Forwarded-For 首段优先)',
+    trace_id      VARCHAR(32)  NULL COMMENT '链路ID(TraceIdFilter MDC traceId)',
+    cost_ms       INT          NULL COMMENT '耗时毫秒',
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+    KEY idx_user_time (user_id, created_at),
+    KEY idx_module (module, created_at)
+) COMMENT '操作审计日志(#27②,人工业务动作)';
 
 CREATE TABLE IF NOT EXISTS sys_role (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
@@ -62,6 +100,17 @@ CREATE TABLE IF NOT EXISTS sys_user_role (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (user_id, role_id)
 ) COMMENT '用户-角色关联';
+
+-- 用户-店铺数据授权(#27① 方案A:店铺轴数据权限,2026-09-12):
+--     不在此表的用户按角色语义——admin 全量(currentShopIds 返 null=不限),其余待授权(空集=不可见任何店铺数据);
+--     已建库手工补齐 = 直接重跑本段(CREATE IF NOT EXISTS 幂等)
+CREATE TABLE IF NOT EXISTS sys_user_shop (
+    user_id    BIGINT   NOT NULL COMMENT '用户ID(sys_user.id)',
+    shop_id    BIGINT   NOT NULL COMMENT '店铺ID(shop.id)',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (user_id, shop_id)
+) COMMENT '用户-店铺数据授权(#27①;数据权限主轴=店铺)';
 
 CREATE TABLE IF NOT EXISTS sys_role_menu (
     role_id    BIGINT   NOT NULL COMMENT '角色ID(sys_role.id)',
@@ -152,13 +201,33 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key, path
 (29, 1, '系统设置', 2, 'system:config:list', '/system/configs', 'system/config/index', 'Tools', 5),
 -- 盘点单/调拨单(仓内作业 2026-09-11:盘点单建单/录实盘/生成调整/关闭/取消,调拨单建单/确认/取消,库存管理目录下)
 (38, 17, '盘点单', 2, 'inventory:stocktake:list', '/inventory/stocktakes', 'inventory/stocktake/index', 'Files', 4),
-(39, 17, '调拨单', 2, 'inventory:transfer:list', '/inventory/transfer-orders', 'inventory/transfer/index', 'Switch', 5);
+(39, 17, '调拨单', 2, 'inventory:transfer:list', '/inventory/transfer-orders', 'inventory/transfer/index', 'Switch', 5),
+-- 资金流水(#31 收付款/回款 2026-09-11:统一资金账+采购付款登记+结算回款自动派生;列表 gen:page 生成,
+--   付款登记/手工登记/作废为手写表单组件;财务数据写侧 admin 双闸 @PreAuthorize + 本 permKey 前端收口)
+(40, 31, '资金流水', 2, 'finance:payment:list', '/finance/payments', 'finance/payment/index', 'CreditCard', 4),
+-- 平台费率(#19 周期利润口径 2026-09-11:预估费用模型,费率表 gen:page CRUD;写侧 admin 双闸同汇率快照)
+(41, 31, '平台费率', 2, 'finance:fee-rate:list', '/finance/fee-rates', 'finance/fee-rate/index', 'Percent', 5),
+-- 周期利润(#19 三口径第二层:结算报告期粒度校差;系统写入只读页,数据由结算报告 PARSED 同事务派生 + ProfitPeriodJob 兜底(#32 2026-09-12 落地))
+(42, 31, '周期利润', 2, 'finance:period:list', '/finance/profit-periods', 'finance/profit-period/index', 'DataAnalysis', 6),
+-- 头程发货单(#33 头程运费分摊 2026-09-11:装箱数据面+运费三策略分摊;列表 gen:page,建单/装箱/录运费/分摊为手写组件;
+--   财务写侧 admin 双闸 @PreAuthorize + 本 permKey 前端收口,同资金流水口径)
+(43, 31, '头程发货单', 2, 'finance:first-leg:list', '/finance/first-leg-shipments', 'finance/first-leg/index', 'Promotion', 7),
+-- 部门管理(#27③ 部门组织架构 2026-09-12:树形域手写页(gen:page 不适用——树形域无分页端点,同分类管理先例);
+--   读写限 admin,按钮三件对齐系统域口径)
+(44, 1, '部门管理', 2, 'system:dept:list', '/system/depts', 'system/dept/index', 'OfficeBuilding', 6),
+-- 操作日志(#27② 操作审计 2026-09-12:人工业务动作审计只读查询页,gen:page 生成;读写限 admin,无按钮)
+(45, 1, '操作日志', 2, 'system:operlog:list', '/system/oper-logs', 'system/oper-log/index', 'Document', 7),
+-- FBA发货单(fba-shipment 2026-09-12:V1 内部数据面 计划/装箱/发出动账/收货对账;订单中心下;
+--   列表 gen:page,建单(计划行+装箱)/收货登记为手写组件;写侧后端不限 admin 同发货单口径,permKey 前端收口)
+(46, 8, 'FBA发货单', 2, 'fulfill:fba:list', '/fulfill/fba-shipments', 'fulfill/fba-shipment/index', 'Box', 5);
 INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key) VALUES
 (200, 2, '新增', 3, 'system:user:add'),
 (201, 2, '编辑', 3, 'system:user:edit'),
 (202, 2, '删除', 3, 'system:user:remove'),
 (203, 2, '角色分配', 3, 'system:user:roles'),
 (204, 2, '重置密码', 3, 'system:user:password'),
+-- 店铺授权按钮(#27① 数据权限 2026-09-12;已建库手工补齐 = 重跑本行 + sys_role_menu (1,205) 段)
+(205, 2, '店铺授权', 3, 'system:user:shops'),
 (210, 3, '新增', 3, 'system:role:add'),
 (211, 3, '编辑', 3, 'system:role:edit'),
 (212, 3, '删除', 3, 'system:role:remove'),
@@ -169,7 +238,7 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key) VALU
 (230, 5, '新增', 3, 'shop:add'),
 (231, 5, '编辑', 3, 'shop:edit'),
 (232, 5, '删除', 3, 'shop:remove'),
-(290, 29, '保存参数', 3, 'system:config:save');
+(290, 29, '保存参数', 3, 'system:config:save'),
 (233, 5, '平台授权', 3, 'shop:auth-url'),
 (240, 100, '新增', 3, 'system:dict:add'),
 (241, 100, '编辑', 3, 'system:dict:edit'),
@@ -230,14 +299,48 @@ INSERT IGNORE INTO sys_menu (id, parent_id, menu_name, menu_type, perm_key) VALU
 (3805, 38, '生成调整', 3, 'inventory:stocktake:adjust'),
 (3806, 38, '关闭', 3, 'inventory:stocktake:close'),
 (3807, 38, '取消', 3, 'inventory:stocktake:cancel'),
+(3808, 38, '开始盘点', 3, 'inventory:stocktake:start'),
+(3809, 38, '提交盘点', 3, 'inventory:stocktake:submit'),
 (3901, 39, '新增', 3, 'inventory:transfer:add'),
 (3902, 39, '编辑', 3, 'inventory:transfer:edit'),
 (3903, 39, '删除', 3, 'inventory:transfer:remove'),
 (3904, 39, '确认', 3, 'inventory:transfer:confirm'),
-(3905, 39, '取消', 3, 'inventory:transfer:cancel');
+(3905, 39, '取消', 3, 'inventory:transfer:cancel'),
+-- 资金流水按钮(#31 2026-09-11:登记/作废财务写操作,后端另有 @PreAuthorize hasRole('admin') 双闸)
+(4001, 40, '采购付款登记', 3, 'finance:payment:purchase'),
+(4002, 40, '手工登记', 3, 'finance:payment:manual'),
+(4003, 40, '作废', 3, 'finance:payment:void'),
+-- 平台费率按钮(#19 2026-09-11:费率 CRUD 财务写操作,后端 @PreAuthorize hasRole('admin') 双闸;周期利润只读无按钮)
+(4101, 41, '新增', 3, 'finance:fee-rate:add'),
+(4102, 41, '编辑', 3, 'finance:fee-rate:edit'),
+(4103, 41, '删除', 3, 'finance:fee-rate:remove'),
+-- 头程发货单按钮(#33 2026-09-11:写操作财务写侧 admin 双闸;动作按状态机裁剪:
+--   DRAFT 可改/删/装箱完成/取消;BOXED 可确认发货/取消;SHIPPED 可运费分摊;ALLOCATED 可关闭)
+(4301, 43, '新增', 3, 'finance:first-leg:add'),
+(4302, 43, '编辑', 3, 'finance:first-leg:edit'),
+(4303, 43, '删除', 3, 'finance:first-leg:remove'),
+(4304, 43, '装箱完成', 3, 'finance:first-leg:box'),
+(4305, 43, '确认发货', 3, 'finance:first-leg:ship'),
+(4306, 43, '运费分摊', 3, 'finance:first-leg:allocate'),
+(4307, 43, '关闭', 3, 'finance:first-leg:close'),
+(4308, 43, '取消', 3, 'finance:first-leg:cancel'),
+-- 部门管理按钮(#27③ 2026-09-12:写三件,后端 @PreAuthorize hasRole('admin') 双闸)
+(4401, 44, '新增', 3, 'system:dept:add'),
+(4402, 44, '编辑', 3, 'system:dept:edit'),
+(4403, 44, '删除', 3, 'system:dept:remove'),
+-- FBA发货单按钮(fba-shipment 2026-09-12:按钮 id 段 menuId*100+n;动作按状态机裁剪:
+--   DRAFT 可改/删/装箱完成/取消;BOXED 可确认发货(动账)/取消;SHIPPED/RECEIVING 可收货登记;RECEIVING 可关闭)
+(4601, 46, '新增', 3, 'fulfill:fba:add'),
+(4602, 46, '编辑', 3, 'fulfill:fba:edit'),
+(4603, 46, '删除', 3, 'fulfill:fba:remove'),
+(4604, 46, '装箱完成', 3, 'fulfill:fba:box'),
+(4605, 46, '确认发货', 3, 'fulfill:fba:ship'),
+(4606, 46, '收货登记', 3, 'fulfill:fba:receive'),
+(4607, 46, '关闭', 3, 'fulfill:fba:close'),
+(4608, 46, '取消', 3, 'fulfill:fba:cancel');
 INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
 (1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(1,9),(1,100),(1,101),
-(1,200),(1,201),(1,202),(1,203),(1,204),(1,210),(1,211),(1,212),(1,213),
+(1,200),(1,201),(1,202),(1,203),(1,204),(1,205),(1,210),(1,211),(1,212),(1,213),
 (1,220),(1,221),(1,222),(1,230),(1,231),(1,232),(1,233),(1,240),(1,241),(1,242),
 (1,10),(1,11),(1,12),(1,13),(1,14),(1,15),(1,16),(1,17),(1,18),(1,19),
 (1,1101),(1,1102),(1,1103),(1,1201),(1,1202),(1,1203),(1,1204),(1,1205),(1,1301),(1,1302),
@@ -250,9 +353,21 @@ INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
 (1,31),(1,32),(1,33),(1,3301),
 -- 补绑:34~37(财务/报表页)、901/902(#29 订单域补课)此前漏绑,本次一并补齐(INSERT IGNORE 幂等)
 (1,34),(1,35),(1,36),(1,37),(1,901),(1,902),
--- 仓内作业 2026-09-11:盘点单(38)/调拨单(39)页面与按钮
-(1,38),(1,3801),(1,3802),(1,3803),(1,3804),(1,3805),(1,3806),(1,3807),
-(1,39),(1,3901),(1,3902),(1,3903),(1,3904),(1,3905);
+-- 仓内作业 2026-09-11:盘点单(38)/调拨单(39)页面与按钮(3808/3809 开始·提交盘点为前端页面落地时补登记)
+(1,38),(1,3801),(1,3802),(1,3803),(1,3804),(1,3805),(1,3806),(1,3807),(1,3808),(1,3809),
+(1,39),(1,3901),(1,3902),(1,3903),(1,3904),(1,3905),
+-- 资金流水(#31 2026-09-11 收付款/回款)
+(1,40),(1,4001),(1,4002),(1,4003),
+-- 周期利润口径(#19 2026-09-11):平台费率 CRUD + 周期利润只读页
+(1,41),(1,4101),(1,4102),(1,4103),(1,42),
+-- 头程运费分摊(#33 2026-09-11):头程发货单页 + 8 按钮
+(1,43),(1,4301),(1,4302),(1,4303),(1,4304),(1,4305),(1,4306),(1,4307),(1,4308),
+-- 部门管理(#27③ 2026-09-12 部门组织架构)
+(1,44),(1,4401),(1,4402),(1,4403),
+-- 操作日志(#27② 2026-09-12 操作审计,只读页无按钮)
+(1,45),
+-- FBA发货单(fba-shipment 2026-09-12:V1 内部数据面)页面 + 8 按钮
+(1,46),(1,4601),(1,4602),(1,4603),(1,4604),(1,4605),(1,4606),(1,4607),(1,4608);
 -- ⚠️ 已建库(旧种子已插入)需手工执行对齐 --
 -- UPDATE sys_menu SET path='/goods/product', component='goods/product/index' WHERE id=7;   -- IGNORE 不更新存量行
 -- 再执行上面对应新增段(各新增段均为全新 id,含后续追加的按钮/页面/授权行,整段重跑 INSERT IGNORE 即可,幂等);
@@ -260,11 +375,29 @@ INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
 -- TODO#18(2026-09-07):已建库手工补齐 = 重跑上面 sys_menu 29/290 段 + sys_role_menu (1,29),(1,290) 段
 --   + CREATE TABLE sys_config 段(全部 INSERT IGNORE / CREATE IF NOT EXISTS 幂等,整段重跑即可)
 -- TODO#29(2026-09-11 订单域补课):已建库手工补齐 = 重跑上面 sys_menu 901/902 段 + sys_role_menu (1,901),(1,902) 段
+-- FBA发货单(2026-09-12):已建库手工补齐 = 重跑 fba_shipment/fba_shipment_item/fba_box/fba_box_item/
+--   fba_shipment_diff CREATE IF NOT EXISTS 段 + sys_menu 46 段 + sys_role_menu (1,46),(1,4601)~(1,4608) 段
+--   (全部幂等,整段重跑即可)
 --   + shop_order 六列 ALTER 段(见订单段注释,幂等执行后重新登录生效)
+-- #27③(2026-09-12 部门组织架构):已建库手工补齐 = sys_user ADD COLUMN dept_id ALTER(见 sys_dept 段注释)
+--   + 重跑上面 sys_menu 44/4401~4403 段 + sys_role_menu (1,44),(1,4401),(1,4402),(1,4403) 段(重新登录生效)
+-- #27②(2026-09-12 操作审计):已建库手工补齐 = 重跑上面 sys_oper_log CREATE IF NOT EXISTS 段
+--   + sys_menu 45 段 + sys_role_menu (1,45) 段(INSERT IGNORE 幂等,改完重新登录生效)
 -- 仓内作业(2026-09-11 盘点单/调拨单):已建库手工补齐 = 重跑 stocktake_order/stocktake_item/transfer_order/transfer_order_item
 --   CREATE IF NOT EXISTS 段 + sys_menu 38/39/3801~3807/3901~3905 段 + sys_role_menu (1,38),(1,3801~3807),(1,39),(1,3901~3905)
 --   + 漏绑补段 (1,34~37),(1,901),(1,902)(整段重跑 INSERT IGNORE 即可,幂等;改完重新登录生效);
 --   或直接跑 python scripts/validate_inventory_sql.py(含建表 + 菜单段幂等重放 + 动账 SQL 真库验证)
+-- TODO#31(2026-09-11 收付款/回款):已建库手工补齐 = 重跑 payment_record/payment_alloc CREATE IF NOT EXISTS 段
+--   + supplier.settle_days ALTER 段(见供应商表注释)+ sys_menu 40/4001~4003 段 + sys_role_menu (1,40),(1,4001~4003)
+--   + 存量 PARSED 结算报告补派生回款流水(python scripts/archive/payment_receipt_migration.py,幂等);
+--   或直接跑 python scripts/validate_payment_sql.py(含建表 + 菜单段幂等重放 + 派生/聚合 SQL 真库验证)
+-- TODO#32(2026-09-11 周期利润口径):已建库手工补齐 = 重跑 platform_fee_rate/profit_period_report CREATE IF NOT EXISTS 段
+--   + sys_menu 41/42/4101~4103 段 + sys_role_menu (1,41),(1,4101~4103),(1,42)
+--   (整段重跑 INSERT IGNORE 即可,幂等;改完重新登录生效);校差算法落地前 profit_period_report 无数据写入属预期
+-- TODO#33(2026-09-11 头程运费分摊):已建库手工补齐 = 重跑 first_leg_shipment/first_leg_box/first_leg_box_item/
+--   first_leg_alloc CREATE IF NOT EXISTS 段 + product_sku 长宽高 ALTER 段(见商品 SKU 段注释)
+--   + sys_menu 43/4301~4308 段 + sys_role_menu (1,43),(1,4301~4308)
+--   或直接跑 python scripts/validate_first_leg_sql.py(含建表/加列 + 菜单段幂等重放 + 分摊聚合/守卫 SQL 真库验证)
 -- 菜单整理(2026-09-07,两次合并最终态):AI助手顶级置顶 + 系统管理瘦身(店铺管理->商品中心,拉单日志->订单中心,通知中心->顶级);
 --   最终顶级排序:AI助手/商品中心/订单中心/采购管理/库存管理/通知中心/系统管理;系统管理仅剩用户/角色/菜单/字典/系统设置;
 --   已建库手工对齐 = 执行下面 12 条(全绝对值幂等,与执行顺序无关),或跑 python scripts/menu_tool.py reorg(自动读 local.properties 连接),改完重新登录生效:
@@ -338,7 +471,7 @@ CREATE TABLE IF NOT EXISTS sys_notification (
 --   凭证类(AI api-key/平台密钥)禁入本表——安全红线 docs/07 §7,凭证只走环境变量/local.properties
 CREATE TABLE IF NOT EXISTS sys_config (
     id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
-    config_group VARCHAR(32)   NOT NULL COMMENT '参数组:AI=大模型与AI工作流(含对话/Agent提示词与连接) ALERT=库存预警 SALES=销量统计 NOTIFY=邮件通知 ORDER_REVIEW=订单审核风控(#29)',
+    config_group VARCHAR(32)   NOT NULL COMMENT '参数组:AI=大模型与AI工作流(含对话/Agent提示词与连接) ALERT=库存预警 SALES=销量统计 NOTIFY=邮件通知 ORDER_REVIEW=订单审核风控(#29) OSS=对象存储(#25)',
     config_key   VARCHAR(64)   NOT NULL COMMENT '参数键(与 yml relaxed-binding 键同名,如 erp.ai.replenish.low-stock-threshold),唯一',
     config_value VARCHAR(1024) NULL COMMENT '参数值(文本存储,数字/布尔由消费侧解析;凭证类禁入本表)',
     remark       VARCHAR(255)  NULL COMMENT '参数说明(前端表单旁展示)',
@@ -403,6 +536,16 @@ INSERT IGNORE INTO sys_config (config_group, config_key, config_value, remark) V
 ('NOTIFY', 'erp.mail.password', '', '邮件:SMTP 授权码(SECRET 类型:读侧回显固定 ******,真值不出后端;docs/07 §7 范围例外)'),
 ('NOTIFY', 'erp.mail.from', '', '邮件:发件人 From 头(留空回落 SMTP 账号)'),
 ('NOTIFY', 'erp.mail.ssl', 'true', '邮件:SSL 加密(465 端口典型 true;587 STARTTLS 场景 false)');
+
+-- 对象存储参数(#25 RustFS 2026-09-11:OssService 配置面,GROUP_OSS);
+--   ⚠️ 凭证例外扩容(docs/07 §7,2026-09-11 拍板):erp.oss.secret-key 为第二把 SECRET 键——
+--   读侧回显固定 ******(真值不出后端)/写侧掩码回环跳过/消费侧 valueOf 恒取真值,同 SMTP 授权码三道防线
+INSERT IGNORE INTO sys_config (config_group, config_key, config_value, remark) VALUES
+('OSS', 'erp.oss.enabled', 'false', '对象存储总开关(#25 RustFS;false 时 OssService 调用即报未启用,业务方走原链路,保护性默认关)'),
+('OSS', 'erp.oss.endpoint', '', '对象存储:S3 兼容端点(如本地 docker compose --profile oss 的 http://localhost:9000)'),
+('OSS', 'erp.oss.bucket', '', '对象存储:桶名(需预先创建;RustFS 控制台或 S3 SDK 建桶)'),
+('OSS', 'erp.oss.access-key', '', '对象存储:AccessKey(RustFS 默认 rustfsadmin)'),
+('OSS', 'erp.oss.secret-key', '', '对象存储:SecretKey(SECRET 类型:读侧回显固定 ******,原样提交=未改动;docs/07 §7 例外扩容)');
 -- ⚠️ 已建库(sys_config 已建表)手工补齐 = 直接执行上面 INSERT IGNORE 段(uk_config_key 冲突即跳过,幂等;
 --   已人工改过值的键不会被种子覆盖);模型连接三键种子为 NULL 属预期,值回落部署环境变量
 
@@ -430,7 +573,7 @@ CREATE TABLE IF NOT EXISTS shop (
 CREATE TABLE IF NOT EXISTS pull_log (
     id            BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
     shop_id       BIGINT      NOT NULL COMMENT '店铺ID(shop.id)',
-    data_type     VARCHAR(32) NOT NULL COMMENT 'ORDER/PRODUCT/REFUND/SHIPMENT(发货回传,非拉取型:窗口退化为本次时刻、pulled_count 恒 1,2026-09-08 #11 编排)',
+    data_type     VARCHAR(32) NOT NULL COMMENT 'ORDER/PRODUCT/REFUND/SHIPMENT(发货回传)/SETTLEMENT(结算报告拉取;后两类非拉取型:窗口退化为本次时刻、pulled_count 恒 1)',
     window_start  DATETIME    NOT NULL COMMENT '拉取窗口起点(含)',
     window_end    DATETIME    NOT NULL COMMENT '拉取窗口终点(含);游标=最近成功记录的window_end',
     pulled_count  INT         NOT NULL DEFAULT 0 COMMENT '本次拉取条数',
@@ -489,6 +632,9 @@ CREATE TABLE IF NOT EXISTS product_sku (
     attrs_json     JSON        NULL COMMENT '规格值',
     cost_price     DECIMAL(12,4) NULL COMMENT '成本价',
     weight_g       INT         NULL COMMENT '重量(克),跨境物流计费依据',
+    length_mm      INT         NULL COMMENT '外长(毫米),头程/FBA装箱属性(#33)',
+    width_mm       INT         NULL COMMENT '外宽(毫米),头程/FBA装箱属性(#33)',
+    height_mm      INT         NULL COMMENT '外高(毫米),头程/FBA装箱属性(#33)',
     hs_code        VARCHAR(32) NULL COMMENT '跨境HS编码',
     declared_value DECIMAL(12,4) NULL COMMENT '申报价值',
     battery        TINYINT     NOT NULL DEFAULT 0 COMMENT '是否含电池',
@@ -499,6 +645,11 @@ CREATE TABLE IF NOT EXISTS product_sku (
     UNIQUE KEY uk_sku (sku_code, deleted),
     KEY idx_product (product_id)
 ) COMMENT '商品SKU';
+-- TODO#33(2026-09-11 头程运费分摊)已建库手工补齐:新库重跑脚本即含,存量库手工执行:
+--   ALTER TABLE product_sku
+--     ADD COLUMN length_mm INT NULL COMMENT '外长(毫米),头程/FBA装箱属性(#33)',
+--     ADD COLUMN width_mm  INT NULL COMMENT '外宽(毫米),头程/FBA装箱属性(#33)',
+--     ADD COLUMN height_mm INT NULL COMMENT '外高(毫米),头程/FBA装箱属性(#33)';
 
 -- SKU映射:平台 seller_sku ↔ 内部SKU(系统心脏)
 CREATE TABLE IF NOT EXISTS shop_product (
@@ -616,6 +767,7 @@ CREATE TABLE IF NOT EXISTS supplier (
     contact     VARCHAR(64) NULL COMMENT '联系人',
     phone       VARCHAR(32) NULL COMMENT '联系电话',
     settle_type VARCHAR(32) NULL COMMENT '结算方式,走 sys_dict(预付/月结等)',
+    settle_days INT NULL COMMENT '账期天数(V1仅展示,到期提醒随预警引擎评估,TODO#31)',
     remark      VARCHAR(255) NULL COMMENT '备注',
     status      TINYINT NOT NULL DEFAULT 1 COMMENT '1启用0禁用',
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -623,6 +775,8 @@ CREATE TABLE IF NOT EXISTS supplier (
     deleted     BIGINT  NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
     UNIQUE KEY uk_name (name, deleted)
 ) COMMENT '供应商';
+-- TODO#31(2026-09-11 收付款/回款)已建库手工补齐:
+--   ALTER TABLE supplier ADD COLUMN settle_days INT NULL COMMENT '账期天数(V1仅展示,到期提醒随预警引擎评估,TODO#31)';
 
 CREATE TABLE IF NOT EXISTS purchase_order (
     id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
@@ -941,12 +1095,19 @@ CREATE TABLE IF NOT EXISTS ai_kb_document (
     file_name    VARCHAR(255) NULL COMMENT '原始文件名(仅source_type=UPLOAD)',
     char_count   INT NOT NULL DEFAULT 0 COMMENT '原文总字符数',
     chunk_count  INT NOT NULL DEFAULT 0 COMMENT '分块数(与ai_kb_chunk行数一致)',
+    original_file_key VARCHAR(512) NULL COMMENT 'OSS 对象键(原文存储,#25;NULL=未存原文:粘贴文本或OSS未启用)',
+    original_file_size BIGINT NULL COMMENT '原文字节数(#25,与original_file_key成对)',
     status       VARCHAR(16) NOT NULL DEFAULT 'FAILED' COMMENT '状态:READY可检索/FAILED向量化失败(修复后可重建转READY)',
     uploaded_by  BIGINT NOT NULL COMMENT '上传人(sys_user.id)',
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     KEY idx_created (created_at)
 ) COMMENT 'AI客服知识库文档(RAG语料正本元数据,分块文本在ai_kb_chunk)';
+-- TODO#25(2026-09-11 OSS 原文存档)已建库手工补齐:新库重跑脚本即含,存量库手工执行:
+--   ALTER TABLE ai_kb_document
+--     ADD COLUMN original_file_key VARCHAR(512) NULL COMMENT 'OSS 对象键(原文存储,#25;NULL=未存原文:粘贴文本或OSS未启用)',
+--     ADD COLUMN original_file_size BIGINT NULL COMMENT '原文字节数(#25,与original_file_key成对)';
+--   同批补 sys_config OSS 组种子(上方 GROUP_OSS INSERT IGNORE 段,幂等直接重跑);
 
 CREATE TABLE IF NOT EXISTS ai_kb_chunk (
     id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键(String.valueOf(id)=向量库文档ID,删除按此对齐)',
@@ -1007,5 +1168,242 @@ CREATE TABLE IF NOT EXISTS exchange_rate (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     KEY idx_currency_quoted (currency, quoted_at)
 ) COMMENT '汇率快照(多币种折算依据;汇率是快照不是现值——折算一律按业务日回溯取数,禁取表内最新一条)';
+
+-- ---------------- 资金流水/收付款回款(#31 2026-09-11,计划书 docs/plans/payment-receipt.md) ----------------
+-- 统一资金流水:一张表承载收付两向(direction + biz_type);金额原币恒正,方向看 direction。
+-- 作废制(登记错误留痕,禁物理删)与逻辑删除双状态:查流水默认滤 VOIDED,对账口径含 VOIDED 须注明。
+CREATE TABLE IF NOT EXISTS payment_record (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    payment_no    VARCHAR(32) NOT NULL COMMENT '流水号(PAY+yyyyMMdd+4位seq,服务端生成)',
+    direction     VARCHAR(8)  NOT NULL COMMENT '资金方向:EXPENSE付款/INCOME回款',
+    biz_type      VARCHAR(32) NOT NULL COMMENT '业务类型:PURCHASE_PAYMENT采购付款/SETTLEMENT_RECEIPT结算回款/MANUAL_ADJUST手工调整',
+    party_type    VARCHAR(16) NOT NULL COMMENT '往来方类型:SUPPLIER供应商/PLATFORM平台/OTHER其他',
+    party_id      BIGINT      NULL COMMENT '往来方ID(supplier.id / shop.id;OTHER 可空)',
+    amount        DECIMAL(12,4) NOT NULL COMMENT '原币金额(恒正,收付方向看 direction)',
+    currency      CHAR(3)     NOT NULL DEFAULT 'CNY' COMMENT '币种(ISO 4217;采购付款强制CNY与本位币采购总额勾稽)',
+    exchange_rate DECIMAL(12,8) NULL COMMENT '折算汇率快照(1 currency=rate CNY;落库时 resolveRate 按 paid_at 回溯冻结,CNY=1,无报价NULL)',
+    amount_cny    DECIMAL(12,4) NULL COMMENT '折算本位币金额(缺汇率为NULL,查询面缺口计数不静默)',
+    paid_at       DATETIME    NOT NULL COMMENT '收付款时间',
+    method        VARCHAR(32) NULL COMMENT '结算方式(银行转账/支付宝/平台打款等,走 sys_dict)',
+    ref_type      VARCHAR(32) NULL COMMENT '源单据类型:SETTLEMENT_REPORT结算报告(派生流水幂等键)',
+    ref_id        BIGINT      NULL COMMENT '源单据ID(settlement_report.id)',
+    status        VARCHAR(8)  NOT NULL DEFAULT 'NORMAL' COMMENT '状态:NORMAL正常/VOIDED已作废(作废留痕禁物理删;分摊随作废经 join NORMAL 失效)',
+    remark        VARCHAR(255) NULL COMMENT '备注',
+    created_by    BIGINT      NULL COMMENT '创建人(sys_user.id;系统派生流水为NULL)',
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted       BIGINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
+    UNIQUE KEY uk_payment_no (payment_no),
+    UNIQUE KEY uk_ref (ref_type, ref_id, deleted),
+    KEY idx_party (party_type, party_id, paid_at),
+    KEY idx_paid_at (paid_at)
+) COMMENT '资金流水(收付款/回款统一账;一单多付/一付多单经 payment_alloc 分摊)';
+
+CREATE TABLE IF NOT EXISTS payment_alloc (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    payment_id     BIGINT NOT NULL COMMENT '资金流水ID(payment_record.id)',
+    alloc_biz_type VARCHAR(16) NOT NULL COMMENT '分摊业务类型:PURCHASE采购单',
+    alloc_biz_id   BIGINT NOT NULL COMMENT '分摊业务单据ID(purchase_order.id)',
+    amount         DECIMAL(12,4) NOT NULL COMMENT '分摊金额(同流水原币;Σ分摊≤流水金额允许部分挂账;按单已付+本次≤采购总额超额拦截)',
+    created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_payment_alloc (payment_id, alloc_biz_type, alloc_biz_id),
+    KEY idx_alloc_biz (alloc_biz_type, alloc_biz_id)
+) COMMENT '资金流水分摊(一付多单;采购单已付=Σ本表关联NORMAL流水,查询时聚合不冗余存储)';
+
+-- ---------------- 周期利润/平台费率(#19 周期利润口径 2026-09-11,计划书 docs/plans/19-profit-caliber.md) ----------------
+-- 费率表先行:结算报告未回按平台费率估佣金(行级 ESTIMATED),结算回后以实际覆盖、差值落周期校差;
+-- 人工维护主数据走逻辑删除(TODO#7,第 12 张人工域表);维度平台×费种起步,站点/类目列本期预留
+CREATE TABLE IF NOT EXISTS platform_fee_rate (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    platform      VARCHAR(32) NOT NULL COMMENT '平台(PlatformType 枚举名)',
+    fee_type      VARCHAR(32) NOT NULL COMMENT '费种:本期仅 COMMISSION 估佣金(对齐 settlement_detail.fee_type 词表;FBA 仓储类无费率不猜)',
+    marketplace   VARCHAR(32) NULL COMMENT '站点,空=全站点(维度预留:估费 V1 只取全站点行,站点维启用随真实使用评估)',
+    category_path VARCHAR(255) NULL COMMENT '类目路径,空=全类目(维度预留:估费 V1 只取全类目行)',
+    rate          DECIMAL(8,6) NOT NULL COMMENT '费率(如 0.150000=15%;必须大于0且小于1,Service 校验)',
+    eff_from      DATE NOT NULL COMMENT '生效起(含;按下单日回溯,同维取 eff_from 不晚于下单日的最新一条生效行)',
+    eff_to        DATE NULL COMMENT '生效止(含;空=长期有效)',
+    source        VARCHAR(16) NOT NULL DEFAULT 'MANUAL' COMMENT '来源:MANUAL手工维护/CRAWLED抓取(预留扩展,本期仅 MANUAL)',
+    remark        VARCHAR(255) NULL COMMENT '备注',
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted       BIGINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0=正常,非0=已删(值=被删行id),见 TODO#7',
+    UNIQUE KEY uk_fee_dim (platform, fee_type, marketplace, category_path, eff_from, deleted),
+    KEY idx_dim_eff (platform, fee_type, eff_from)
+) COMMENT '平台费率表(#19 预估费用模型:结算未回按费率估佣金,结算回后校差;无费率不估算禁猜)';
+
+-- 周期利润报告:结算报告期粒度(拍板点①,天然对账非自然月),一期一报告行幂等 upsert(ODKU AS new);
+-- 结算侧/订单侧双侧金额 CNY 列,校差与三态状态机 #32 已落地(2026-09-12,拍板口径见列注释与 devlog TODO19 补篇)
+CREATE TABLE IF NOT EXISTS profit_period_report (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    shop_id           BIGINT NOT NULL COMMENT '店铺ID(shop.id)',
+    settlement_id     BIGINT NOT NULL COMMENT '关联结算报告ID(settlement_report.id)',
+    period_start      DATETIME NOT NULL COMMENT '周期起(=结算报告 period_start)',
+    period_end        DATETIME NOT NULL COMMENT '周期止(=结算报告 period_end)',
+    currency          CHAR(3) NOT NULL COMMENT '结算原生币种(ISO 4217;按原币聚合后统一折算 CNY)',
+    rate_used         DECIMAL(12,8) NULL COMMENT '折算CNY汇率快照(周期止回溯 resolveRate 冻结,1 currency=rate CNY,CNY=1;无报价NULL禁猜)',
+    rate_missing      TINYINT NOT NULL DEFAULT 0 COMMENT '缺汇率标记:0否 1是(1时CNY列留NULL,缺口计数不静默归零)',
+    order_income      DECIMAL(12,4) NULL COMMENT '订单口径收入(CNY;周期窗内已支付态订单行售价合计)',
+    settle_income     DECIMAL(12,4) NULL COMMENT '结算口径回款(CNY;TRANSFER 行折算,报告原符号)',
+    settle_commission DECIMAL(12,4) NULL COMMENT '结算侧佣金(CNY;COMMISSION 行带符号合计,佣金为负)',
+    fba_fee           DECIMAL(12,4) NULL COMMENT 'FBA系费用(CNY;FBA_FEE/STORAGE 行带符号合计,费用为负)',
+    other_fee         DECIMAL(12,4) NULL COMMENT '其他费用(CNY;REFUND/ADVERTISING/OTHER等费种带符号合计,SALE单列进收入差/TRANSFER不进差值,#32 拍板④A)',
+    order_commission  DECIMAL(12,4) NULL COMMENT '订单口径佣金(CNY;周期窗内订单行实际佣金+费率预估佣金合计)',
+    order_profit      DECIMAL(12,4) NULL COMMENT '订单口径利润(CNY;周期窗内订单行利润合计,预估参与时带ESTIMATED语义)',
+    diff_income       DECIMAL(12,4) NULL COMMENT '收入校差(CNY;结算SALE行合计-订单收入,同号相减正=结算侧多,超0.01容差置diff_flag,#32 拍板④A)',
+    diff_commission   DECIMAL(12,4) NULL COMMENT '佣金校差(CNY;结算佣金-订单归集佣金,同号相减正=结算侧多,超0.01容差置diff_flag)',
+    diff_flag         TINYINT NOT NULL DEFAULT 0 COMMENT '校差超容差标记:0勾稽平 1有差异(容差0.01本位币,同退款勾稽防尾差)',
+    diff_remark       VARCHAR(500) NULL COMMENT '校差说明(差异项/跨期口径与缺口计数,人工复核入口)',
+    status            VARCHAR(16) NOT NULL DEFAULT 'OK' COMMENT '状态:OK勾稽平/DIFF有差异/RATE_MISSING缺汇率(三态RATE_MISSING优先,#32 拍板③)',
+    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_shop_settlement (shop_id, settlement_id)
+) COMMENT '周期利润报告(#19 三口径第二层:结算报告期粒度,订单口径vs结算口径校差;系统写入对外只读)';
+
+-- ---------------- 头程运费分摊(#33 2026-09-11,计划书 docs/plans/first-mile-freight.md) ----------------
+-- 路线拍板 B(期间费用):分摊落 first_leg_alloc 独立表作为利润第三层费用行,不进 sku_cost_state 移动加权账;
+-- 本期 SHIPPED 不联动跨仓动账(海外仓/FBA 库存 track 随 fba-shipment 联动拍板)。
+-- 单据域惯例(docs/07 §6.4):主单/箱/箱内件物理删除(仅 DRAFT/CANCELED 可删,SHIPPED 起禁删),分摊结果 append-only。
+CREATE TABLE IF NOT EXISTS first_leg_shipment (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    shipment_no       VARCHAR(32)   NOT NULL COMMENT '头程单号 FL+yyyyMMdd+4位seq,服务端生成',
+    from_warehouse_id BIGINT        NOT NULL COMMENT '国内发货仓ID(warehouse.id,wh_type=SELF)',
+    to_warehouse_id   BIGINT        NOT NULL COMMENT '目的仓ID(warehouse.id,wh_type=OVERSEAS/FBA)',
+    carrier           VARCHAR(64)   NULL COMMENT '物流商(本期手工,四期物流商API取价)',
+    waybill_no        VARCHAR(64)   NULL COMMENT '运单号(SHIPPED 录运费时录入)',
+    charge_weight     DECIMAL(12,3) NULL COMMENT '计费重 kg(SHIPPED 录入)',
+    volume_weight     DECIMAL(12,3) NULL COMMENT '体积重 kg(SHIPPED 录入)',
+    freight_amount    DECIMAL(12,4) NULL COMMENT '头程运费原币(SHIPPED 录入,必须大于0)',
+    currency          CHAR(3)       NOT NULL DEFAULT 'CNY' COMMENT '运费币种(ISO 4217)',
+    exchange_rate     DECIMAL(12,8) NULL COMMENT '折算汇率快照(1 currency=rate CNY;SHIPPED 录入即冻结:手填优先,空=按 shipped_at resolveRate,无报价拦截禁猜)',
+    freight_cny       DECIMAL(12,4) NULL COMMENT '运费本位币(=freight_amount×exchange_rate,分摊基准;CNY=1)',
+    shipped_at        DATETIME      NULL COMMENT '发货时间(SHIPPED 动作时点,汇率回溯锚点)',
+    allocate_strategy VARCHAR(16)   NOT NULL DEFAULT 'WEIGHT' COMMENT '分摊策略:QTY按数量/WEIGHT按重量(默认,箱内件qty×product_sku.weight_g)/AMOUNT按金额(qty×最近采购价回退cost_price)',
+    alloc_remark      VARCHAR(500)  NULL COMMENT '分摊说明(全0分母降级按数量等,不静默;实际生效策略看 first_leg_alloc.strategy)',
+    allocated_at      DATETIME      NULL COMMENT '分摊确认时间(ALLOCATED 动作时点)',
+    status            VARCHAR(16)   NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT草稿/BOXED已装箱/SHIPPED已发货(运费已录)/ALLOCATED已分摊/CLOSED已关闭/CANCELED已取消',
+    remark            VARCHAR(255)  NULL COMMENT '备注',
+    created_by        BIGINT        NULL COMMENT '创建人(sys_user.id)',
+    created_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_shipment_no (shipment_no),
+    KEY idx_from_wh (from_warehouse_id),
+    KEY idx_to_wh (to_warehouse_id),
+    KEY idx_status (status)
+) COMMENT '头程发货单(#33 头程运费分摊:装箱数据面+运费按策略分摊到SKU;单据域物理删除,SHIPPED起禁删)';
+
+CREATE TABLE IF NOT EXISTS first_leg_box (
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    shipment_id BIGINT        NOT NULL COMMENT '头程单ID(first_leg_shipment.id)',
+    box_no      VARCHAR(32)   NOT NULL COMMENT '箱号(单内唯一)',
+    weight      DECIMAL(12,3) NULL COMMENT '整箱实重(毛重)kg(装箱记录面;V1不进WEIGHT分摊算法,混装箱无规范拆分量纲)',
+    length_cm   INT           NULL COMMENT '外长 cm',
+    width_cm    INT           NULL COMMENT '外宽 cm',
+    height_cm   INT           NULL COMMENT '外高 cm',
+    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_shipment_box (shipment_id, box_no)
+) COMMENT '头程箱(装箱单;明细域随主单物理删,改单先删后插)';
+
+CREATE TABLE IF NOT EXISTS first_leg_box_item (
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    box_id     BIGINT NOT NULL COMMENT '箱ID(first_leg_box.id)',
+    sku_id     BIGINT NOT NULL COMMENT 'SKU ID(product_sku.id)',
+    quantity   INT    NOT NULL COMMENT '箱内件数(大于0;同一箱内同一SKU唯一,合并为一行)',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_box_sku (box_id, sku_id),
+    KEY idx_sku (sku_id)
+) COMMENT '头程箱内件(分摊数量源:跨箱同SKU Σquantity)';
+
+-- 分摊结果:确认不可重算覆盖(重算=作废重开,防利润口径漂移);append-only 无删除口
+CREATE TABLE IF NOT EXISTS first_leg_alloc (
+    id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    shipment_id  BIGINT        NOT NULL COMMENT '头程单ID(first_leg_shipment.id)',
+    sku_id       BIGINT        NOT NULL COMMENT 'SKU ID(product_sku.id)',
+    alloc_amount DECIMAL(12,4) NOT NULL COMMENT '分摊头程运费(CNY;Σ本列=freight_cny,尾差并入最大基数行,容差0.01)',
+    alloc_base   DECIMAL(18,4) NOT NULL COMMENT '分摊基数快照(实际策略口径:QTY=件数/WEIGHT=总重g/AMOUNT=采购金额CNY)',
+    strategy     VARCHAR(16)   NOT NULL COMMENT '实际生效策略:QTY/WEIGHT/AMOUNT(全0分母降级后可能与主单 allocate_strategy 不同)',
+    created_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_shipment_sku (shipment_id, sku_id),
+    KEY idx_sku (sku_id)
+) COMMENT '头程运费分摊结果(#33 路线B 期间费用行;利润第三层费用聚合源,append-only)';
+
+-- ---------------- FBA 发货单(2026-09-12,计划书 docs/plans/fba-shipment.md,V1 内部数据面) ----------------
+-- 预拍板(2026-09-10):SHIPPED 一步 OUT_SHIP 经 InventoryService.change()(biz_type=FBA_SHIPMENT),装箱不占库存;
+-- SP-API Fulfillment Inbound 集成只留 TODO(#35) 槽位(随 #3 真凭证),V1 手工数据面;FBA 仓侧不入账。
+-- 单据域惯例(docs/07 §6.4):主单/计划行/箱/箱内件物理删除(仅 DRAFT/CANCELED 可删,SHIPPED 起禁删);
+-- 相对计划书 DDL 草案新增 fba_shipment_item 计划行表(装箱勾稽 Σbox_item=计划量 的存储位,漂移记计划书头部)。
+CREATE TABLE IF NOT EXISTS fba_shipment (
+    id                  BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    shipment_no         VARCHAR(32)   NOT NULL COMMENT 'FBA发货单号 FB+yyyyMMdd+4位seq,服务端生成',
+    shop_id             BIGINT        NOT NULL COMMENT '店铺ID(shop.id,归属信息,V1 不做存在性校验)',
+    marketplace         VARCHAR(16)   NOT NULL COMMENT '站点(如 US/UK/DE,手填)',
+    warehouse_id        BIGINT        NOT NULL COMMENT '国内发货仓ID(warehouse.id,wh_type=SELF,SHIPPED 出库动账仓)',
+    platform_shipment_id VARCHAR(64)  NULL COMMENT '平台 ShipmentId(V2 SP-API 回填,V1 手填可空)',
+    status              VARCHAR(16)   NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT草稿/BOXED已装箱/SHIPPED已发出(库存已出库动账)/RECEIVING收货登记中/CLOSED已关闭/CANCELED已取消',
+    shipped_at          DATETIME      NULL COMMENT '发出时间(SHIPPED 动作时点=库存动账时点)',
+    received_at         DATETIME      NULL COMMENT '最近一次收货登记时间(RECEIVING 态可重复登记覆盖)',
+    remark              VARCHAR(255)  NULL COMMENT '备注',
+    created_by          BIGINT        NULL COMMENT '创建人(sys_user.id)',
+    created_at          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_fba_shipment_no (shipment_no),
+    KEY idx_shop (shop_id),
+    KEY idx_wh (warehouse_id),
+    KEY idx_status (status)
+) COMMENT 'FBA发货单(V1 内部数据面:计划→装箱→发出动账→平台收货登记→对账;单据域物理删除,SHIPPED起禁删)';
+
+-- 计划行:建单时录入的 SKU 清单(计划量),SHIPPED 装箱勾稽基准(Σbox_item 逐 SKU == plan_qty)
+CREATE TABLE IF NOT EXISTS fba_shipment_item (
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    shipment_id BIGINT NOT NULL COMMENT 'FBA发货单ID(fba_shipment.id)',
+    sku_id      BIGINT NOT NULL COMMENT 'SKU ID(product_sku.id)',
+    plan_qty    INT    NOT NULL COMMENT '计划发货数量(大于0;同单同SKU唯一合并为一行)',
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_shipment_sku (shipment_id, sku_id),
+    KEY idx_sku (sku_id)
+) COMMENT 'FBA发货单计划行(SKU清单,SHIPPED 装箱勾稽基准;明细域随主单物理删,改单先删后插)';
+
+CREATE TABLE IF NOT EXISTS fba_box (
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    shipment_id BIGINT        NOT NULL COMMENT 'FBA发货单ID(fba_shipment.id)',
+    box_no      VARCHAR(32)   NOT NULL COMMENT '箱号(单内唯一)',
+    weight      DECIMAL(12,3) NULL COMMENT '整箱实重(毛重)kg(装箱记录面)',
+    length_cm   INT           NULL COMMENT '外长 cm',
+    width_cm    INT           NULL COMMENT '外宽 cm',
+    height_cm   INT           NULL COMMENT '外高 cm',
+    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_shipment_box (shipment_id, box_no)
+) COMMENT 'FBA箱(装箱单;明细域随主单物理删,改单先删后插)';
+
+CREATE TABLE IF NOT EXISTS fba_box_item (
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    box_id     BIGINT NOT NULL COMMENT '箱ID(fba_box.id)',
+    sku_id     BIGINT NOT NULL COMMENT 'SKU ID(product_sku.id)',
+    quantity   INT    NOT NULL COMMENT '箱内件数(大于0;同一箱内同一SKU唯一,合并为一行)',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_box_sku (box_id, sku_id),
+    KEY idx_sku (sku_id)
+) COMMENT 'FBA箱内件(发出量源:跨箱同SKU Σquantity,SHIPPED 勾稽与动账按 SKU 汇总)';
+
+-- 收货对账差异:RECEIVING 态登记平台收货数量生成/覆盖(先删后插幂等重登),CLOSED 冻结;append-only 无删除口
+CREATE TABLE IF NOT EXISTS fba_shipment_diff (
+    id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    shipment_id  BIGINT NOT NULL COMMENT 'FBA发货单ID(fba_shipment.id)',
+    sku_id       BIGINT NOT NULL COMMENT 'SKU ID(product_sku.id)',
+    shipped_qty  INT    NOT NULL COMMENT '发出量(=Σfba_box_item 该SKU件数)',
+    received_qty INT    NOT NULL COMMENT '平台收货登记量(登记时必填,未登记 SKU 按 0 计)',
+    diff_type    VARCHAR(8) NOT NULL COMMENT '差异类型:SHORT缺收(received<shipped)/EXTRA多收(received>shipped)/OK一致',
+    checked_at   DATETIME NOT NULL COMMENT '对账核对时间(登记动作时点)',
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_shipment_sku (shipment_id, sku_id),
+    KEY idx_sku (sku_id)
+) COMMENT 'FBA收货对账差异(SHIPPED=发出量 vs 平台收货登记量,SHORT/EXTRA/OK 三态;仿 RefundReconciliation 纪律)';
 
 -- TODO(三期余量): ad_report_daily(docs/03 §6 草案,随 erp-ads 广告数据面激活时建表)

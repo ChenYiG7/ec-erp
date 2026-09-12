@@ -30,7 +30,12 @@
         <el-input v-model="formData.receiverPhone" maxlength="32" placeholder="必填" class="manual-form__field" />
       </el-form-item>
       <el-form-item label="收货国家" prop="receiverCountry">
-        <el-input v-model="formData.receiverCountry" maxlength="8" placeholder="ISO 3166,如 CN" class="manual-form__field" />
+        <el-input
+          v-model="formData.receiverCountry"
+          maxlength="8"
+          placeholder="ISO 3166,如 CN"
+          class="manual-form__field"
+        />
       </el-form-item>
       <el-form-item label="省/州" prop="receiverState">
         <el-input v-model="formData.receiverState" maxlength="64" placeholder="选填" class="manual-form__field" />
@@ -65,9 +70,7 @@
           <el-button type="primary" link :icon="CirclePlus" @click="formData.items.push({ quantity: 1 })"
             >添加明细行</el-button
           >
-          <span class="manual-form__tip"
-            >仅能选内部 SKU(sku_id 必绑),行金额与订单金额由后端按 单价×数量 计算</span
-          >
+          <span class="manual-form__tip">仅能选内部 SKU(sku_id 必绑),行金额与订单金额由后端按 单价×数量 计算</span>
         </div>
       </el-form-item>
     </el-form>
@@ -219,7 +222,7 @@ const handleSubmit = async () => {
   try {
     if (editId.value == null) {
       await shopOrderApi.createManual(payload)
-      ElMessage.success('内销订单一已录入(待发货,状态与审核态以列表为准)')
+      ElMessage.success('内销订单已录入(待发货,状态与审核态以列表为准)')
     } else {
       await shopOrderApi.updateManual(editId.value, payload)
       ElMessage.success('保存成功')

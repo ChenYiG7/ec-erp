@@ -1,0 +1,40 @@
+# 周期利润 spec(gen:page 只读域;#19 三口径第二层 2026-09-11,docs/plans/19-profit-caliber.md)
+# 契约:GET /api/finance/profit-periods + GET /{id}(系统写入表,无写接口;
+#   周期行由结算报告 PARSED 同事务派生 + ProfitPeriodJob 兜底,校差算法 TODO#32 落地前数据为空属预期)
+# 金额 DECIMAL(12,4) 前端 string 直存直显(docs/09 §6);状态/标记枚举展示,详情对照抽屉人工补。
+module=finance
+domain=profit-period
+base=finance/profit-periods
+entity=ProfitPeriodReport
+nameZh=周期利润
+permPrefix=finance:period
+todoId=19
+readonly=true
+menuParent=31
+menuId=42
+path=/finance/profit-periods
+component=finance/profit-period/index
+icon=DataAnalysis
+menuSort=6
+
+field=shopId           role=all    label=店铺ID   width=90
+field=periodStart      role=column label=周期起    width=160
+field=periodEnd        role=column label=周期止    width=160
+field=currency         role=column label=币种      width=80
+field=rateUsed         role=column label=折算汇率  width=100
+field=orderIncome      role=column label=订单收入  money width=120
+field=settleIncome     role=column label=结算回款  money width=120
+field=orderCommission  role=column label=订单佣金  money width=120
+field=settleCommission role=column label=结算佣金  money width=120
+field=fbaFee           role=column label=FBA费用   money width=110
+field=otherFee         role=column label=其他费用  money width=110
+field=orderProfit      role=column label=订单利润  money width=120
+field=diffIncome       role=column label=收入校差  money width=110
+field=diffCommission   role=column label=佣金校差  money width=110
+field=rateMissing      role=column label=缺汇率    enum=0:否:success|1:是:danger width=90 tag
+field=diffFlag         role=column label=差异      enum=0:平:success|1:有差:danger width=80 tag
+field=status           role=all    label=状态      enum=OK:勾稽平:success|DIFF:有差异:danger|RATE_MISSING:缺汇率:warning width=110 tag
+
+# 页面级动作槽位:行"详情对照"抽屉(订单口径 vs 结算口径双侧分组 + diff_remark),GET /{id} 已生成,
+# 组件人工补(参考 payment PaymentDetailDrawer);TODO#32 校差落地前列表为空属预期
+todo=periodDetail:GET /{id} 周期详情对照抽屉,双侧金额分组+校差说明,完成刷新

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.own.erp.fulfill.mapper.FbaQueryMapper">
+
+    <!-- FBA 发货单分页(fba-shipment 2026-09-12):主单为正本,LEFT JOIN warehouse/shop 取仓名/店名
+         (跨域只读 join,同 FirstLegQueryMapper 先例;按 docs/07 §6.4 拍板 join 不滤已删——
+         仓/店删后历史单据仍显名);CANCELED 不默认排除(单据状态非作废制,列表照常显) -->
+    <select id="pageRows" resultType="com.own.erp.fulfill.response.FbaShipmentResponse">
+        SELECT fb.id,
+               fb.shipment_no         AS shipmentNo,
+               fb.shop_id             AS shopId,
+               s.shop_name            AS shopName,
+               fb.marketplace,
+               fb.warehouse_id        AS warehouseId,
+               w.wh_name              AS warehouseName,
+               fb.platform_shipment_id AS platformShipmentId,
+               fb.status,
+               fb.shipped_at          AS shippedAt,
+               fb.received_at         AS receivedAt,
+               fb.remark,
+               fb.created_by          AS createdBy,
+               fb.created_at          AS createdAt,
+               fb.updated_at          AS updatedAt
+        FROM fba_shipment fb
+                 LEFT JOIN shop s ON fb.shop_id = s.id
+                 LEFT JOIN warehouse w ON fb.warehouse_id = w.id
+        <where>
+            <if test="query.shipmentNo != null and query.shipmentNo != ''">
+                AND fb.shipment_no LIKE CONCAT('%', #{query.shipmentNo}, '%')
+            </if>
+            <if test="query.status != null and query.status != ''">AND fb.status = #{query.status}</if>
+            <if test="query.shopId != null">AND fb.shop_id = #{query.shopId}</if>
+            <if test="query.marketplace != null and query.marketplace != ''">AND fb.marketplace = #{query.marketplace}</if>
+            <if test="query.warehouseId != null">AND fb.warehouse_id = #{query.warehouseId}</if>
+        </where>
+        ORDER BY fb.id DESC
+    </select>
+</mapper>

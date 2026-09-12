@@ -1,0 +1,31 @@
+# 操作日志 spec(gen:page 拍板表;#27② 操作审计:人工业务动作审计只读查询页,禁人工写/删——审计事实)
+# 契约:GET /api/system/oper-logs(限 admin);无动作
+# 词表与 DDL COMMENT 三方同步:module=order/inventory/fulfill/finance/purchase,resultStatus=OK/FAIL
+# 搜索表单(username 模糊/module·resultStatus 下拉/时间窗 datetimerange)生成后手调(order 页先例);
+# paramsJson 全量走列 tooltip,errorMsg 仅 FAIL 有值
+module=system
+domain=oper-log
+base=system/oper-logs
+entity=SysOperLog
+nameZh=操作日志
+permPrefix=system:operlog
+todoId=27
+menuParent=1
+menuId=45
+path=/system/oper-logs
+component=system/oper-log/index
+readonly=true
+icon=Document
+
+field=username     role=all    label=操作人      width=110
+field=module       role=all    label=模块        enum=order:订单:primary|inventory:库存:warning|fulfill:发货:success|purchase:采购:info|finance:财务:danger  width=100  tag
+field=resultStatus role=all    label=结果        enum=OK:成功:success|FAIL:失败:danger  width=90  tag
+field=action       role=column label=动作        width=150
+field=bizType      role=column label=业务类型     width=100
+field=bizId        role=column label=业务ID      width=90
+field=ip           role=column label=IP         width=130
+field=traceId      role=column label=链路ID     width=140
+field=costMs       role=column label=耗时(ms)   width=100
+field=paramsJson   role=column label=参数       width=200
+field=errorMsg     role=column label=失败原因
+field=createdAt    role=column label=操作时间    width=170

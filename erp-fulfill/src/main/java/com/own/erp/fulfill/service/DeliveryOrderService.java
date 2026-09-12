@@ -76,13 +76,18 @@ public class DeliveryOrderService {
         this.eventPublisher = eventPublisher;
     }
 
-    /** 分页查询(按 id 倒序;过滤:发货单号模糊/订单/店铺/状态);列表不带明细 */
+    /** 分页查询(按 id 倒序;过滤:发货单号模糊/订单/店铺/状态);列表不带明细。
+     *  数据权限(#27①):shopIds 服务器权威装配,null=不过滤;空列表=不可见任何店铺(短路零结果) */
     public Page<DeliveryOrderResponse> page(DeliveryOrderQuery query) {
+        if (query.getShopIds() != null && query.getShopIds().isEmpty()) {
+            return new Page<>(query.getPageNo(), query.pageSize());
+        }
         Page<DeliveryOrder> result = deliveryOrderMapper.selectPage(new Page<>(query.getPageNo(), query.pageSize()),
                 new LambdaQueryWrapper<DeliveryOrder>()
                         .like(StrUtil.isNotBlank(query.getDeliveryNo()), DeliveryOrder::getDeliveryNo, query.getDeliveryNo())
                         .eq(query.getOrderId() != null, DeliveryOrder::getOrderId, query.getOrderId())
                         .eq(query.getShopId() != null, DeliveryOrder::getShopId, query.getShopId())
+                        .in(query.getShopIds() != null, DeliveryOrder::getShopId, query.getShopIds())
                         .eq(StrUtil.isNotBlank(query.getStatus()), DeliveryOrder::getStatus, query.getStatus())
                         .orderByDesc(DeliveryOrder::getId));
         Page<DeliveryOrderResponse> responsePage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());

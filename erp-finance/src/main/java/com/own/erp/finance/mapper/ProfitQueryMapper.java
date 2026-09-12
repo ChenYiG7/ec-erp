@@ -19,23 +19,26 @@ import java.util.List;
 public interface ProfitQueryMapper {
 
     /**
-     * 主查询分页(下单时间倒序;过滤条件见 XML;已支付态 WAIT_SHIP/SHIPPED/COMPLETED)
+     * 主查询分页(下单时间倒序;过滤条件见 XML;已支付态 WAIT_SHIP/SHIPPED/COMPLETED);
+     * shopIds = 数据权限店铺集(#27①,可空;非空 IN 过滤——空集须调用方短路,禁落 SQL)
      */
     Page<OrderProfitLine> selectProfitLines(Page<OrderProfitLine> page,
                                             @Param("shopId") Long shopId,
                                             @Param("platform") String platform,
                                             @Param("skuId") Long skuId,
                                             @Param("dateFrom") LocalDateTime dateFrom,
-                                            @Param("dateTo") LocalDateTime dateTo);
+                                            @Param("dateTo") LocalDateTime dateTo,
+                                            @Param("shopIds") List<Long> shopIds);
 
     /**
-     * 主查询全量(汇总用,SQL 硬 LIMIT 防御 20000 行,量级增长落库方案随 V2 周期口径)
+     * 主查询全量(汇总用,SQL 硬 LIMIT 防御 20000 行,量级增长落库方案随 V2 周期口径);shopIds 语义同 selectProfitLines
      */
     List<OrderProfitLine> selectProfitLinesAll(@Param("shopId") Long shopId,
                                                @Param("platform") String platform,
                                                @Param("skuId") Long skuId,
                                                @Param("dateFrom") LocalDateTime dateFrom,
-                                               @Param("dateTo") LocalDateTime dateTo);
+                                               @Param("dateTo") LocalDateTime dateTo,
+                                               @Param("shopIds") List<Long> shopIds);
 
     /**
      * 出库成本聚合(按内部订单行):OUT_SHIP 移动加权快照经发货单行归集,Σ(−cost_amount)=正数 CNY

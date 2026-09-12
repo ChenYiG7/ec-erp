@@ -17,6 +17,7 @@ import java.util.List;
  * @Description : InventoryQueryApi 实现(#6 三期 AI 地基,编排胶水收口 erp-api,docs/07 §2.2):
  *         erp-ai 工具取数委托 erp-inventory InventoryService.page;entity→契约 record
  *         显式逐字段映射(经域 Response 中转,禁反射拷贝);本契约只读,无任何写路径
+ *         数据权限(#27①):显式不注入——库存挂仓库轴不挂店铺轴,店铺弱关联(计划书拍板)
  */
 @Component
 @RequiredArgsConstructor

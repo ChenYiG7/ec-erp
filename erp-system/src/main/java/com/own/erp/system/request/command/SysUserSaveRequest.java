@@ -30,6 +30,9 @@ public record SysUserSaveRequest(
         /** 手机号 */
         String phone,
 
+        /** 部门ID(sys_dept.id,#27③;NULL=未分配部门) */
+        Long deptId,
+
         /** 1=启用 0=禁用 */
         Integer status
 ) {
@@ -38,7 +41,7 @@ public record SysUserSaveRequest(
     @Override
     public String toString() {
         return "SysUserSaveRequest[username=" + username + ", password=****, nickname=" + nickname
-                + ", email=" + email + ", phone=" + phone + ", status=" + status + "]";
+                + ", email=" + email + ", phone=" + phone + ", deptId=" + deptId + ", status=" + status + "]";
     }
 
     /** 请求 → 实体显式逐字段映射(禁反射拷贝);password 不映射,只经 Service 专用通道写入 */
@@ -48,6 +51,7 @@ public record SysUserSaveRequest(
         user.setNickname(nickname);
         user.setEmail(email);
         user.setPhone(phone);
+        user.setDeptId(deptId);
         user.setStatus(status);
         return user;
     }

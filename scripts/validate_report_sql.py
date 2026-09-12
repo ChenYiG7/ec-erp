@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""#20 报表域 SQL 真库验证(2026-09-08,开发库 MySQL 9.7.2):
-   验证 ReportQueryMapper.xml 四条聚合语句形态在真库可执行且口径正确(哑元键 990xxx,跑完清理,幂等可重跑):
+"""#20 报表域 SQL 真库验证(2026-09-08,开发库 MySQL 9.7.2;2026-09-12 #26 三轮扩容 ⑥⑦):
+   验证 ReportQueryMapper.xml 聚合语句形态在真库可执行且口径正确(哑元键 990xxx,跑完清理,幂等可重跑):
    ①销售日报 GROUP BY stat_date ②销售周报 WEEKDAY 周起点 ③SKU 明细 join 翻译(不滤已删)+LIMIT 排序
-   ④库存快照指定日全行 ⑤MAX 快照日。哑元日期取 2026-01-04~07(真库销量/快照数据在近 30 天窗口,互不干扰)。"""
+   ④库存快照指定日全行 ⑤MAX 快照日 ⑥⑦#22 商品分析双趋势(共用 SkuTrendRow 三参 record,各补 NULL
+   占位列凑齐 3 列——构造自动映射按列序对齐,缺列真库 500)。哑元日期取 2026-01-04~07(真库销量/快照
+   数据在近 30 天窗口,互不干扰)。"""
 from pathlib import Path
 import sys
+from datetime import date
 
 sys.path.insert(0, str(Path(__file__).parent))
 from menu_tool import connect  # noqa: E402
 
 SKU_A, SKU_B, SKU_C = 990001, 990002, 990003
+DATE_0104, DATE_0105, DATE_0106 = date(2026, 1, 4), date(2026, 1, 5), date(2026, 1, 6)
 
 
 def setup(cur):
@@ -78,6 +82,19 @@ def main():
         # ⑤ MAX 快照日(真库若已有当日快照取 MAX 兼容;哑元 2026-01-04 必须被覆盖或并列)
         cur.execute("SELECT MAX(stat_date) FROM inventory_snapshot_daily")
         ok &= (str(cur.fetchone()[0]) >= '2026-01-04')
+        # ⑥ 商品分析销量半行(3 列含 NULL 占位;SKU_A 窗口内 01-05=3/01-06=7,qtyOnHand 恒 NULL)
+        cur.execute("SELECT stat_date AS statDate, SUM(qty_sold) AS qtySold, NULL AS qtyOnHand "
+                    "FROM order_sales_daily WHERE sku_id = %s AND stat_date >= '2026-01-04' AND stat_date <= '2026-01-07' "
+                    "GROUP BY stat_date ORDER BY stat_date", (SKU_A,))
+        sales_trend = cur.fetchall()
+        ok &= (len(sales_trend) == 2 and sales_trend[0] == (DATE_0105, 3, None)
+               and sales_trend[1] == (DATE_0106, 7, None))
+        # ⑦ 库存半行(qtySold 恒 NULL;SKU_A 快照 01-04 在库 10)
+        cur.execute("SELECT stat_date AS statDate, NULL AS qtySold, SUM(qty_on_hand) AS qtyOnHand "
+                    "FROM inventory_snapshot_daily WHERE sku_id = %s AND stat_date >= '2026-01-04' AND stat_date <= '2026-01-07' "
+                    "GROUP BY stat_date ORDER BY stat_date", (SKU_A,))
+        stock_trend = cur.fetchall()
+        ok &= (len(stock_trend) == 1 and stock_trend[0] == (DATE_0104, None, 10))
         print("ALL GREEN" if ok else "CHECK FAILED")
     finally:
         try:

@@ -1,6 +1,7 @@
 package com.own.erp.contract.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.QueryPage;
 import com.own.erp.contract.ShopQueryApi;
 import com.own.erp.shop.request.query.ShopQuery;
@@ -29,12 +30,15 @@ import static org.mockito.Mockito.when;
 class ShopQueryApiImplTest {
 
     private ShopService shopService;
+    private CurrentUserApi currentUserApi;
     private ShopQueryApi shopQueryApi;
 
     @BeforeEach
     void setUp() {
         shopService = mock(ShopService.class);
-        shopQueryApi = new ShopQueryApiImpl(shopService);
+        currentUserApi = mock(CurrentUserApi.class);
+        when(currentUserApi.currentShopIds()).thenReturn(null);
+        shopQueryApi = new ShopQueryApiImpl(shopService, currentUserApi);
     }
 
     private ShopResponse shop() {

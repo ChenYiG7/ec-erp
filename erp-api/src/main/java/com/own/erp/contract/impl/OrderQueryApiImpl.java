@@ -1,6 +1,7 @@
 package com.own.erp.contract.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.OrderQueryApi;
 import com.own.erp.contract.QueryPage;
 import com.own.erp.order.request.query.ShopOrderQuery;
@@ -17,18 +18,22 @@ import java.util.List;
  * @Date : 2026/9/6
  * @Description : OrderQueryApi 实现(#6 三期 AI 地基,编排胶水收口 erp-api,docs/07 §2.2):
  *         erp-ai 工具取数委托 erp-order ShopOrderService,过滤/分页参数在域 Query 侧沿用既有钳制;
- *         entity→契约 record 显式逐字段映射(经域 Response 中转,禁反射拷贝)
+ *         entity→契约 record 显式逐字段映射(经域 Response 中转,禁反射拷贝)。
+ *         数据权限(#27①):pageOrders 强制装配 CurrentUserApi.currentShopIds() 进域 Query,
+ *         AI/调用方自带 shop 过滤被覆盖(详情按 ID 直取不在本期注入面,#27 余量登记)
  */
 @Component
 @RequiredArgsConstructor
 public class OrderQueryApiImpl implements OrderQueryApi {
 
     private final ShopOrderService shopOrderService;
+    private final CurrentUserApi currentUserApi;
 
     @Override
     public QueryPage<OrderView> pageOrders(OrderFilter filter) {
         ShopOrderQuery query = new ShopOrderQuery();
         query.setShopId(filter.shopId());
+        query.setShopIds(currentUserApi.currentShopIds());
         query.setPlatform(filter.platform());
         query.setOrderStatus(filter.orderStatus());
         query.setPageNo(filter.page());

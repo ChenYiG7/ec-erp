@@ -16,6 +16,16 @@
       <el-form-item label="手机号" prop="phone">
         <el-input v-model="formData.phone" placeholder="请输入手机号" clearable />
       </el-form-item>
+      <el-form-item label="部门" prop="deptId">
+        <el-tree-select
+          v-model="formData.deptId"
+          :data="deptOptions"
+          :props="{ label: 'deptName' }"
+          check-strictly
+          clearable
+          placeholder="不选=未分配部门"
+        />
+      </el-form-item>
       <el-form-item label="密码" prop="password">
         <el-input v-model="formData.password" placeholder="请输入密码" clearable />
       </el-form-item>
@@ -34,10 +44,22 @@
 </template>
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
+import {
+  ElButton,
+  ElDialog,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElMessage,
+  ElOption,
+  ElSelect,
+  ElTreeSelect,
+} from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { sysUserApi } from '@/api/apis/system/user'
+import { sysDeptApi } from '@/api/apis/system/dept'
 import type { SysUserSaveRequest, SysUserResponse } from '@/api/interface/system/user'
+import type { DeptNode } from '@/api/interface/system/dept'
 
 defineOptions({ name: 'SysUserForm' })
 
@@ -57,8 +79,11 @@ const rules: FormRules = {
 
 const title = ref('用户管理')
 
+// 部门候选(#27③):开弹窗现拉全量树,新建部门即刻可选
+const deptOptions = ref<DeptNode[]>([])
+
 /** 打开弹窗(mode:add/edit);edit 浅拷贝行数据,禁直接引用污染列表行 */
-const open = (m: 'add' | 'edit', row?: SysUserResponse) => {
+const open = async (m: 'add' | 'edit', row?: SysUserResponse) => {
   mode.value = m
   editId.value = row?.id
   title.value = (m === 'add' ? '新增' : '编辑') + '用户管理'
@@ -66,6 +91,7 @@ const open = (m: 'add' | 'edit', row?: SysUserResponse) => {
   if (row) {
     Object.assign(formData.value, row)
   }
+  deptOptions.value = (await sysDeptApi.tree()) ?? []
   visible.value = true
 }
 

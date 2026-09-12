@@ -7,9 +7,11 @@ import com.own.erp.system.request.command.PasswordChangeRequest;
 import com.own.erp.system.request.command.PasswordResetRequest;
 import com.own.erp.system.request.command.SysUserSaveRequest;
 import com.own.erp.system.request.command.UserRoleAssignRequest;
+import com.own.erp.system.request.command.UserShopAssignRequest;
 import com.own.erp.system.request.query.SysUserQuery;
 import com.own.erp.system.response.SysUserResponse;
 import com.own.erp.system.service.SysMenuService;
+import com.own.erp.system.service.SysUserShopService;
 import com.own.erp.system.service.SysUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,6 +46,7 @@ public class SysUserController {
 
     private final SysUserService userService;
     private final SysMenuService menuService;
+    private final SysUserShopService userShopService;
 
     @Operation(summary = "分页查询用户", description = "username 模糊匹配(可选),status 精确过滤(可选);password 不回传")
     @GetMapping
@@ -70,7 +73,7 @@ public class SysUserController {
         return Result.ok();
     }
 
-    @Operation(summary = "删除用户", description = "同事务清理用户-角色绑定,防孤儿关联")
+    @Operation(summary = "删除用户", description = "同事务清理用户-角色/用户-店铺授权绑定,防孤儿关联")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         userService.deleteUser(id);
@@ -105,6 +108,20 @@ public class SysUserController {
     public Result<Void> assignRoles(@PathVariable Long id,
                                     @Valid @RequestBody UserRoleAssignRequest request) {
         menuService.assignRolesToUser(id, request.roleIds());
+        return Result.ok();
+    }
+
+    @Operation(summary = "查看用户已授权的店铺ID", description = "数据权限授权集(#27①);admin 不限不落表,返回其显式授权行")
+    @GetMapping("/{id}/shops")
+    public Result<List<Long>> shops(@PathVariable Long id) {
+        return Result.ok(userShopService.listShopIdsByUserId(id));
+    }
+
+    @Operation(summary = "用户-店铺授权全量重绑", description = "先删后插,同事务;空列表=清空授权(非 admin 用户将不可见任何店铺数据)")
+    @PutMapping("/{id}/shops")
+    public Result<Void> assignShops(@PathVariable Long id,
+                                    @Valid @RequestBody UserShopAssignRequest request) {
+        userShopService.assignShopsToUser(id, request.shopIds());
         return Result.ok();
     }
 }

@@ -32,6 +32,12 @@ public record AiKbDocumentResponse(
         /** 分块数 */
         Integer chunkCount,
 
+        /** OSS 对象键(原文存储,#25;NULL=未存原文) */
+        String originalFileKey,
+
+        /** 原文字节数(#25,与 originalFileKey 成对) */
+        Long originalFileSize,
+
         /** 状态:READY可检索/FAILED向量化失败 */
         String status,
 
@@ -55,6 +61,8 @@ public record AiKbDocumentResponse(
                 .fileName(entity.getFileName())
                 .charCount(entity.getCharCount())
                 .chunkCount(entity.getChunkCount())
+                .originalFileKey(entity.getOriginalFileKey())
+                .originalFileSize(entity.getOriginalFileSize())
                 .status(entity.getStatus())
                 .uploadedBy(entity.getUploadedBy())
                 .createdAt(entity.getCreatedAt())

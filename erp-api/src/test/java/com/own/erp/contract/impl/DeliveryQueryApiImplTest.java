@@ -1,6 +1,7 @@
 package com.own.erp.contract.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.DeliveryQueryApi;
 import com.own.erp.contract.QueryPage;
 import com.own.erp.fulfill.request.query.DeliveryOrderQuery;
@@ -31,12 +32,15 @@ import static org.mockito.Mockito.when;
 class DeliveryQueryApiImplTest {
 
     private DeliveryOrderService deliveryOrderService;
+    private CurrentUserApi currentUserApi;
     private DeliveryQueryApi deliveryQueryApi;
 
     @BeforeEach
     void setUp() {
         deliveryOrderService = mock(DeliveryOrderService.class);
-        deliveryQueryApi = new DeliveryQueryApiImpl(deliveryOrderService);
+        currentUserApi = mock(CurrentUserApi.class);
+        when(currentUserApi.currentShopIds()).thenReturn(null);
+        deliveryQueryApi = new DeliveryQueryApiImpl(deliveryOrderService, currentUserApi);
     }
 
     private DeliveryOrderResponse delivery() {

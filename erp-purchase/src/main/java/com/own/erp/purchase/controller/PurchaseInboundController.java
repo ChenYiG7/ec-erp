@@ -1,6 +1,7 @@
 package com.own.erp.purchase.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.common.api.OperLog;
 import com.own.erp.common.api.Result;
 import com.own.erp.purchase.request.query.PurchaseInboundQuery;
 import com.own.erp.purchase.request.command.PurchaseInboundSaveRequest;
@@ -69,6 +70,7 @@ public class PurchaseInboundController {
     }
 
     @Operation(summary = "确认入库", description = "核销:同事务完成 库存变更(flow_type=IN_PURCHASE)+ 采购明细 arrived_qty 回写 + 采购单状态推进")
+    @OperLog(module = "purchase", action = "inbound-confirm")
     @PreAuthorize("hasRole('admin')")
     @PostMapping("/{id}/confirm")
     public Result<Void> confirm(@PathVariable Long id) {
@@ -77,6 +79,7 @@ public class PurchaseInboundController {
     }
 
     @Operation(summary = "取消入库单", description = "仅待入库可取消,终态不可逆")
+    @OperLog(module = "purchase", action = "inbound-cancel")
     @PreAuthorize("hasRole('admin')")
     @PostMapping("/{id}/cancel")
     public Result<Void> cancel(@PathVariable Long id) {

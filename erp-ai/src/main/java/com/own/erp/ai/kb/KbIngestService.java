@@ -8,6 +8,7 @@ import com.own.erp.ai.entity.AiKbDocument;
 import com.own.erp.ai.mapper.AiKbChunkMapper;
 import com.own.erp.ai.mapper.AiKbDocumentMapper;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.common.oss.OssService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
@@ -27,6 +28,9 @@ import java.util.Map;
  *     → SimpleVectorStore 向量化入索引(EmbeddingModel 与 chat 同连接,spring.ai.openai.* 单源)。
  *     降级语义(拍板):无 AI key 直接拒绝(不产垃圾文档);向量化调用失败 → 文档与分块留存,
  *     status=FAILED(修复后走重建索引转 READY),不抛异常、不回滚正本——文本是资产,向量只是派生索引。
+ *     原文存档(#25 OSS,2026-09-11):UPLOAD 上传的原始字节同步存 OSS(kb/{documentId}/{文件名}),
+ *     key/字节数回填 ai_kb_document 两列;存档是访问加速非 RAG 依赖——OSS 未启用走原链路静默跳过,
+ *     存档异常 log.warn 不中断(chunk 正本仍在,原文可随 OSS 修复后重传,拍板同向量化降级口径)。
  *     检索注入面在 KbSearchService;删除/重建面在 KbDocumentService
  */
 @Service
@@ -37,6 +41,7 @@ public class KbIngestService {
     private final AiKbChunkMapper chunkMapper;
     private final KbVectorIndex vectorIndex;
     private final ErpAiProperties props;
+    private final OssService ossService;
 
     /** 模型 api-key 原值(仅判空作"AI 未配置"友好拦截,不落日志/返回体——docs/07 §7 凭证纪律) */
     @Value("${spring.ai.openai.api-key:}")
@@ -45,11 +50,13 @@ public class KbIngestService {
     public KbIngestService(AiKbDocumentMapper documentMapper,
                            AiKbChunkMapper chunkMapper,
                            KbVectorIndex vectorIndex,
-                           ErpAiProperties props) {
+                           ErpAiProperties props,
+                           OssService ossService) {
         this.documentMapper = documentMapper;
         this.chunkMapper = chunkMapper;
         this.vectorIndex = vectorIndex;
         this.props = props;
+        this.ossService = ossService;
     }
 
     /**
@@ -59,6 +66,12 @@ public class KbIngestService {
      * 不引入补偿逻辑(先保持简单,同 #7 逻辑删除缓做口径)
      */
     public AiKbDocument ingest(String title, String sourceType, String fileName, String text, Long userId) {
+        return ingest(title, sourceType, fileName, text, userId, null);
+    }
+
+    /** 带原文存档的接入:originalBytes 非空(UPLOAD 链路)时同步存 OSS,粘贴文本传 null */
+    public AiKbDocument ingest(String title, String sourceType, String fileName, String text,
+                               Long userId, byte[] originalBytes) {
         requireConfigured();
         String content = StrUtil.trim(text);
         if (StrUtil.isBlank(content)) {
@@ -91,6 +104,7 @@ public class KbIngestService {
                 .uploadedBy(userId)
                 .build();
         documentMapper.insert(doc);
+        archiveOriginal(doc, fileName, originalBytes);
         List<Document> vectorDocs = new ArrayList<>(chunkDocs.size());
         for (int i = 0; i < chunkDocs.size(); i++) {
             AiKbChunk chunk = AiKbChunk.builder()
@@ -115,8 +129,29 @@ public class KbIngestService {
         return doc;
     }
 
-    /** chunk 正本 → 向量库 Document(重建/接入共用同一条构造,口径单一);id=chunkId 字符串,删除按此对齐 */
-    public Document buildVectorDocument(AiKbChunk chunk, String title) {
+    /**
+     * 原文存档(#25):UPLOAD 链路传原始字节;成功回填 key/size 两列。
+     * 未启用(OssService 抛"未启用"业务异常)静默走原链路;其余异常 log.warn 不中断接入——
+     * 原文库是访问加速非 RAG 依赖,chunk 文本仍可重建(拍板同向量化降级口径)
+     */
+    private void archiveOriginal(AiKbDocument doc, String fileName, byte[] originalBytes) {
+        if (originalBytes == null || originalBytes.length == 0 || StrUtil.isBlank(fileName)) {
+            return;
+        }
+        try {
+            String key = ossService.kbKey(doc.getId(), fileName);
+            ossService.upload(key, originalBytes, "application/octet-stream");
+            doc.setOriginalFileKey(key);
+            doc.setOriginalFileSize((long) originalBytes.length);
+        } catch (BusinessException e) {
+            log.info("OSS 未启用,知识库原文跳过存档(RAG 链路不受影响):docId={}", doc.getId());
+        } catch (Exception e) {
+            log.warn("知识库原文 OSS 存档失败(chunk 正本仍在,原文访问降级):docId={} {}",
+                    doc.getId(), e.getMessage());
+        }
+    }
+
+    /** chunk 正本 → 向量库 Document(重建/接入共用同一条构造,口径单一);id=chunkId 字符串,删除按此对齐 */    public Document buildVectorDocument(AiKbChunk chunk, String title) {
         return Document.builder()
                 .id(String.valueOf(chunk.getId()))
                 .text(chunk.getContent())

@@ -1,0 +1,25 @@
+# 盘点单 spec(gen:page 拍板表;仓内作业 docs/plans/warehouse-ops.md,TODO#30)
+# 字段名以后端 openapi 快照为准,跑 gen:page 会核账(不在响应 schema 的字段会警告)
+# 状态机动作(start/submit/adjust/close/cancel/counts)由快照端点自动生成 api 函数;
+# 录实盘行编辑为生成器外定制组件(StocktakeCountDialog),scopeType/skuIds 表单联动人工补槽
+module=inventory
+domain=stocktake
+base=inventory/stocktakes
+entity=StocktakeOrder
+nameZh=盘点单
+permPrefix=inventory:stocktake
+todoId=30
+menuParent=17
+menuId=38
+menuSort=4
+path=/inventory/stocktakes
+component=inventory/stocktake/index
+icon=Files
+
+field=stocktakeNo role=all    label=盘点单号        width=180  required
+field=warehouseId  role=all    label=盘点仓          width=130
+field=scopeType    role=all    label=盘点范围        enum=ALL:全仓:info|SKU_SET:SKU集:warning  width=110
+field=status       role=column label=状态            enum=DRAFT:草稿:info|COUNTING:盘点中:primary|PENDING_ADJUST:待调整:warning|ADJUSTED:已调整:success|CLOSED:已关闭:info|CANCELED:已取消:danger  width=110
+field=remark       role=column label=备注
+field=confirmedAt  role=column label=调整确认时间    width=170
+field=createdAt    role=column label=创建时间        width=170

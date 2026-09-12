@@ -294,6 +294,16 @@ public class StocktakeOrderService {
         stocktakeOrderMapper.deleteById(id);
     }
 
+    /** 仓库盘点单引用数(#30 余量,仓库删除校验经 erp-contract WarehouseApi 暴露):>0 即有盘点业务,禁删仓库 */
+    public long countByWarehouseId(Long warehouseId) {
+        if (warehouseId == null) {
+            return 0;
+        }
+        Long count = stocktakeOrderMapper.selectCount(new LambdaQueryWrapper<StocktakeOrder>()
+                .eq(StocktakeOrder::getWarehouseId, warehouseId));
+        return count == null ? 0L : count;
+    }
+
     /** 明细实体列表(同模块内取数,entity 不出本模块;按 id 升序稳定排序) */
     private List<StocktakeItem> listItems(Long stocktakeId) {
         return stocktakeItemMapper.selectList(new LambdaQueryWrapper<StocktakeItem>()

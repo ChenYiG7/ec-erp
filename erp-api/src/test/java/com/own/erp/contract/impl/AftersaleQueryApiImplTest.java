@@ -5,6 +5,7 @@ import com.own.erp.aftersale.request.query.AftersaleOrderQuery;
 import com.own.erp.aftersale.response.AftersaleOrderResponse;
 import com.own.erp.aftersale.service.AftersaleOrderService;
 import com.own.erp.contract.AftersaleQueryApi;
+import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.QueryPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,12 +30,15 @@ import static org.mockito.Mockito.when;
 class AftersaleQueryApiImplTest {
 
     private AftersaleOrderService aftersaleOrderService;
+    private CurrentUserApi currentUserApi;
     private AftersaleQueryApi aftersaleQueryApi;
 
     @BeforeEach
     void setUp() {
         aftersaleOrderService = mock(AftersaleOrderService.class);
-        aftersaleQueryApi = new AftersaleQueryApiImpl(aftersaleOrderService);
+        currentUserApi = mock(CurrentUserApi.class);
+        when(currentUserApi.currentShopIds()).thenReturn(null);
+        aftersaleQueryApi = new AftersaleQueryApiImpl(aftersaleOrderService, currentUserApi);
     }
 
     @Test

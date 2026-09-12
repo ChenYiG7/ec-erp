@@ -6,7 +6,8 @@ VALUES 行 ODKU 用行别名 `AS new`(列引用必须全限定:new.=插入值、
 INSERT...SELECT 行别名不支持(9.7.2 实测 1064),用源表/派生表别名;"每组取最新"用窗口函数。
 本脚本从 mapper XML 原文提取 SQL(测的就是要发布的)逐条真库验证:
 
-  1. ShopOrderMapper.upsert           行别名 AS new:插入→更新(值变化 affected=2)→清哑元行
+  1. ShopOrderMapper.upsert           行别名 AS new:插入→更新(值变化 affected=2)→重拉不冲审核三列(#29 ODKU 现值保留)
+     + casReviewStatus 审核状态机(<>2 终态守卫/NOW() 回填)→清哑元行
   2. ShopProductMapper.upsert         行别名 + COALESCE(NULL 不覆盖)→清
   3. ShopProductSkuMapper.upsert      行别名 + 三列 COALESCE 保留语义→清(连带哑元 shop_product)
   4. AftersaleOrderMapper.upsert      行别名 + CASE 条件推进/不回退(表名限定=冲突行现值,new.列=插入值)→清
@@ -112,6 +113,8 @@ def main():
                .replace('#{receiverAddress}', 'NULL').replace('#{receiverZip}', 'NULL')
                .replace('#{currency}', "'USD'").replace('#{exchangeRate}', '7.2')
                .replace('#{orderAmount}', '100.00').replace('#{shippingFee}', '0').replace('#{discountAmount}', '0')
+               .replace('#{orderSource}', "'PLATFORM'")  # #29 订单域补课新增列
+               .replace('#{reviewStatus}', '0').replace('#{riskFlag}', 'NULL')
                .replace('#{rawJson}', "'{}'"))
     a1 = cur.execute(sql_ins)
     assert a1 == 1, f'首插 affected={a1}'
@@ -120,8 +123,28 @@ def main():
     assert a2 == 2, f'更新路径(值变化)affected={a2},预期 2'
     val = q1(cur, "SELECT order_amount FROM shop_order WHERE platform_order_id='__val__'")[0]
     assert val == 188, f'更新后值异常 {val}'  # DECIMAL(12,4) 回读 Decimal('188.0000')
+    # ODKU 不冲审核列(#29):拉单重拉(再走一次 upsert 更新路径)后 review 三列保持冲突行现值
+    cur.execute("UPDATE shop_order SET review_status=2, reviewed_by=7, review_remark='__风控放行__' "
+                "WHERE platform_order_id='__val__'")
+    a3 = cur.execute(sql_upd.replace('188.00', '199.00'))  # 值须变化:同值重复 affected=0
+    assert a3 == 2, f'重拉更新 affected={a3},预期 2'
+    rv = q1(cur, "SELECT review_status, reviewed_by FROM shop_order WHERE platform_order_id='__val__'")
+    assert rv == (2, 7), f'ODKU 冲审核列(review_status/reviewed_by 被覆盖): {rv}'
+    # casReviewStatus 审核状态机(#29):守卫 review_status<>2(已通过为终态);reviewed_at 由库 NOW() 回填
+    review_sql = extract_xml_sql(xml, 'casReviewStatus')
+    assert 'review_status <> 2' in review_sql, f'审核守卫形态异常: {review_sql}'
+    order_id = q1(cur, "SELECT id FROM shop_order WHERE platform_order_id='__val__'")[0]
+    rsql = (review_sql.replace('#{orderId}', str(order_id)).replace('#{toStatus}', '3')
+            .replace('#{reviewRemark}', "'__改判__'").replace('#{reviewedBy}', '1'))
+    a4 = cur.execute(rsql)
+    assert a4 == 0, f'已通过(2)终态应拒改 affected={a4}'
+    cur.execute("UPDATE shop_order SET review_status=0 WHERE platform_order_id='__val__'")
+    a5 = cur.execute(rsql.replace('review_status = 3', 'review_status = 2'))
+    assert a5 == 1, f'无需审核(0)应可裁定通过 affected={a5}'
+    reviewed = q1(cur, "SELECT review_status, reviewed_at FROM shop_order WHERE platform_order_id='__val__'")
+    assert reviewed[0] == 2 and reviewed[1] is not None, f'裁定通过后 reviewed_at 未回填: {reviewed}'
     cur.execute("DELETE FROM shop_order WHERE platform_order_id='__val__'")
-    ok(cur, '1. ShopOrderMapper.upsert 行别名 插入/更新/清哑元')
+    ok(cur, '1. ShopOrderMapper.upsert 行别名 插入/更新/ODKU 不冲审核列 + casReviewStatus 终态守卫/裁定回填')
 
     # ---------- 2. ShopProductMapper.upsert ----------
     xml = ROOT / 'erp-shop/src/main/resources/mapper/ShopProductMapper.xml'

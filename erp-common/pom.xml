@@ -10,5 +10,32 @@
     </parent>
 
     <artifactId>erp-common</artifactId>
-    <description>通用基础:统一返回体、异常、分页、工具类</description>
+    <description>通用基础:统一返回体、异常、分页、工具类、OssService</description>
+
+    <dependencies>
+        <!-- OssService(#25)为运行时 @Service:需要 spring-context(注解+事件监听),版本随 Boot BOM -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+        <!-- OssService 配置面读 sys_config(#25):经契约 SystemConfigApi,实现收口 erp-api;
+             契约零依赖不引第三方,common → contract 无环(与"业务模块 → contract"同向) -->
+        <dependency>
+            <groupId>com.own.erp</groupId>
+            <artifactId>erp-contract</artifactId>
+        </dependency>
+        <!-- AWS SDK v2 S3(#25 RustFS,S3 兼容 API):Boot BOM 不管理 AWS SDK,版本模块内自管
+             (先例:POI 仅 erp-report 依赖模块内自管);s3 传递携带 apache-client 运行时实现,
+             对外只暴露 OssService,SDK 类型禁出本模块(docs/07 防腐同款纪律) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.46.7</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 </project>

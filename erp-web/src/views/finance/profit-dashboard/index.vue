@@ -173,14 +173,28 @@ const marginOf = (row: { salesCny: string | number; profitCny: string | number }
   return sales > 0 ? ((Number(row.profitCny) / sales) * 100).toFixed(1) + '%' : '-'
 }
 
+// 三路并发竞态守卫:快速改筛选/连点查询时,慢的旧响应不得覆盖新结果(#26 二轮走查)
+let fetchSeq = 0
 const fetchAll = () => {
+  const seq = ++fetchSeq
   const params = { ...initParam }
-  profitApi.summary(params).then(s => (summary.value = s))
-  profitApi.trend(params).then(t => (trend.value = t))
-  profitApi
-    .skuRank({ ...params, topN: 10 })
-    .then(r => (rank.value = r))
-    .then(() => fetchSkuNames(rank.value.map(row => row.skuId)))
+  profitApi.summary(params).then(s => {
+    if (seq === fetchSeq) {
+      summary.value = s
+    }
+  })
+  profitApi.trend(params).then(t => {
+    if (seq === fetchSeq) {
+      trend.value = t
+    }
+  })
+  profitApi.skuRank({ ...params, topN: 10 }).then(r => {
+    if (seq !== fetchSeq) {
+      return
+    }
+    rank.value = r
+    return fetchSkuNames(rank.value.map(row => row.skuId))
+  })
 }
 onMounted(fetchAll)
 watch(initParam, fetchAll, { deep: true })
@@ -270,9 +284,9 @@ const xLabels = computed(() => {
 }
 .summary-row {
   display: flex;
-  align-items: center;
-  gap: 36px;
   flex-wrap: wrap;
+  gap: 36px;
+  align-items: center;
 }
 .summary-item {
   display: flex;
@@ -305,7 +319,7 @@ const xLabels = computed(() => {
 }
 .chart-empty {
   padding: 40px 0;
-  text-align: center;
   color: var(--el-text-color-secondary);
+  text-align: center;
 }
 </style>

@@ -1,6 +1,7 @@
 package com.own.erp.inventory.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.own.erp.common.api.OperLog;
 import com.own.erp.common.api.Result;
 import com.own.erp.inventory.request.command.TransferOrderSaveRequest;
 import com.own.erp.inventory.request.query.TransferOrderQuery;
@@ -61,6 +62,7 @@ public class TransferOrderController {
     }
 
     @Operation(summary = "确认调拨", description = "DRAFT→CONFIRMED;同事务逐行两腿动账(TRANSFER_OUT/IN,biz_type=TRANSFER_ORDER),调出仓可用不足整单回滚")
+    @OperLog(module = "inventory", action = "transfer-confirm")
     @PostMapping("/{id}/confirm")
     public Result<Void> confirm(@PathVariable Long id) {
         transferOrderService.confirm(id);

@@ -22,6 +22,12 @@ public final class PullConsts {
      * 复用 pull_log 而非另建表:排障入口与连续失败告警判定同一套,禁提前抽象)
      */
     public static final String DATA_TYPE_SHIPMENT = "SHIPMENT";
+    /**
+     * pull_log.data_type:结算报告拉取(#19 周期口径 2026-09-11:非窗口型——结算报告是平台按打款周期
+     * 生成的离散正本,window_start=window_end=本次时刻,幂等靠 settlement_report uk;
+     * SettlementPullJob 默认关 erp.adapter.settlement-pull.enabled,#3 真凭证后开启)
+     */
+    public static final String DATA_TYPE_SETTLEMENT = "SETTLEMENT";
 
     /** pull_log.pull_way:定时任务触发 */
     public static final String PULL_WAY_JOB = "JOB";

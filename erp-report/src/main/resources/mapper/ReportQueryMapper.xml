@@ -101,9 +101,13 @@
         WHERE ps.id = #{skuId}
     </select>
 
+    <!-- 两条趋势共用 SkuTrendRow(statDate,qtySold,qtyOnHand) 三参 record:MyBatis 构造自动映射按列序对齐,
+         各只产"半行"的 SQL 必须补 NULL 占位列凑齐 3 列,否则真库 500(Constructor takes 3, only 2 columns——
+         单测 mock Mapper 测不出,2026-09-12 #26 三轮走查真机暴露);Service 按日对齐各自取用 -->
     <select id="selectSkuSalesTrend" resultType="com.own.erp.report.report.SkuTrendRow">
         SELECT stat_date     AS statDate,
-               SUM(qty_sold) AS qtySold
+               SUM(qty_sold) AS qtySold,
+               NULL          AS qtyOnHand
         FROM order_sales_daily
         WHERE sku_id = #{skuId}
           AND stat_date &gt;= #{dateFrom}
@@ -114,6 +118,7 @@
 
     <select id="selectSkuStockTrend" resultType="com.own.erp.report.report.SkuTrendRow">
         SELECT stat_date        AS statDate,
+               NULL             AS qtySold,
                SUM(qty_on_hand) AS qtyOnHand
         FROM inventory_snapshot_daily
         WHERE sku_id = #{skuId}

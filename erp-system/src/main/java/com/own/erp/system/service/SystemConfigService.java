@@ -28,12 +28,13 @@ import java.util.stream.Collectors;
  *     ③值类型可解析 + 长度钳制(文本键放行 ≤1024,数字/布尔键解析失败拒存——配置错误在保存口暴露,禁带病落库);
  *     保存即 upsert(uk_config_key 兜底)并返回生效键数。类型词表与消费侧解析器同源本类,
  *     新键登记 ConfigConsts + typeOf 补一行即可(单点扩容)。
- *     凭证类键(openai api-key 等)不在词表——词表白名单天然拦截,凭证只走环境变量/local.properties(docs/07 §7);
- *     ⚠️ 唯一例外 = SMTP 授权码(SECRET 类型,#14 邮箱渠道 2026-09-08 拍板):
- *     读侧 listByGroup 对 SECRET 非空值统一回显 SECRET_MASK——真值不出后端(读侧 isAuthenticated 亦不泄);
- *     写侧 saveGroup 收到 SECRET_MASK 视为"未改动"跳过(防掩码回写覆盖真值致邮件静默失效),
- *     仅当 DB 无行时才把提交值按字面落库(防真密码恰为掩码字面量的碰撞);消费侧 valueOf 恒取真值零感知
- */
+     *     凭证类键(openai api-key 等)不在词表——词表白名单天然拦截,凭证只走环境变量/local.properties(docs/07 §7);
+     *     ⚠️ 范围例外(SECRET 类型)= SMTP 授权码(#14 邮箱渠道 2026-09-08 拍板)+ OSS SecretKey
+     *     (#25 对象存储 2026-09-11 拍板扩容):
+     *     读侧 listByGroup 对 SECRET 非空值统一回显 SECRET_MASK——真值不出后端(读侧 isAuthenticated 亦不泄);
+     *     写侧 saveGroup 收到 SECRET_MASK 视为"未改动"跳过(防掩码回写覆盖真值致邮件静默失效),
+     *     仅当 DB 无行时才把提交值按字面落库(防真密码恰为掩码字面量的碰撞);消费侧 valueOf 恒取真值零感知
+     */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -175,6 +176,8 @@ public class SystemConfigService {
             case ConfigConsts.GROUP_ALERT -> ConfigConsts.ALERT_KEYS;
             case ConfigConsts.GROUP_SALES -> ConfigConsts.SALES_KEYS;
             case ConfigConsts.GROUP_NOTIFY -> ConfigConsts.NOTIFY_KEYS;
+            case ConfigConsts.GROUP_ORDER_REVIEW -> ConfigConsts.ORDER_REVIEW_KEYS;
+            case ConfigConsts.GROUP_OSS -> ConfigConsts.OSS_KEYS;
             default -> throw new BusinessException("未知参数组:" + configGroup);
         };
     }
@@ -192,6 +195,9 @@ public class SystemConfigService {
         }
         if (ConfigConsts.ORDER_REVIEW_KEYS.contains(key)) {
             return ConfigConsts.GROUP_ORDER_REVIEW;
+        }
+        if (ConfigConsts.OSS_KEYS.contains(key)) {
+            return ConfigConsts.GROUP_OSS;
         }
         return ConfigConsts.GROUP_SALES;
     }
@@ -230,9 +236,11 @@ public class SystemConfigService {
                  ConfigConsts.KEY_AGENT_BASE_URL,
                  ConfigConsts.KEY_AGENT_MODEL -> ValueType.TEXT;
             case ConfigConsts.KEY_MAIL_ENABLED,
-                 ConfigConsts.KEY_MAIL_SSL -> ValueType.BOOL;
+                 ConfigConsts.KEY_MAIL_SSL,
+                 ConfigConsts.KEY_OSS_ENABLED -> ValueType.BOOL;
             case ConfigConsts.KEY_MAIL_PORT -> ValueType.INT;
-            case ConfigConsts.KEY_MAIL_PASSWORD -> ValueType.SECRET;
+            case ConfigConsts.KEY_MAIL_PASSWORD,
+                 ConfigConsts.KEY_OSS_SECRET_KEY -> ValueType.SECRET;
             // #29 订单审核风控:关键词表自由文本(英文逗号分隔),长度上限由统一校验兜底
             case ConfigConsts.KEY_ORDER_REVIEW_RISK_KEYWORDS -> ValueType.TEXT;
             default -> ValueType.TEXT;

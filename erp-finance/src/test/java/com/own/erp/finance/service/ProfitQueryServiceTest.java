@@ -6,6 +6,7 @@ import com.own.erp.contract.OrderProfitSummary;
 import com.own.erp.contract.ProfitDailyTrendRow;
 import com.own.erp.contract.ProfitSkuRankRow;
 import com.own.erp.contract.QueryPage;
+import com.own.erp.finance.entity.PlatformFeeRate;
 import com.own.erp.finance.mapper.ProfitQueryMapper;
 import com.own.erp.finance.profit.OrderProfitAmountGroup;
 import com.own.erp.finance.profit.OrderProfitLine;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -25,6 +27,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -38,6 +41,7 @@ class ProfitQueryServiceTest {
 
     private ProfitQueryMapper profitQueryMapper;
     private ExchangeRateService exchangeRateService;
+    private PlatformFeeRateService platformFeeRateService;
     private ProfitQueryService profitQueryService;
 
     private static final LocalDateTime ORDER_TIME = LocalDateTime.of(2026, 9, 1, 10, 0);
@@ -46,7 +50,9 @@ class ProfitQueryServiceTest {
     void setUp() {
         profitQueryMapper = mock(ProfitQueryMapper.class);
         exchangeRateService = mock(ExchangeRateService.class);
-        profitQueryService = new ProfitQueryService(profitQueryMapper, exchangeRateService);
+        platformFeeRateService = mock(PlatformFeeRateService.class);
+        // Mockito 默认对 List 返回空表 = 费率表无数据,既有"无费率不猜"用例无需逐桩
+        profitQueryService = new ProfitQueryService(profitQueryMapper, exchangeRateService, platformFeeRateService);
     }
 
     /** 主查询行:参数见名 */
@@ -76,10 +82,10 @@ class ProfitQueryServiceTest {
                     new OrderProfitAmountGroup(null, 501L, null, new BigDecimal("72.50"))));
             when(profitQueryMapper.sumCommissionByPlatformItemIds(anyList())).thenReturn(List.of(
                     new OrderProfitAmountGroup(1L, null, "AMI-1", new BigDecimal("-10.88"))));
-            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any()))
+            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any(), any()))
                     .thenReturn(pageOf(List.of(line(501L, 1L, "AMI-1", "USD", "100"))));
 
-            QueryPage<OrderProfitRow> page = profitQueryService.page(new OrderProfitQuery(null, null, null, null, null, 1, 50));
+            QueryPage<OrderProfitRow> page = profitQueryService.page(new OrderProfitQuery(null, null, null, null, null, 1, 50, null));
 
             OrderProfitRow row = page.list().get(0);
             assertEquals(0, new BigDecimal("725.00").compareTo(row.salesCny()));
@@ -95,11 +101,11 @@ class ProfitQueryServiceTest {
         void missingCostKeepsProfitNull() {
             stubRate("USD", "7.25");
             stubEmptyAggregates();
-            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any()))
+            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any(), any()))
                     .thenReturn(pageOf(List.of(line(501L, 1L, "AMI-1", "USD", "100"))));
 
             OrderProfitRow row = profitQueryService
-                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50)).list().get(0);
+                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50, null)).list().get(0);
 
             assertNull(row.costCny());
             assertTrue(row.costMissing());
@@ -112,11 +118,11 @@ class ProfitQueryServiceTest {
             stubEmptyAggregates();
             when(profitQueryMapper.sumCostByOrderItemIds(anyList())).thenReturn(List.of(
                     new OrderProfitAmountGroup(null, 501L, null, new BigDecimal("72.50"))));
-            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any()))
+            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any(), any()))
                     .thenReturn(pageOf(List.of(line(501L, 1L, "AMI-1", "USD", "100"))));
 
             OrderProfitRow row = profitQueryService
-                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50)).list().get(0);
+                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50, null)).list().get(0);
 
             assertTrue(row.commissionMissing());
             // 毛利 = 725 − 72.5 = 652.5
@@ -124,14 +130,83 @@ class ProfitQueryServiceTest {
         }
 
         @Test
-        void missingRateKeepsSalesNull() {
-            when(exchangeRateService.resolveRate("USD", ORDER_TIME)).thenReturn(null);
+        void estimatedCommissionWhenFeeRateConfigured() {
+            stubRate("USD", "7.25");
             stubEmptyAggregates();
-            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any()))
+            when(profitQueryMapper.sumCostByOrderItemIds(anyList())).thenReturn(List.of(
+                    new OrderProfitAmountGroup(null, 501L, null, new BigDecimal("72.50"))));
+            // 全站点 COMMISSION 费率 15%,8/1 生效长期
+            when(platformFeeRateService.listGlobalRates("COMMISSION")).thenReturn(List.of(
+                    PlatformFeeRate.builder().platform("AMAZON").feeType("COMMISSION")
+                            .rate(new BigDecimal("0.150000")).effFrom(LocalDate.of(2026, 8, 1)).build()));
+            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any(), any()))
                     .thenReturn(pageOf(List.of(line(501L, 1L, "AMI-1", "USD", "100"))));
 
             OrderProfitRow row = profitQueryService
-                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50)).list().get(0);
+                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50, null)).list().get(0);
+
+            // 估算佣金 = −725×15% = −108.75;标志置位;利润 = 725 − 72.5 − 108.75 = 543.75
+            assertEquals(0, new BigDecimal("-108.75").compareTo(row.commissionCny()));
+            assertTrue(row.commissionEstimated());
+            assertTrue(row.commissionMissing());
+            assertEquals(0, new BigDecimal("543.75").compareTo(row.profitCny()));
+        }
+
+        @Test
+        void futureFeeRateNotAppliedAndActualCommissionWins() {
+            stubRate("USD", "7.25");
+            stubEmptyAggregates();
+            when(profitQueryMapper.sumCostByOrderItemIds(anyList())).thenReturn(List.of(
+                    new OrderProfitAmountGroup(null, 501L, null, new BigDecimal("72.50"))));
+            // 9/15 才生效,下单日 9/1 取不到 → 不估算
+            when(platformFeeRateService.listGlobalRates("COMMISSION")).thenReturn(List.of(
+                    PlatformFeeRate.builder().platform("AMAZON").feeType("COMMISSION")
+                            .rate(new BigDecimal("0.150000")).effFrom(LocalDate.of(2026, 9, 15)).build()));
+            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(pageOf(List.of(line(501L, 1L, "AMI-1", "USD", "100"))));
+
+            OrderProfitRow row = profitQueryService
+                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50, null)).list().get(0);
+
+            assertNull(row.commissionCny());
+            assertTrue(row.commissionMissing());
+            assertTrue(!row.commissionEstimated());
+            // 无佣可扣退化为毛利 652.50
+            assertEquals(0, new BigDecimal("652.50").compareTo(row.profitCny()));
+        }
+
+        @Test
+        void actualCommissionTakesPrecedenceOverEstimate() {
+            stubRate("USD", "7.25");
+            stubEmptyAggregates();
+            when(profitQueryMapper.sumCostByOrderItemIds(anyList())).thenReturn(List.of(
+                    new OrderProfitAmountGroup(null, 501L, null, new BigDecimal("72.50"))));
+            when(profitQueryMapper.sumCommissionByPlatformItemIds(anyList())).thenReturn(List.of(
+                    new OrderProfitAmountGroup(1L, null, "AMI-1", new BigDecimal("-10.88"))));
+            when(platformFeeRateService.listGlobalRates("COMMISSION")).thenReturn(List.of(
+                    PlatformFeeRate.builder().platform("AMAZON").feeType("COMMISSION")
+                            .rate(new BigDecimal("0.300000")).effFrom(LocalDate.of(2026, 8, 1)).build()));
+            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(pageOf(List.of(line(501L, 1L, "AMI-1", "USD", "100"))));
+
+            OrderProfitRow row = profitQueryService
+                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50, null)).list().get(0);
+
+            // 实际佣金 −10.88 胜出,不用 30% 估算
+            assertEquals(0, new BigDecimal("-10.88").compareTo(row.commissionCny()));
+            assertTrue(!row.commissionEstimated());
+            assertTrue(!row.commissionMissing());
+        }
+
+        @Test
+        void missingRateKeepsSalesNull() {
+            when(exchangeRateService.resolveRate("USD", ORDER_TIME)).thenReturn(null);
+            stubEmptyAggregates();
+            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(pageOf(List.of(line(501L, 1L, "AMI-1", "USD", "100"))));
+
+            OrderProfitRow row = profitQueryService
+                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50, null)).list().get(0);
 
             assertNull(row.rate());
             assertNull(row.salesCny());
@@ -144,11 +219,11 @@ class ProfitQueryServiceTest {
             // 本测验证汇率→本位币乘法的确定性
             stubRate("CNY", "1");
             stubEmptyAggregates();
-            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any()))
+            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any(), any()))
                     .thenReturn(pageOf(List.of(line(501L, 1L, null, "CNY", "500"))));
 
             OrderProfitRow row = profitQueryService
-                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50)).list().get(0);
+                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50, null)).list().get(0);
 
             assertEquals(0, new BigDecimal("500.00").compareTo(row.salesCny()));
         }
@@ -160,11 +235,11 @@ class ProfitQueryServiceTest {
             stubEmptyAggregates();
             when(profitQueryMapper.sumCommissionByPlatformItemIds(anyList())).thenReturn(List.of(
                     new OrderProfitAmountGroup(99L, null, "AMI-1", new BigDecimal("-5.00"))));
-            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any()))
+            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any(), any()))
                     .thenReturn(pageOf(List.of(line(501L, 1L, "AMI-1", "USD", "100"))));
 
             OrderProfitRow row = profitQueryService
-                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50)).list().get(0);
+                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50, null)).list().get(0);
 
             // 佣金归集在别店(99),本店(1)视为待结算
             assertTrue(row.commissionMissing());
@@ -184,14 +259,14 @@ class ProfitQueryServiceTest {
             when(profitQueryMapper.sumCommissionByPlatformItemIds(anyList())).thenReturn(List.of(
                     new OrderProfitAmountGroup(1L, null, "AMI-1", new BigDecimal("-10.88"))));
             // 三行:齐备(USD)/缺佣金(USD 未出库也无佣金→缺成本)/缺汇率(EUR)
-            when(profitQueryMapper.selectProfitLinesAll(any(), any(), any(), any(), any()))
+            when(profitQueryMapper.selectProfitLinesAll(any(), any(), any(), any(), any(), any()))
                     .thenReturn(List.of(
                             line(501L, 1L, "AMI-1", "USD", "100"),
                             line(502L, 1L, "AMI-2", "USD", "200"),
                             line(503L, 1L, "AMI-3", "EUR", "300")));
 
             OrderProfitSummary summary = profitQueryService
-                    .summarize(new OrderProfitQuery(null, null, null, null, null, 1, 50));
+                    .summarize(new OrderProfitQuery(null, null, null, null, null, 1, 50, null));
 
             assertEquals(3, summary.orderItemCount());
             // sales:100×7.25 + 200×7.25 = 2175(EUR 行缺汇率不计)
@@ -222,14 +297,14 @@ class ProfitQueryServiceTest {
             stubEmptyAggregates();
             LocalDateTime d1 = LocalDateTime.of(2026, 9, 1, 10, 0);
             LocalDateTime d2 = LocalDateTime.of(2026, 9, 2, 11, 0);
-            when(profitQueryMapper.selectProfitLinesAll(any(), any(), any(), any(), any()))
+            when(profitQueryMapper.selectProfitLinesAll(any(), any(), any(), any(), any(), any()))
                     .thenReturn(List.of(
                             flexLine(501L, 11L, "商品A", d2, "USD", "100"),
                             flexLine(502L, 12L, "商品B", d1, "USD", "200"),
                             flexLine(503L, 11L, "商品A", d1, "USD", "300")));
 
             List<ProfitDailyTrendRow> trend = profitQueryService
-                    .listDailyTrend(new OrderProfitQuery(null, null, null, null, null, 1, 50));
+                    .listDailyTrend(new OrderProfitQuery(null, null, null, null, null, 1, 50, null));
 
             assertEquals(2, trend.size());
             assertEquals(d1.toLocalDate(), trend.get(0).statDate());
@@ -246,13 +321,13 @@ class ProfitQueryServiceTest {
             stubRate("USD", "7.25");
             when(exchangeRateService.resolveRate("EUR", ORDER_TIME)).thenReturn(null);
             stubEmptyAggregates();
-            when(profitQueryMapper.selectProfitLinesAll(any(), any(), any(), any(), any()))
+            when(profitQueryMapper.selectProfitLinesAll(any(), any(), any(), any(), any(), any()))
                     .thenReturn(List.of(
                             flexLine(501L, 11L, "商品A", ORDER_TIME, "USD", "100"),
                             flexLine(502L, 11L, "商品A", ORDER_TIME, "EUR", "999")));
 
             ProfitDailyTrendRow day = profitQueryService
-                    .listDailyTrend(new OrderProfitQuery(null, null, null, null, null, 1, 50)).get(0);
+                    .listDailyTrend(new OrderProfitQuery(null, null, null, null, null, 1, 50, null)).get(0);
 
             // 行数照计,金额只算有汇率的行(缺口不静默归零)
             assertEquals(2, day.orderItemCount());
@@ -267,14 +342,14 @@ class ProfitQueryServiceTest {
             when(profitQueryMapper.sumCostByOrderItemIds(anyList())).thenReturn(List.of(
                     new OrderProfitAmountGroup(null, 502L, null, new BigDecimal("700.00"))));
             // 501 无成本→利润 NULL;502 有成本→利润 1450−700=750;503 无成本且未绑定 SKU→不参与
-            when(profitQueryMapper.selectProfitLinesAll(any(), any(), any(), any(), any()))
+            when(profitQueryMapper.selectProfitLinesAll(any(), any(), any(), any(), any(), any()))
                     .thenReturn(List.of(
                             flexLine(501L, 11L, "商品A", ORDER_TIME, "USD", "100"),
                             flexLine(502L, 12L, "商品B", ORDER_TIME, "USD", "200"),
                             flexLine(503L, null, "未绑定行", ORDER_TIME, "USD", "300")));
 
             List<ProfitSkuRankRow> rank = profitQueryService
-                    .listSkuProfitRank(new OrderProfitQuery(null, null, null, null, null, 1, 50), 10);
+                    .listSkuProfitRank(new OrderProfitQuery(null, null, null, null, null, 1, 50, null), 10);
 
             assertEquals(2, rank.size());
             assertEquals(12L, rank.get(0).skuId());
@@ -288,7 +363,7 @@ class ProfitQueryServiceTest {
         void skuRankClampsTopN() {
             stubRate("USD", "7.25");
             stubEmptyAggregates();
-            when(profitQueryMapper.selectProfitLinesAll(any(), any(), any(), any(), any()))
+            when(profitQueryMapper.selectProfitLinesAll(any(), any(), any(), any(), any(), any()))
                     .thenReturn(List.of(
                             flexLine(501L, 11L, "商品A", ORDER_TIME, "USD", "100"),
                             flexLine(502L, 12L, "商品B", ORDER_TIME, "USD", "200"),
@@ -296,9 +371,44 @@ class ProfitQueryServiceTest {
 
             // topN=0 钳到 1;非法大值钳到 100(此处仅验下钳)
             List<ProfitSkuRankRow> rank = profitQueryService
-                    .listSkuProfitRank(new OrderProfitQuery(null, null, null, null, null, 1, 50), 0);
+                    .listSkuProfitRank(new OrderProfitQuery(null, null, null, null, null, 1, 50, null), 0);
 
             assertEquals(1, rank.size());
+        }
+    }
+
+    @Nested
+    class DataScope {
+
+        @Test
+        void emptyShopScopeShortCircuitsAllQueriesWithoutTouchingMapper() {
+            // 数据权限(#27①):空授权集 = 不可见任何店铺,四方法短路零结果且不触库
+            OrderProfitQuery query = new OrderProfitQuery(null, null, null, null, null, 1, 50, List.of());
+
+            QueryPage<OrderProfitRow> page = profitQueryService.page(query);
+            OrderProfitSummary summary = profitQueryService.summarize(query);
+            List<ProfitDailyTrendRow> trend = profitQueryService.listDailyTrend(query);
+            List<ProfitSkuRankRow> rank = profitQueryService.listSkuProfitRank(query, 10);
+
+            assertEquals(0, page.total());
+            assertTrue(page.list().isEmpty());
+            assertEquals(0, summary.orderItemCount());
+            assertEquals(0, summary.missingRateCount());
+            assertTrue(trend.isEmpty());
+            assertTrue(rank.isEmpty());
+            verifyNoInteractions(profitQueryMapper);
+        }
+
+        @Test
+        void nullShopScopeDoesNotFilter() {
+            // null = 不限(admin / 系统内部链路),走既有查询路径
+            stubRate("USD", "7.25");
+            stubEmptyAggregates();
+            when(profitQueryMapper.selectProfitLines(any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(pageOf(List.of(line(501L, 1L, "AMI-1", "USD", "100"))));
+
+            assertEquals(1, profitQueryService
+                    .page(new OrderProfitQuery(null, null, null, null, null, 1, 50, null)).list().size());
         }
     }
 

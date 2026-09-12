@@ -1,0 +1,43 @@
+# 头程发货单 spec(gen:page 拍板表;头程运费分摊 2026-09-11,docs/plans/first-mile-freight.md,TODO#33)
+# 字段名以后端 openapi 快照为准,跑 gen:page 核账(不在响应 schema 的字段会警告)
+# 状态机动作 box/ship/allocate/close/cancel 由快照端点自动生成 api 函数;
+# 装箱子表(箱+内件)行编辑、录运费弹窗、详情抽屉(装箱树+分摊行)为生成器外定制组件。
+# 金额 DECIMAL(12,4) 前端 string 直存直显(docs/09 §6);财务写操作 admin 双闸(后端)+ permKey 前端收口
+module=finance
+domain=firstLeg
+base=finance/first-leg-shipments
+entity=FirstLegShipment
+nameZh=头程发货单
+permPrefix=finance:first-leg
+todoId=33
+menuParent=31
+menuId=43
+path=/finance/first-leg-shipments
+component=finance/first-leg/index
+icon=Promotion
+menuSort=7
+
+field=shipmentNo       role=column label=头程单号   width=170
+field=fromWarehouseId role=all    label=国内仓     width=130
+field=toWarehouseId   role=all    label=目的仓     width=130
+field=status          role=column label=状态       width=100  tag enum=DRAFT:草稿:info|BOXED:已装箱:warning|SHIPPED:已发货:primary|ALLOCATED:已分摊:success|CLOSED:已关闭:success|CANCELED:已取消:danger
+field=carrier         role=column label=物流商     width=110
+field=waybillNo       role=column label=运单号     width=140
+field=freightAmount   role=column label=运费原币   money width=110
+field=currency        role=column label=币种       width=80
+field=freightCny      role=column label=运费CNY    money width=110
+field=chargeWeight    role=column label=计费重kg   width=100
+field=volumeWeight    role=column label=体积重kg   width=100
+field=shippedAt       role=column label=发货时间   width=170
+field=allocateStrategy role=column label=分摊策略  width=100  tag enum=QTY:按数量:info|WEIGHT:按重量:warning|AMOUNT:按金额:primary
+field=allocRemark     role=column label=分摊说明   width=200
+field=allocatedAt     role=column label=分摊时间   width=170
+field=remark          role=all    label=备注       width=180
+field=createdAt       role=column label=创建时间   width=170
+
+# 页面级动作槽位(生成器只产 api 函数,按钮按状态机裁剪人工补到 index):
+todo=box:DRAFT→BOXED 装箱完成(至少1箱有件),确认弹窗后调用,完成刷新
+todo=ship:BOXED→SHIPPED 确认发货并录运费,FirstLegShipDialog 定制弹窗(运费/币种/汇率/计费重),无汇率报价后端拦截
+todo=allocate:SHIPPED→ALLOCATED 执行运费分摊(三策略/全0降级/部分缺基数拦截),完成刷新并可查看分摊行
+todo=close:ALLOCATED→CLOSED 关闭,确认弹窗后调用
+todo=cancel:DRAFT/BOXED→CANCELED 取消(已发货起禁取消),确认弹窗后调用

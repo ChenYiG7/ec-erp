@@ -198,10 +198,15 @@ public class ShopService {
      * 脱敏收口本类(先 mask 实体再 Response.from 映射),新增读接口自动继承,不靠人肉记得调 mask
      */
     public Page<ShopResponse> pageShops(ShopQuery query) {
+        // 数据权限(#27①):shopIds 服务器权威装配,空列表=不可见任何店铺(短路零结果)
+        if (query.getShopIds() != null && query.getShopIds().isEmpty()) {
+            return new Page<>(query.getPageNo(), query.pageSize());
+        }
         Page<Shop> result = shopMapper.selectPage(new Page<>(query.getPageNo(), query.pageSize()),
                 new LambdaQueryWrapper<Shop>()
                         .eq(StrUtil.isNotBlank(query.getPlatform()), Shop::getPlatform, query.getPlatform())
                         .eq(query.getStatus() != null, Shop::getStatus, query.getStatus())
+                        .in(query.getShopIds() != null, Shop::getId, query.getShopIds())
                         .orderByDesc(Shop::getId));
         result.getRecords().forEach(ShopService::mask);
         Page<ShopResponse> responsePage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());

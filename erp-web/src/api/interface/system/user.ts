@@ -18,6 +18,8 @@ export interface SysUserResponse {
   email: string
   /** 手机号 */
   phone: string
+  /** 部门ID(sys_dept.id,#27③;null=未分配) */
+  deptId: number | null
   /** 状态 */
   status: number
   /** 创建时间 */
@@ -38,6 +40,8 @@ export interface SysUserSaveRequest {
   email?: string
   /** phone */
   phone?: string
+  /** 部门ID(sys_dept.id,#27③;不传=未分配) */
+  deptId?: number
   /** status */
   status?: number
 }
@@ -46,6 +50,12 @@ export interface SysUserSaveRequest {
 export interface SysUserRolesRequest {
   /** roleIds */
   roleIds?: number[]
+}
+
+/** 用户-店铺数据授权请求体(#27①;全量重绑,空列表=清空授权) */
+export interface SysUserShopsRequest {
+  /** shopIds */
+  shopIds?: number[]
 }
 
 /** 用户管理动作请求体 */

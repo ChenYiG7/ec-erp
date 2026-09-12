@@ -1,12 +1,14 @@
 package com.own.erp.config;
 
 import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.own.erp.finance.entity.PlatformFeeRate;
 import com.own.erp.goods.entity.Brand;
 import com.own.erp.goods.entity.Product;
 import com.own.erp.goods.entity.ProductCategory;
 import com.own.erp.goods.entity.ProductSku;
 import com.own.erp.purchase.entity.Supplier;
 import com.own.erp.shop.entity.Shop;
+import com.own.erp.system.entity.SysDept;
 import com.own.erp.system.entity.SysDict;
 import com.own.erp.system.entity.SysMenu;
 import com.own.erp.system.entity.SysRole;
@@ -24,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * @author : chenyi
  * @Date : 2026/9/8
  * @Description : TODO#7 逻辑删除注解规约单测(反射直测,不起 Spring):
- *     11 张人工域实体必须带 @TableLogic(value="0", delval="id") + Long deleted 字段——
+ *     13 张人工域实体必须带 @TableLogic(value="0", delval="id") + Long deleted 字段——
  *     delval=id 是唯一键含 deleted 形态的前提(删时置主键 id,0 与各已删行 id 互异),
  *     口径漂移(如改回 delval=1)会静默破坏"删后同键可重建",编译期无感,这里编译期钉死。
  *     SQL 侧行为(updateById 变 UPDATE deleted=id、select 自动滤已删)由迁移脚本自检 + 真库兜底,
@@ -32,11 +34,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  */
 class LogicalDeleteAnnotationTest {
 
-    /** 人工域 11 实体,与 docs/sql/01_schema_init.sql 带 deleted 列的表一一对应(TODO#7) */
+    /** 人工域实体,与 docs/sql/01_schema_init.sql 带 deleted 列的人工维护表一一对应(TODO#7;#19 费率表扩为 12,#27③ 部门表扩为 13) */
     private static final List<Class<?>> LOGIC_DELETE_ENTITIES = List.of(
-            SysUser.class, SysRole.class, SysMenu.class, SysDict.class,
+            SysUser.class, SysDept.class, SysRole.class, SysMenu.class, SysDict.class,
             Brand.class, Product.class, ProductSku.class, ProductCategory.class,
-            Shop.class, Warehouse.class, Supplier.class);
+            Shop.class, Warehouse.class, Supplier.class, PlatformFeeRate.class);
 
     @Test
     void logicDeleteEntitiesCarryTableLogicWithIdDelval() throws Exception {

@@ -51,6 +51,7 @@ pnpm gen:page --spec tools/specs/<domain>.txt   # 新页面生成器(存在即�
 | Hutool | 5.8.47 | hutool-core,根 pom 全模块继承;isBlank/集合判空用 `StrUtil`/`CollUtil` |
 | springdoc | 3.1.0 | Boot 4 专用 3.x 线;Controller 必标 @Tag/@Operation(中文) |
 | Apache POI | 5.4.0 | 仅 erp-report 依赖,版本模块内自管不进根 pom(Excel 导出) |
+| AWS SDK v2 | s3 2.46.7 | 仅 erp-common 依赖(OssService → RustFS,S3 兼容),版本模块内自管不进根 pom;SDK 类型零外漏 |
 
 回滚方案:Boot 3.5.14 + Spring AI 1.1.5 + SAA 1.1.2.3。
 
@@ -68,7 +69,7 @@ pnpm gen:page --spec tools/specs/<domain>.txt   # 新页面生成器(存在即�
 4. **库存变更唯一入口** `InventoryService.change()`,同事务写 inventory_flow(且先经 InventoryCostService.apply 推进成本账),禁止旁路 update。
 5. **幂等靠唯一键**:订单 `(shop_id, platform_order_id)`、店铺 `(platform, seller_id)`,upsert 落库。
 6. **金额一律 DECIMAL(12,4)**;汇率 DECIMAL(12,8)。
-7. **安全红线**:平台凭证 AES-GCM 加密(密钥 `ERP_TOKEN_KEY` 环境变量/local.properties,禁入提交配置文件,无默认值启动强制;凭证写入唯一入口 ShopService,实体凭证字段 @ToString.Exclude);JWT 密钥 `ERP_JWT_SECRET`(≥32字节);接口返回脱敏;密码 BCrypt;**AI 工具只读,写操作必须人工确认,AI 产出一律落 ai_suggestion**;sys_config 禁入凭证类键(SMTP 授权码为唯一范围例外,docs/07 §7)。
+7. **安全红线**:平台凭证 AES-GCM 加密(密钥 `ERP_TOKEN_KEY` 环境变量/local.properties,禁入提交配置文件,无默认值启动强制;凭证写入唯一入口 ShopService,实体凭证字段 @ToString.Exclude);JWT 密钥 `ERP_JWT_SECRET`(≥32字节);接口返回脱敏;密码 BCrypt;**AI 工具只读,写操作必须人工确认,AI 产出一律落 ai_suggestion**;sys_config 禁入凭证类键(SECRET 型范围例外 = SMTP 授权码 + OSS SecretKey,docs/07 §7)。
 8. **Token 纪律**:同构样板不走 AI 手写——八件套跑 erp-codegen,批量同款修改用脚本/正则;前端同构页面跑 erp-web/tools 生成器(add-page);同一条路径第二次出现时,主动提议沉淀成生成器模板或脚本,由人工拍板。**判断归 AI、执行归程序、业务逻辑归人工。**
 
 ## 核心流程(SKU 映射 = 系统心脏)
@@ -86,15 +87,15 @@ pnpm gen:page --spec tools/specs/<domain>.txt   # 新页面生成器(存在即�
 
 | 模块 | 职责与现状 |
 |---|---|
-| erp-common | 返回体/异常/分页(PageQuery + MP Page)/领域事件(DeliveryShippedEvent、SystemConfigChangedEvent 等,发布方与监听方互不依赖) |
+| erp-common | 返回体/异常/分页(PageQuery + MP Page)/领域事件(DeliveryShippedEvent、SystemConfigChangedEvent 等,发布方与监听方互不依赖)+ **OssService(#25,2026-09-11)**:统一对象存储收口(S3 协议对接 RustFS,AWS SDK v2 类型零外漏;sys_config GROUP_OSS 热更 + yml 兜底,客户端懒构建事件失效;secret-key 为 SECRET 掩码例外扩容) |
 | erp-contract | 跨域契约(零实现,收口 erp-api):动账/存在性/引用计数命令(InventoryChangeApi/GoodsSkuApi/WarehouseApi/CurrentUserApi/ShopOrderApi findDeliveryView+casOrderStatus)+ **只读查询契约十件**(Order/Inventory/Goods/Aftersale/Sales/Shop/Purchase/Delivery/InventorySnapshot/Report)+ ProfitQueryApi + SystemConfigApi;过滤 record + 行视图 record + QueryPage,全 record 不引 MP 类型;**凭证字段不进契约**(ShopView 不收 appKey/accessToken);域 Service 注入契约接口一律 @Lazy 断构造环;lombok 仅编译期 |
-| erp-system | 用户/角色/菜单/字典(JWT + RBAC,按 role_key 鉴权)/站内通知(#14 三渠道:站内 pushAllUsers 出口 + Webhook(钉钉/飞书/企微)与邮箱两监听器 AFTER_COMMIT 挂事件)/sys_config 配置热更(#18:词表白名单、SECRET 掩码回显、事件失效缓存) |
+| erp-system | 用户/角色/菜单/字典(JWT + RBAC,按 role_key 鉴权)/**部门(#27③ 2026-09-12,sys_dept 树 + sys_user.dept_id,成环/删除引用校验,数据权限联动随 #27①)**//**操作审计(#27② 2026-09-12,sys_oper_log 只增流水 + @OperLog 注解(erp-common)AOP 采集,AFTER_COMMIT 异步落库失败不回滚业务,params 2KB 截断+敏感字段名掩码;首批挂订单审核/盘点调拨/发货/采购 9 端点,查询限 admin)**/站内通知(#14 三渠道:站内 pushAllUsers 出口 + Webhook(钉钉/飞书/企微)与邮箱两监听器 AFTER_COMMIT 挂事件 + SSE 浏览器实时推送(2026-09-12:订阅端点+进程内连接注册表多 tab 上限 5,AFTER_COMMIT 推帧+30s 心跳,前端 SSE 为主/60s 轮询降级退避重连;多实例广播 TODO#34 槽位))/**数据权限(#27① 2026-09-12,sys_user_shop 店铺轴:admin null=不限/非空 IN 过滤/空集不可见,实时查库 JWT 不动;授权集提供收口 CurrentUserApiImpl,注入=契约实现层 + 各域查询 Controller 强制覆盖装配,未注入域显式注释)/sys_config 配置热更(#18:词表白名单、SECRET 掩码回显、事件失效缓存) |
 | erp-shop | 店铺/授权/凭证加密(AES-256-GCM,脱敏唯一出口)/pull_log/OAuth 授权中心(state 加密签发 10 分钟 TTL、DB CAS 防双刷新、过期前 10 分钟刷新)/店铺删除引用校验 |
 | erp-goods | 商品库(SPU/SKU/分类/品牌 + 分类成环校验)+ **SKU 映射**(#5:自动匹配 + 人工绑定,绑定列永不被同步覆盖)/SKU 批量翻译端点(options) |
 | erp-order | 统一订单(saveUnifiedOrder upsert 幂等 + casOrderStatus 条件推进)/order_sales_daily 销量日表(SalesSnapshotJob 01:00 重算 30 天窗,支付日×SKU 已支付态口径)+ **#29 订单域补课**:订单审核(review_status 第二状态机 casReviewStatus + OrderRiskEvaluator 风控判定[地址六列/留言关键词 sys_config],审核列不进 ODKU 更新清单,拉单不冲人工结论)/内销手工录单 ManualOrderService(合成单号 MAN-{shopId}-{yyyyMMdd}-{seq} 占 uk + SKU 必绑,MANUAL 撞拉单即拒覆盖 + 事件告警)/按仓·按物流拆单=同订单多次建单(发货单三列 #11 已备) |
 | erp-inventory | 多仓四量 + 流水(**change() 唯一入口**:一条原子 UPDATE 守卫下推 WHERE,首建捕 DuplicateKeyException 重试;**FlowOps 矩阵**按 flow_type 差异化列语义:IN_TRANSIT 采购占在途/LOCK_SHIP 发货占用/IN_PURCHASE 核销/OUT_SHIP 占用转出库)/transfer() 跨仓组合/**InventoryCostService 移动加权成本账**(随流水同事务,#19③,CostOps 策略分派,FOR UPDATE 锁 state 行)/inventory_snapshot_daily 日快照(InventorySnapshotJob 01:30,只增不可回溯) |
 | erp-purchase | 采购四域(#10:状态机 DRAFT→AUDITED→(部分)入库→CLOSED;audit/close 复合事务占/释在途;入库核销 confirm 三步同事务,arrived_qty 原子累加防超收)/供应商(uk_name 唯一) |
-| erp-warehouse | 仓库档案/出入库/删除引用校验(库存 + 采购两域合计) |
+| erp-warehouse | 仓库档案/出入库/删除引用校验(库存 + 采购 + 盘点 + 调拨四域合计) |
 | erp-fulfill | 发货单(#11:状态机 + **建单即占库存**(LOCK_SHIP,缺货建单即拦)/ship 同事务核销 + 发足判定推进订单(部分发货不推进)/cancel·delete 释放/update 行锁读 + 释放重占;delivery_order_item 为进度事实源,未绑定行不参与;ship 事务内发布 DeliveryShippedEvent)+ **#29 建单审核闸门**(订单 review_status∈{1待审核,3已驳回} 拦建单,文案区分;null 放行兼容历史数据) |
 | erp-aftersale | 售后单(#12:8 态五动作状态机,类型血缘前置白名单;收退件 receiveReturn 复合事务(校验链→占位→IN_RETURN 动账→实收明细);saveUnifiedRefund 平台同步(仅平台终态条件推进)) |
 | erp-finance | 财务(#19:settlement 域结算报告解析 V2 报表(勾稽不平整单 FAILED)+ profit 域 SKU 级利润(移动加权,归集键:成本=OUT_SHIP 流水/佣金=settlement_detail 按 platform_order_item_id;缺口纪律三计数不静默归零)+ 汇率回溯 resolveRate + RefundReconciliationService 退款勾稽三类差异)/erp-api RefundReconciliationJob 每日一扫 |

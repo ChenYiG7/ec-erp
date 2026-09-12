@@ -14,6 +14,7 @@ import java.util.Map;
  * @Date : 2026/9/7
  * @Description : SalesQueryApi 实现(#6 销量数据面,编排胶水收口 erp-api,docs/07 §2.2):
  *         erp-ai 读销量委托 erp-order OrderSalesDailyService(order_sales_daily 日统计表)
+ *         数据权限(#27①):显式不注入——order_sales_daily 按日×SKU 聚合无店铺列,店铺维度不在此面
  */
 @Component
 @RequiredArgsConstructor

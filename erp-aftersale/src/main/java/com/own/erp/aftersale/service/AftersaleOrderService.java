@@ -69,11 +69,16 @@ public class AftersaleOrderService {
         this.inventoryChangeApi = inventoryChangeApi;
     }
 
-    /** 分页查询(默认按 id 倒序;shopId/status/type/orderId 精确过滤) */
+    /** 分页查询(默认按 id 倒序;shopId/status/type/orderId 精确过滤)。
+     *  数据权限(#27①):shopIds 服务器权威装配,null=不过滤;空列表=不可见任何店铺(短路零结果) */
     public Page<AftersaleOrderResponse> page(AftersaleOrderQuery query) {
+        if (query.getShopIds() != null && query.getShopIds().isEmpty()) {
+            return new Page<>(query.getPageNo(), query.pageSize());
+        }
         Page<AftersaleOrder> result = aftersaleOrderMapper.selectPage(new Page<>(query.getPageNo(), query.pageSize()),
                 new LambdaQueryWrapper<AftersaleOrder>()
                         .eq(query.getShopId() != null, AftersaleOrder::getShopId, query.getShopId())
+                        .in(query.getShopIds() != null, AftersaleOrder::getShopId, query.getShopIds())
                         .eq(StrUtil.isNotBlank(query.getStatus()), AftersaleOrder::getStatus, query.getStatus())
                         .eq(StrUtil.isNotBlank(query.getType()), AftersaleOrder::getType, query.getType())
                         .eq(query.getOrderId() != null, AftersaleOrder::getOrderId, query.getOrderId())

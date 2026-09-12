@@ -31,6 +31,9 @@
         <el-button v-auth="'system:user:roles'" type="warning" link :icon="User" @click="openRoles(scope.row)"
           >角色分配</el-button
         >
+        <el-button v-auth="'system:user:shops'" type="warning" link :icon="Shop" @click="openShops(scope.row)"
+          >店铺授权</el-button
+        >
         <el-button v-auth="'system:user:password'" type="warning" link :icon="Key" @click="onPassword(scope.row)"
           >重置密码</el-button
         >
@@ -38,13 +41,14 @@
     </ProTable>
     <SysUserForm ref="formRef" @saved="refreshTable" />
     <UserRoleDialog ref="rolesRef" @saved="refreshTable" />
+    <UserShopDialog ref="shopsRef" @saved="refreshTable" />
   </div>
 </template>
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'system-user-index' })
 import { ref } from 'vue'
-import { CirclePlus, EditPen, Delete, User, Key } from '@element-plus/icons-vue'
+import { CirclePlus, EditPen, Delete, User, Shop, Key } from '@element-plus/icons-vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
@@ -52,11 +56,13 @@ import { sysUserApi } from '@/api/apis/system/user'
 import type { SysUserResponse } from '@/api/interface/system/user'
 import SysUserForm from './components/SysUserForm.vue'
 import UserRoleDialog from './components/UserRoleDialog.vue'
+import UserShopDialog from './components/UserShopDialog.vue'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
 const formRef = ref<InstanceType<typeof SysUserForm>>()
 const rolesRef = ref<InstanceType<typeof UserRoleDialog>>()
+const shopsRef = ref<InstanceType<typeof UserShopDialog>>()
 
 // 列配置(gen:page 按 spec role=column/all 产出;enum/dict 选项同时供搜索下拉)
 const columns: ColumnProps<SysUserResponse>[] = [
@@ -73,7 +79,7 @@ const columns: ColumnProps<SysUserResponse>[] = [
     ],
   },
   { prop: 'createdAt', label: '创建时间', width: 170 },
-  { prop: 'operation', label: '操作', fixed: 'right', width: 350 },
+  { prop: 'operation', label: '操作', fixed: 'right', width: 430 },
 ]
 
 const openForm = (mode: 'add' | 'edit', row?: SysUserResponse) => {
@@ -89,6 +95,9 @@ const handleDelete = async (row: SysUserResponse) => {
 
 // 角色分配弹窗
 const openRoles = (row: SysUserResponse) => rolesRef.value?.open(row)
+
+// 店铺授权弹窗(#27① 数据权限)
+const openShops = (row: SysUserResponse) => shopsRef.value?.open(row)
 
 // 管理员重置密码(新密码 ElMessageBox.prompt 输入,后端 BCrypt 落库)
 const onPassword = async (row: SysUserResponse) => {

@@ -136,6 +136,16 @@ public class PurchaseOrderService {
         return responsePage;
     }
 
+    /** 按 id 批量取采购单摘要(#31 资金域付款校验经契约调用,不带明细);空入参返回空列表 */
+    public List<PurchaseOrderResponse> listByIds(Collection<Long> ids) {
+        if (CollUtil.isEmpty(ids)) {
+            return List.of();
+        }
+        return purchaseOrderMapper.selectList(new LambdaQueryWrapper<PurchaseOrder>()
+                        .in(PurchaseOrder::getId, ids))
+                .stream().map(PurchaseOrderResponse::from).toList();
+    }
+
     /** 详情带明细(withItems wither 副本);不存在返回 null */
     public PurchaseOrderResponse getById(Long id) {
         PurchaseOrder purchaseOrder = purchaseOrderMapper.selectById(id);

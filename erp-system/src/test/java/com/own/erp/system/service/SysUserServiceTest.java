@@ -2,9 +2,12 @@ package com.own.erp.system.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.exception.BusinessException;
+import com.own.erp.system.entity.SysDept;
 import com.own.erp.system.entity.SysUser;
+import com.own.erp.system.mapper.SysDeptMapper;
 import com.own.erp.system.mapper.SysUserMapper;
 import com.own.erp.system.mapper.SysUserRoleMapper;
+import com.own.erp.system.mapper.SysUserShopMapper;
 import com.own.erp.system.request.command.SysUserSaveRequest;
 import com.own.erp.system.request.query.SysUserQuery;
 import com.own.erp.system.response.SysUserResponse;
@@ -41,6 +44,8 @@ class SysUserServiceTest {
 
     private SysUserMapper userMapper;
     private SysUserRoleMapper userRoleMapper;
+    private SysUserShopMapper userShopMapper;
+    private SysDeptMapper deptMapper;
     private PasswordEncoder passwordEncoder;
     private SysUserService service;
 
@@ -48,9 +53,11 @@ class SysUserServiceTest {
     void setUp() {
         userMapper = mock(SysUserMapper.class);
         userRoleMapper = mock(SysUserRoleMapper.class);
+        userShopMapper = mock(SysUserShopMapper.class);
+        deptMapper = mock(SysDeptMapper.class);
         // 真实 BCrypt(低代价轮次提速):加密/比对走真算法,非打桩自嗨
         passwordEncoder = new BCryptPasswordEncoder(4);
-        service = new SysUserService(userMapper, userRoleMapper, passwordEncoder);
+        service = new SysUserService(userMapper, userRoleMapper, userShopMapper, deptMapper, passwordEncoder);
     }
 
     private SysUserSaveRequest request(String password) {
@@ -112,6 +119,32 @@ class SysUserServiceTest {
         assertEquals(7L, row.getId());
         // password 不在 toEntity 映射内:更新路径物理隔绝,MP null-skip 不会碰密码列
         assertNull(row.getPassword());
+    }
+
+    @Test
+    void createUserRejectsMissingDept() {
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(deptMapper.selectById(9L)).thenReturn(null);
+        SysUserSaveRequest withDept = SysUserSaveRequest.builder().username("chen").password(RAW)
+                .deptId(9L).status(1).build();
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.createUser(withDept));
+
+        assertTrue(ex.getMessage().contains("部门不存在"));
+        verify(userMapper, never()).insert(any(SysUser.class));
+    }
+
+    @Test
+    void updateUserCarriesDeptId() {
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(deptMapper.selectById(9L)).thenReturn(new SysDept());
+        SysUserSaveRequest withDept = SysUserSaveRequest.builder().username("chen").deptId(9L).status(1).build();
+
+        service.updateUser(7L, withDept);
+
+        ArgumentCaptor<SysUser> captor = ArgumentCaptor.forClass(SysUser.class);
+        verify(userMapper).updateById(captor.capture());
+        assertEquals(9L, captor.getValue().getDeptId());
     }
 
     @Test

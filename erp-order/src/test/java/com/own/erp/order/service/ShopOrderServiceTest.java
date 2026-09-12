@@ -27,6 +27,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -95,6 +96,17 @@ class ShopOrderServiceTest {
         page.setRecords(List.of(shopOrder));
         doReturn(page).when(shopOrderMapper).selectPage(any(), any());
         assertEquals(2L, shopOrderService.page(new ShopOrderQuery()).getRecords().get(0).id());
+    }
+
+    @Test
+    void pageWithEmptyShopScopeShortCircuitsToZeroRows() {
+        // 数据权限(#27①):空授权集 = 不可见任何店铺,短路零结果且不触库
+        ShopOrderQuery query = new ShopOrderQuery();
+        query.setShopIds(List.of());
+        Page<ShopOrderResponse> result = shopOrderService.page(query);
+        assertEquals(0, result.getTotal());
+        assertTrue(result.getRecords().isEmpty());
+        verifyNoInteractions(shopOrderMapper);
     }
 
     @Test

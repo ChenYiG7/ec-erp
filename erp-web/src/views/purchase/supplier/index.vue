@@ -66,6 +66,7 @@ const columns: ColumnProps<SupplierResponse>[] = [
   { prop: 'contact', label: '联系人', width: 110 },
   { prop: 'phone', label: '联系电话', width: 140 },
   { prop: 'settleType', label: '结算方式', width: 110 },
+  { prop: 'settleDays', label: '账期(天)', width: 100 },
   {
     prop: 'status',
     label: '状态',

@@ -1,0 +1,24 @@
+# fulfill FBA发货单状态机守卫测试 spec(fba-shipment)—— StateMachineTestGenerator 输入
+# 语法见 erp-codegen/README.md;语义对齐 FbaShipmentService(docs/07 §6.3 条件更新即守卫)
+# 改状态机(或 Mapper cas 实参)后:改本文件 → 重跑生成器 -Dforce=true → mvn -pl erp-fulfill test
+# 仅纯单 cas 动作(close/cancel)入 spec;box(后置装箱勾稽校验)/ship(勾稽+逐SKU OUT_SHIP 动账)/
+# receive(diff 三态生成+先删后插覆盖)属复合事务动作,在生成器边界外(README 同 ship/confirm),
+# 守卫与业务用例全部落在手写 FbaShipmentServiceTest
+module=fulfill
+entity=FbaShipment
+var=fbaShipment
+constClass=com.own.erp.fulfill.constant.FbaConsts
+# Service 构造器 10 依赖全部 mock(顺序与构造签名一致;同包类/契约接口均可经完整 fqcn 声明)
+mock=FbaShipmentMapper
+mock=FbaShipmentItemMapper
+mock=FbaBoxMapper
+mock=FbaBoxItemMapper
+mock=FbaShipmentDiffMapper
+mock=FbaQueryMapper
+mock=com.own.erp.contract.WarehouseApi
+mock=com.own.erp.contract.GoodsQueryApi
+mock=com.own.erp.contract.InventoryChangeApi
+mock=com.own.erp.contract.CurrentUserApi
+# action=<serviceMethod> | cas=<mapper方法> | stub=<stub实参> | call=<调用实参> | fail=<消息前缀>
+action=close | cas=casClose | stub=ID | call=ID | fail=关闭失败 | verify
+action=cancel | cas=casCancel | stub=ID | call=ID | fail=取消失败 | verify

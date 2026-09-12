@@ -86,6 +86,13 @@ public class KbController {
         return Result.ok(documentService.listChunks(id));
     }
 
+    @Operation(summary = "原文下载链接", description = "返回原文的 OSS 预签名下载 URL(30 分钟有效);"
+            + "仅 UPLOAD 且原文已存档(#25)的文档可用,未存档报业务异常")
+    @GetMapping("/documents/{id}/file")
+    public Result<String> file(@PathVariable("id") Long id) {
+        return Result.ok(documentService.presignOriginalUrl(id));
+    }
+
     @Operation(summary = "上传文件接入", description = ".txt/.md/.markdown,UTF-8;上限取 erp.ai.kb.max-file-bytes;"
             + "写入侧限 admin")
     @PostMapping(value = "/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -104,13 +111,16 @@ public class KbController {
             throw new BusinessException("仅支持 " + String.join("/", ALLOWED_EXTENSIONS) + " 纯文本文件");
         }
         String text;
+        byte[] originalBytes;
         try {
-            text = new String(file.getBytes(), StandardCharsets.UTF_8);
+            originalBytes = file.getBytes();
+            text = new String(originalBytes, StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new BusinessException("文件读取失败,请确认 UTF-8 编码后重试");
         }
+        // 原始字节随 ingest 同步存 OSS(#25;未启用/失败自动跳过,见 KbIngestService 降级口径)
         AiKbDocument doc = ingestService.ingest(title, AiConsts.KB_SOURCE_UPLOAD, fileName, text,
-                currentUserApi.currentUserId());
+                currentUserApi.currentUserId(), originalBytes);
         return Result.ok(AiKbDocumentResponse.from(doc));
     }
 

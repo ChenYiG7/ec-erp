@@ -46,6 +46,15 @@ public class ProductSku {
     /** 重量(g) */
     private Integer weightG;
 
+    /** 外长(mm),头程/FBA 装箱属性(#33) */
+    private Integer lengthMm;
+
+    /** 外宽(mm),头程/FBA 装箱属性(#33) */
+    private Integer widthMm;
+
+    /** 外高(mm),头程/FBA 装箱属性(#33) */
+    private Integer heightMm;
+
     // ---- 跨境申报字段 ----
 
     /** 海关 HS 编码 */

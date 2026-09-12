@@ -4,8 +4,14 @@ import { ElNotification } from 'element-plus'
  * @description 全局代码错误捕捉
  * */
 const errorHandler = (error: any) => {
-  // 过滤 HTTP 请求错误
+  // 过滤 HTTP 请求错误(带 status):响应拦截器已按状态码统一弹提示
   if (error.status || error.status == 0) {
+    return false
+  }
+  // 非真实 JS 异常静默(#26 二轮走查):ElMessageBox 取消以 'cancel'/'close' 字符串 reject(用户主动取消非异常);
+  // 业务错误以 Result 对象 reject(拦截器已弹提示)。二者经 Vue 异步事件链路路由到本 errorHandler,
+  // 此前会误弹「未知错误 cancel」通知
+  if (!(error instanceof Error)) {
     return false
   }
   const errorMap: { [key: string]: string } = {
@@ -21,7 +27,7 @@ const errorHandler = (error: any) => {
   const errorName = errorMap[error.name] || '未知错误'
   ElNotification({
     title: errorName,
-    message: error,
+    message: error.message,
     type: 'error',
     duration: 3000,
   })

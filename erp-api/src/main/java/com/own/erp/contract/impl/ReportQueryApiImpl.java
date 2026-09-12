@@ -19,6 +19,7 @@ import java.util.List;
  *         (日报 ≤365 行 / 单日快照全行),为 LIMIT 新写 SQL 不值得;
  *         窗口缺省/钳制(近 30 天、≤366 天)与快照日缺省(最新日)全部沿用域服务口径,此处不重复实现。
  *         <p>注入不加 @Lazy:ReportService 不反向注入契约(无构造环),与 18 个同目录 Impl 惯例一致
+ *         数据权限(#27①):销售日报/快照面为全店聚合无店铺列,显式不注入(店铺轴报告随需求另立)
  */
 @Component
 @RequiredArgsConstructor

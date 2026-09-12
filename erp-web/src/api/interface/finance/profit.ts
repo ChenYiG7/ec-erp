@@ -29,14 +29,16 @@ export interface OrderProfitRow {
   salesCny: string | null
   /** 出库成本(CNY),未出库 null */
   costCny: string | null
-  /** 平台佣金(CNY,报告原值带符号为负),待结算 null */
+  /** 平台佣金(CNY,报告原值带符号为负),待结算且无费率估算时 null */
   commissionCny: string | null
-  /** 利润(CNY),缺成本/缺汇率 null;仅缺佣金=售价−成本(毛利) */
+  /** 利润(CNY),缺成本/缺汇率 null;佣金缺实际且无预估=售价−成本(毛利) */
   profitCny: string | null
   /** true=未出库 */
   costMissing: boolean
-  /** true=待结算 */
+  /** true=缺实际结算佣金(费率估算命中时仍为 true,与 commissionEstimated 同置位) */
   commissionMissing: boolean
+  /** true=佣金来自 platform_fee_rate 费率估算(结算回后实际优先,本标志回 false) */
+  commissionEstimated: boolean
 }
 
 /** 利润汇总(GET /api/finance/profit/summary;缺口单独计数不静默归零) */

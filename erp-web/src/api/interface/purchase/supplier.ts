@@ -18,6 +18,8 @@ export interface SupplierResponse {
   phone: string
   /** 结算方式 */
   settleType: string
+  /** 账期天数(V1 仅展示,到期提醒留 TODO#31) */
+  settleDays?: number
   /** 备注 */
   remark: string
   /** 状态 */
@@ -38,6 +40,8 @@ export interface SupplierSaveRequest {
   phone?: string
   /** settleType */
   settleType?: string
+  /** 账期天数(V1 仅展示,≥0) */
+  settleDays?: number
   /** remark */
   remark?: string
   /** status */
