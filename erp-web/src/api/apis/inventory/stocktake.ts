@@ -1,10 +1,10 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type {
+  StocktakeOrderCountsRequest,
   StocktakeOrderResponse,
   StocktakeOrderSaveRequest,
-  StocktakeOrderCountsRequest,
 } from '@/api/interface/inventory/stocktake'
+import http from '@/utils/request'
 
 /**
  * 盘点单(/api/inventory/stocktakes,由 gen:page 生成)

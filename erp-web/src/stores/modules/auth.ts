@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
-import type { AuthState } from '@/stores/interface/store'
-import type { LoginResponse, MenuOptions, SysMenuResponse } from '@/api/interface'
-import { AuthApi } from '@/api/apis/system/auth'
-import { getFlatMenuList, getShowMenuList, getAllBreadcrumbList } from '@/utils'
-import { useUserStore } from '@/stores/modules/user'
 import { computed, reactive, toRefs } from 'vue'
+import { AuthApi } from '@/api/apis/system/auth'
+import type { LoginResponse, MenuOptions, SysMenuResponse } from '@/api/interface'
+import type { AuthState } from '@/stores/interface/store'
+import { useUserStore } from '@/stores/modules/user'
+import { getAllBreadcrumbList, getFlatMenuList, getShowMenuList } from '@/utils'
 
 /**
  * component 路径 -> 路由 name(system/user/index -> system-user-index)

@@ -28,8 +28,11 @@ public record TransferOrderResponse(
         /** 调入仓ID(warehouse.id) */
         Long toWarehouseId,
 
-        /** DRAFT草稿/CONFIRMED已确认(调拨已达)/CANCELED已取消 */
+        /** DRAFT草稿/IN_TRANSIT在途(已发未达)/CONFIRMED已确认(调拨已达)/CANCELED已取消 */
         String status,
+
+        /** 动账模式(#30 余量①):DIRECT确认即达(V1默认)/IN_TRANSIT在途(OUT→到货IN) */
+        String transitMode,
 
         /** 备注 */
         String remark,
@@ -56,6 +59,7 @@ public record TransferOrderResponse(
                 .fromWarehouseId(entity.getFromWarehouseId())
                 .toWarehouseId(entity.getToWarehouseId())
                 .status(entity.getStatus())
+                .transitMode(entity.getTransitMode())
                 .remark(entity.getRemark())
                 .createdBy(entity.getCreatedBy())
                 .createdAt(entity.getCreatedAt())
@@ -65,7 +69,7 @@ public record TransferOrderResponse(
 
     /** wither 副本:详情挂明细,禁为补一个字段回退可变模型(docs/07 §1 分级③) */
     public TransferOrderResponse withItems(List<TransferOrderItemResponse> items) {
-        return new TransferOrderResponse(id, transferNo, fromWarehouseId, toWarehouseId, status, remark,
-                createdBy, createdAt, updatedAt, items);
+        return new TransferOrderResponse(id, transferNo, fromWarehouseId, toWarehouseId, status, transitMode,
+                remark, createdBy, createdAt, updatedAt, items);
     }
 }

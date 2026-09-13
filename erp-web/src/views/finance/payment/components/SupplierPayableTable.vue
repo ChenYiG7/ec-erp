@@ -10,11 +10,12 @@
 </template>
 <script setup lang="ts">
 defineOptions({ name: 'finance-payment-supplier-table' })
+
 import { ref } from 'vue'
-import ProTable from '@/components/ProTable/index.vue'
-import type { ColumnProps } from '@/components/ProTable/interface'
 import { paymentRecordApi } from '@/api/apis/finance/payment'
 import type { SupplierPayableRow } from '@/api/interface/finance/payment'
+import ProTable from '@/components/ProTable/index.vue'
+import type { ColumnProps } from '@/components/ProTable/interface'
 
 const proTableRef = ref<InstanceType<typeof ProTable>>()
 

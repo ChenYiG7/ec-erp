@@ -81,16 +81,17 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'inventory-stocktake-index' })
-import { ref } from 'vue'
-import { CirclePlus, EditPen, Delete } from '@element-plus/icons-vue'
+
+import { CirclePlus, Delete, EditPen } from '@element-plus/icons-vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
+import { stocktakeOrderApi } from '@/api/apis/inventory/stocktake'
+import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import type { StocktakeOrderResponse } from '@/api/interface/inventory/stocktake'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
-import { stocktakeOrderApi } from '@/api/apis/inventory/stocktake'
-import type { StocktakeOrderResponse } from '@/api/interface/inventory/stocktake'
-import StocktakeOrderForm from './components/StocktakeOrderForm.vue'
 import StocktakeCountDialog from './components/StocktakeCountDialog.vue'
-import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import StocktakeOrderForm from './components/StocktakeOrderForm.vue'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
@@ -101,7 +102,13 @@ const countRef = ref<InstanceType<typeof StocktakeCountDialog>>()
 const columns: ColumnProps<StocktakeOrderResponse>[] = [
   { type: 'index', label: '#', width: 55 },
   { prop: 'stocktakeNo', label: '盘点单号', width: 180, search: { el: 'input', order: 1 } },
-  { prop: 'warehouseId', label: '盘点仓', width: 130, enum: fetchWarehouseOptions, search: { el: 'select', order: 2 } },
+  {
+    prop: 'warehouseId',
+    label: '盘点仓',
+    width: 130,
+    enum: fetchWarehouseOptions,
+    search: { el: 'select', order: 2 },
+  },
   {
     prop: 'scopeType',
     label: '盘点范围',
@@ -149,7 +156,9 @@ const onCount = (row: StocktakeOrderResponse) => countRef.value?.open(row, 'coun
 
 // 开始盘点:DRAFT→COUNTING(条件更新在后端,失败弹拦截器报错)
 const onStart = async (row: StocktakeOrderResponse) => {
-  await ElMessageBox.confirm(`确认开始盘点 ${row.stocktakeNo} 吗?开始后进入录实盘阶段。`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(`确认开始盘点 ${row.stocktakeNo} 吗?开始后进入录实盘阶段。`, '提示', {
+    type: 'warning',
+  })
   await stocktakeOrderApi.start(row.id)
   ElMessage.success('已开始盘点')
   refreshTable()
@@ -177,7 +186,9 @@ const onAdjust = async (row: StocktakeOrderResponse) => {
 
 // 关闭:ADJUSTED→CLOSED 终态(只有已调整可达,保证差异必处理或明确放弃)
 const onClose = async (row: StocktakeOrderResponse) => {
-  await ElMessageBox.confirm(`确认关闭盘点单 ${row.stocktakeNo} 吗?关闭后为终态。`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(`确认关闭盘点单 ${row.stocktakeNo} 吗?关闭后为终态。`, '提示', {
+    type: 'warning',
+  })
   await stocktakeOrderApi.close(row.id)
   ElMessage.success('已关闭')
   refreshTable()

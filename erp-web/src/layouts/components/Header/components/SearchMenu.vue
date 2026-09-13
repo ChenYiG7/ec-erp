@@ -39,17 +39,18 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'SearchMenu' })
-import { ElDialog, ElEmpty, ElIcon, ElInput } from 'element-plus'
-import { ref, computed, nextTick, watch } from 'vue'
-import type { InputInstance } from 'element-plus'
+
 import { Search } from '@element-plus/icons-vue'
-import { useAuthStore } from '@/stores/modules/auth'
-import { useRouter } from 'vue-router'
 import { useDebounceFn } from '@vueuse/core'
+import type { InputInstance } from 'element-plus'
+import { ElDialog, ElEmpty, ElIcon, ElInput } from 'element-plus'
+import { computed, nextTick, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import type { MenuOptions } from '@/api/interface'
+import { useAuthStore } from '@/stores/modules/auth'
+import { findParents } from '@/utils/index'
 import HugeiconsSearch01 from '~icons/hugeicons/search-01?width=20px&height=20px'
 import MiEnter from '~icons/mi/enter?width=20px&height=20px'
-import { findParents } from '@/utils/index'
 
 const router = useRouter()
 const authStore = useAuthStore()

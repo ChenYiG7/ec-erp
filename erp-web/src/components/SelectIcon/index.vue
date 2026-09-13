@@ -44,9 +44,10 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'SelectIcon' })
-import { ElDialog, ElDivider, ElEmpty, ElInput, ElScrollbar } from 'element-plus'
-import { ref, computed } from 'vue'
+
 import * as Icons from '@element-plus/icons-vue'
+import { ElDialog, ElDivider, ElEmpty, ElInput, ElScrollbar } from 'element-plus'
+import { computed, ref } from 'vue'
 
 const allIcons = ref<{ label: string; value: string }[]>([])
 

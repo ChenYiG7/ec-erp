@@ -13,8 +13,10 @@
           <span>{{ msg.toolName ?? '工具调用' }}</span>
         </div>
         <div v-else class="message-bubble" :class="{ 'is-ai': msg.role !== 'USER' }">
-          <!-- 纯文本 pre-wrap 直显:markdown 渲染留 TODO(#6) 余量(引库需拍板,先规避 XSS 面) -->
-          <span class="message-content">{{ msg.content }}</span>
+          <!-- AI 消息:流式纯文本直显 + 完成后 markdown 渲染(#6 p3-chat-ux §2.1 拍板 marked+DOMPurify,计划书已归档 docs/plans/archive/);
+               USER 消息保持纯文本 pre-wrap(用户输入不做 markdown 语义) -->
+          <AiMarkdown v-if="msg.role !== 'USER'" :content="msg.content" :streaming="msg.streaming" />
+          <span v-else class="message-content">{{ msg.content }}</span>
           <span v-if="msg.streaming" class="message-cursor">▍</span>
         </div>
       </div>
@@ -24,9 +26,10 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
-import { ElEmpty, ElIcon } from 'element-plus'
 import { Tools } from '@element-plus/icons-vue'
+import { ElEmpty, ElIcon } from 'element-plus'
+import { nextTick, onMounted, ref, watch } from 'vue'
+import AiMarkdown from '@/components/AiMarkdown/index.vue'
 import type { ChatUIMessage } from '@/api/interface/ai/chat'
 
 const props = withDefaults(

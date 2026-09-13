@@ -1,6 +1,6 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
-import type { InventoryResponse, InventoryQuery } from '@/api/interface/inventory/inventory'
+import type { InventoryQuery, InventoryResponse } from '@/api/interface/inventory/inventory'
+import http from '@/utils/request'
 
 /**
  * 库存查询(/api/inventory/inventories,由 gen:page 生成)

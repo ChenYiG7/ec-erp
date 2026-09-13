@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -40,6 +41,7 @@ class AnomalyWorkflowTest {
 
     private OrderQueryApi orderQueryApi;
     private AiSuggestionService aiSuggestionService;
+    private ApplicationEventPublisher eventPublisher;
     private ErpAiProperties props;
     private AiRuntimeProperties runtime;
     private AnomalyWorkflow workflow;
@@ -48,6 +50,7 @@ class AnomalyWorkflowTest {
     @BeforeEach
     void setUp() {
         orderQueryApi = mock(OrderQueryApi.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
         aiSuggestionService = mock(AiSuggestionService.class);
         when(aiSuggestionService.save(any())).thenReturn(1L);
         props = new ErpAiProperties();
@@ -66,7 +69,7 @@ class AnomalyWorkflowTest {
         workflow = new AnomalyWorkflow(
                 new AnomalyScanNode(orderQueryApi, props, runtime, clock, aiSuggestionService),
                 scoreNode,
-                new AnomalyPersistNode(aiSuggestionService));
+                new AnomalyPersistNode(aiSuggestionService, eventPublisher));
     }
 
     private void stubPage(String status, int pageNo, OrderQueryApi.OrderView... rows) {

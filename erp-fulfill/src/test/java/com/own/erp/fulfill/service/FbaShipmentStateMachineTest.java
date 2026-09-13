@@ -4,6 +4,7 @@ import com.own.erp.common.exception.BusinessException;
 import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.GoodsQueryApi;
 import com.own.erp.contract.InventoryChangeApi;
+import com.own.erp.contract.ShopQueryApi;
 import com.own.erp.contract.WarehouseApi;
 import com.own.erp.fulfill.constant.FbaConsts;
 import com.own.erp.fulfill.entity.FbaShipment;
@@ -44,6 +45,7 @@ class FbaShipmentStateMachineTest {
     private GoodsQueryApi goodsQueryApi;
     private InventoryChangeApi inventoryChangeApi;
     private CurrentUserApi currentUserApi;
+    private ShopQueryApi shopQueryApi;
     private FbaShipmentService fbaShipmentService;
 
     @BeforeEach
@@ -58,7 +60,8 @@ class FbaShipmentStateMachineTest {
         goodsQueryApi = mock(GoodsQueryApi.class);
         inventoryChangeApi = mock(InventoryChangeApi.class);
         currentUserApi = mock(CurrentUserApi.class);
-        fbaShipmentService = new FbaShipmentService(fbaShipmentMapper, fbaShipmentItemMapper, fbaBoxMapper, fbaBoxItemMapper, fbaShipmentDiffMapper, fbaQueryMapper, warehouseApi, goodsQueryApi, inventoryChangeApi, currentUserApi);
+        shopQueryApi = mock(ShopQueryApi.class);
+        fbaShipmentService = new FbaShipmentService(fbaShipmentMapper, fbaShipmentItemMapper, fbaBoxMapper, fbaBoxItemMapper, fbaShipmentDiffMapper, fbaQueryMapper, warehouseApi, goodsQueryApi, inventoryChangeApi, currentUserApi, shopQueryApi);
     }
 
     @Test

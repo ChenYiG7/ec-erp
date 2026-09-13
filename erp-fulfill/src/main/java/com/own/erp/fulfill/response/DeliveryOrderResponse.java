@@ -51,6 +51,18 @@ public record DeliveryOrderResponse(
         /** 发货时间(ship 确认时回写) */
         LocalDateTime shippedAt,
 
+        /** 平台回传状态:NULL未发货无关/PENDING待回传/SUCCESS成功/FAILED失败(#11 激活期余量) */
+        String syncStatus,
+
+        /** 回传补偿重试次数 */
+        Integer syncRetryCount,
+
+        /** 最近一次回传失败原因 */
+        String syncFailReason,
+
+        /** 最近一次回传尝试时间 */
+        LocalDateTime syncTime,
+
         /** 创建人(sys_user.id) */
         Long createdBy,
 
@@ -79,6 +91,10 @@ public record DeliveryOrderResponse(
                 .trackingNo(entity.getTrackingNo())
                 .waybillUrl(entity.getWaybillUrl())
                 .shippedAt(entity.getShippedAt())
+                .syncStatus(entity.getSyncStatus())
+                .syncRetryCount(entity.getSyncRetryCount())
+                .syncFailReason(entity.getSyncFailReason())
+                .syncTime(entity.getSyncTime())
                 .createdBy(entity.getCreatedBy())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
@@ -88,7 +104,8 @@ public record DeliveryOrderResponse(
     /** wither 副本:详情接口随单带明细(docs/07 §1,record 不回退可变模型) */
     public DeliveryOrderResponse withItems(List<DeliveryOrderItemResponse> items) {
         return new DeliveryOrderResponse(id, deliveryNo, orderId, shopId, warehouseId, type, status,
-                shipByTime, logisticsCompany, trackingNo, waybillUrl, shippedAt, createdBy,
-                createdAt, updatedAt, items);
+                shipByTime, logisticsCompany, trackingNo, waybillUrl, shippedAt,
+                syncStatus, syncRetryCount, syncFailReason, syncTime,
+                createdBy, createdAt, updatedAt, items);
     }
 }

@@ -39,4 +39,6 @@ public record AlertEvent(
     public static final String TYPE_SLOW_MOVING = "SLOW_MOVING";
     /** 通知类型:积压(可用库存/日均销量 ≥ 覆盖阈值) */
     public static final String TYPE_OVERSTOCK = "OVERSTOCK";
+    /** 通知类型:采购账期超期(audit_time+settle_days<今日 且未付清,#31 账期到期提醒 2026-09-12 接入) */
+    public static final String TYPE_PAYABLE_OVERDUE = "PAYABLE_OVERDUE";
 }

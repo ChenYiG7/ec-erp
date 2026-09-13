@@ -34,18 +34,18 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton, ElForm, ElFormItem, ElIcon, ElInput, ElNotification } from 'element-plus'
-import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { getTimeState, parseRedirect } from '@/utils'
-import { AuthApi, type ReqLoginForm } from '@/api/apis/system/auth'
-import { useUserStore } from '@/stores/modules/user'
-import { useTabsStore } from '@/stores/modules/tabs'
-import { useKeepAliveStore } from '@/stores/modules/keepAlive'
-import { initDynamicRouter } from '@/routers/modules/dynamicRouter'
 import { CircleClose, UserFilled } from '@element-plus/icons-vue'
-import { useLoadingStore } from '@/stores/modules/loading'
+import { ElButton, ElForm, ElFormItem, ElIcon, ElInput, ElNotification } from 'element-plus'
 import { storeToRefs } from 'pinia'
+import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { AuthApi, type ReqLoginForm } from '@/api/apis/system/auth'
+import { initDynamicRouter } from '@/routers/modules/dynamicRouter'
+import { useKeepAliveStore } from '@/stores/modules/keepAlive'
+import { useLoadingStore } from '@/stores/modules/loading'
+import { useTabsStore } from '@/stores/modules/tabs'
+import { useUserStore } from '@/stores/modules/user'
+import { getTimeState, parseRedirect } from '@/utils'
 
 // todo caps lock
 // todo forget password

@@ -8,6 +8,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -32,13 +33,15 @@ import static org.mockito.Mockito.when;
 class AnomalyPersistNodeTest {
 
     private AiSuggestionService aiSuggestionService;
+    private ApplicationEventPublisher eventPublisher;
     private AnomalyPersistNode node;
 
     @BeforeEach
     void setUp() {
         aiSuggestionService = mock(AiSuggestionService.class);
         when(aiSuggestionService.save(any())).thenReturn(1L);
-        node = new AnomalyPersistNode(aiSuggestionService);
+        eventPublisher = mock(ApplicationEventPublisher.class);
+        node = new AnomalyPersistNode(aiSuggestionService, eventPublisher);
     }
 
     private OverAllState stateOf(List<AnomalyItem> items) {
@@ -98,5 +101,40 @@ class AnomalyPersistNodeTest {
 
         assertEquals(0, persisted);
         verifyNoInteractions(aiSuggestionService);
+    }
+
+    @Test
+    void highRiskItemsPublishAggregatedEvent() {
+        // HIGH 条目聚合为一条事件(#6 HIGH 推通知);MID/LOW 不发布(禁噪音)
+        AnomalyItem high = AnomalyItem.builder()
+                .orderId(101L).shopId(7L).hitRules(List.of(AnomalyRule.ZERO_AMOUNT))
+                .baselineRisk(AiConsts.RISK_HIGH).currency("USD").orderAmount(new BigDecimal("0"))
+                .summary("零元单疑似刷单").build();
+        AnomalyItem mid = AnomalyItem.builder()
+                .orderId(102L).shopId(7L).hitRules(List.of(AnomalyRule.HIGH_DISCOUNT))
+                .baselineRisk(AiConsts.RISK_MID).currency("USD").orderAmount(new BigDecimal("100"))
+                .summary("高折扣").build();
+
+        node.apply(stateOf(List.of(high, mid)));
+
+        ArgumentCaptor<AnomalyHighRiskEvent> captor = ArgumentCaptor.forClass(AnomalyHighRiskEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        AnomalyHighRiskEvent event = captor.getValue();
+        assertEquals(1, event.totalCount());
+        assertEquals(1, event.items().size());
+        assertEquals(101L, event.items().get(0).orderId());
+        assertEquals("零元单疑似刷单", event.items().get(0).summary());
+    }
+
+    @Test
+    void noHighRiskItemsPublishNoEvent() {
+        AnomalyItem low = AnomalyItem.builder()
+                .orderId(103L).shopId(7L).hitRules(List.of(AnomalyRule.HIGH_DISCOUNT))
+                .baselineRisk(AiConsts.RISK_LOW).currency("USD").orderAmount(new BigDecimal("100"))
+                .summary("低风险").build();
+
+        node.apply(stateOf(List.of(low)));
+
+        verifyNoInteractions(eventPublisher);
     }
 }

@@ -7,6 +7,7 @@ import com.own.erp.ai.graph.RuntimePropsStub;
 import com.own.erp.contract.AftersaleQueryApi;
 import com.own.erp.contract.InventoryQueryApi;
 import com.own.erp.contract.OrderQueryApi;
+import com.own.erp.contract.PurchaseQueryApi;
 import com.own.erp.contract.QueryPage;
 import com.own.erp.contract.SalesQueryApi;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +47,7 @@ class AlertEngineTest {
     private OrderQueryApi orderQueryApi;
     private AftersaleQueryApi aftersaleQueryApi;
     private SalesQueryApi salesQueryApi;
+    private PurchaseQueryApi purchaseQueryApi;
     private ErpAlertProperties props;
     private AiRuntimeProperties runtime;
     private AlertEngine engine;
@@ -56,6 +58,7 @@ class AlertEngineTest {
         orderQueryApi = mock(OrderQueryApi.class);
         aftersaleQueryApi = mock(AftersaleQueryApi.class);
         salesQueryApi = mock(SalesQueryApi.class);
+        purchaseQueryApi = mock(PurchaseQueryApi.class);
         // 默认"有动销且库存周转健康",滞销/积压两规则静默;规则专测内显式覆盖
         when(salesQueryApi.sumQtyBySku(any(), anyInt()))
                 .thenReturn(Map.of(1L, 999, 2L, 999, 3L, 999, 4L, 999));
@@ -63,7 +66,7 @@ class AlertEngineTest {
         props.setScanPageSize(2);
         runtime = RuntimePropsStub.of(new ErpAiProperties(), props);
         engine = new AlertEngine(inventoryQueryApi, orderQueryApi, aftersaleQueryApi, salesQueryApi,
-                runtime, props, CLOCK);
+                purchaseQueryApi, runtime, props, CLOCK);
     }
 
     private InventoryQueryApi.InventoryView inventory(Long skuId, Integer qtyAvailable) {
@@ -252,6 +255,33 @@ class AlertEngineTest {
         assertTrue(event.content().contains("sku 1"));
         assertTrue(event.content().contains("≈1000 天"));
         assertTrue(!event.content().contains("sku 2"));
+    }
+
+    @Test
+    void payableOverdueRuleAggregatesHitsIntoOneEvent() {
+        // 契约返回两条超期未付清单 → 聚一条通知,明细带单号/供应商/未付金额(#31 账期到期提醒)
+        when(purchaseQueryApi.listOverduePayables(NOW.toLocalDate())).thenReturn(List.of(
+                PurchaseQueryApi.PurchaseOverdueView.builder().poId(11L).poNo("PO-11").supplierId(1L)
+                        .supplierName("供应商A").settleDays(7).auditTime(NOW.minusDays(10))
+                        .unpaidAmount(new java.math.BigDecimal("50.0000")).build(),
+                PurchaseQueryApi.PurchaseOverdueView.builder().poId(12L).poNo("PO-12").supplierId(2L)
+                        .supplierName("供应商B").settleDays(30).auditTime(NOW.minusDays(40))
+                        .unpaidAmount(new java.math.BigDecimal("120.0000")).build()));
+
+        List<AlertEvent> events = engine.evaluate();
+
+        assertEquals(1, events.size());
+        AlertEvent event = events.get(0);
+        assertEquals(AlertEvent.TYPE_PAYABLE_OVERDUE, event.notifyType());
+        assertTrue(event.content().contains("超期未付清采购单共 2 张"));
+        assertTrue(event.content().contains("PO-11"));
+        assertTrue(event.content().contains("PO-12"));
+    }
+
+    @Test
+    void payableOverdueRuleNoHitYieldsNoEvent() {
+        // 默认 mock 返回空列表 = 无超期未付清单,规则静默
+        assertTrue(engine.evaluate().isEmpty());
     }
 
     @Test

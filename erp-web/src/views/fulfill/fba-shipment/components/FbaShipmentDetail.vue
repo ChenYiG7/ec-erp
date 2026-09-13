@@ -72,8 +72,8 @@
   </el-drawer>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
 import { ElDescriptions, ElDescriptionsItem, ElDrawer, ElEmpty, ElTable, ElTableColumn, ElTag } from 'element-plus'
+import { ref } from 'vue'
 import { fbaShipmentApi } from '@/api/apis/fulfill/fbaShipment'
 import type { FbaShipmentResponse } from '@/api/interface/fulfill/fbaShipment'
 
@@ -111,6 +111,7 @@ const DIFF_TAG: Record<string, 'info' | 'warning' | 'primary' | 'success' | 'dan
 
 const open = async (row: FbaShipmentResponse) => {
   visible.value = true
+  detail.value = undefined // 重开清旧数据:加载期/取数失败不闪现上一单内容(#26 六轮)
   detail.value = await fbaShipmentApi.detail(row.id)
 }
 

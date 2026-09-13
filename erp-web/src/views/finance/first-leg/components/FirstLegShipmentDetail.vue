@@ -72,8 +72,8 @@
   </el-drawer>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
 import { ElDescriptions, ElDescriptionsItem, ElDrawer, ElEmpty, ElTable, ElTableColumn, ElTag } from 'element-plus'
+import { ref } from 'vue'
 import { firstLegShipmentApi } from '@/api/apis/finance/firstLeg'
 import type { FirstLegShipmentResponse } from '@/api/interface/finance/firstLeg'
 
@@ -106,6 +106,7 @@ const STRATEGY_LABELS: Record<string, string> = {
 
 const open = async (row: FirstLegShipmentResponse) => {
   visible.value = true
+  detail.value = undefined // 重开清旧数据:加载期/取数失败不闪现上一单内容(#26 六轮)
   detail.value = await firstLegShipmentApi.detail(row.id)
 }
 

@@ -4,7 +4,10 @@ import cn.hutool.core.util.StrUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.own.erp.platform.AuthToken;
 import com.own.erp.platform.PlatformClient;
+import com.own.erp.platform.PlatformInboundPlanRequest;
+import com.own.erp.platform.PlatformInboundShipment;
 import com.own.erp.platform.PlatformShipment;
+import com.own.erp.platform.PlatformTransportContent;
 import com.own.erp.platform.PlatformType;
 import com.own.erp.platform.ShopSession;
 import com.own.erp.platform.unified.UnifiedOrder;
@@ -60,6 +63,7 @@ public class AmazonClient implements PlatformClient {
     private final SpApiOrdersClient spApiOrdersClient;
     private final SpApiFinancesClient spApiFinancesClient;
     private final SpApiReportsClient spApiReportsClient;
+    private final SpApiInboundClient spApiInboundClient;
     private final StsTokenClient stsTokenClient;
     private final Clock clock;
 
@@ -242,13 +246,54 @@ public class AmazonClient implements PlatformClient {
         throw new UnsupportedOperationException("Amazon 无电子面单取号(跨境直发走物流商)");
     }
 
-    // TODO(#35): SP-API Fulfillment Inbound 客户端方法族(fba-shipment V2,#3 真凭证后实现):
-    //   1) createInboundShipmentPlan——按 SKU 清单/目的仓生成平台发货计划(拆分建议+目的地 FBA 仓),
-    //      回填 fba_shipment.platform_shipment_id 与平台侧装箱建议;
-    //   2) putTransportContent——板箱信息(箱数/重量/尺寸/物流)回传;
-    //   3) getShipments/getShipmentItems——平台收货状态拉取,驱动 fba_shipment_diff 自动对账
-    //      (替代 FbaReconciliationJob 人工登记口径,保留 Job 作兜底提醒)。
-    //   实现纪律:报文翻译零业务 if(docs/07 §8),新客户端仿 SpApiOrdersClient 形态入 amazon 包,
-    //   翻译断言用真报文脱敏 fixture;凭证一律走 ShopSession,禁直读店铺表。
-    //   领域侧数据面(fba_shipment 五表/状态机/动账)已于 2026-09-12 落地 erp-fulfill。
+    /**
+     * FBA 入库计划生成(#35 fba-shipment V2,2026-09-12 脱机落地客户端,联调随 #3 真凭证):
+     * createInboundShipmentPlan 按计划行 SKU 清单生成平台拆分建议,返回 shipmentId/
+     * 目的地仓/行级分配量,领域侧(erp-fulfill)回填 fba_shipment.platform_shipment_id;
+     * 请求形态见 {@link SpApiInboundClient#createInboundShipmentPlan},报文翻译见
+     * {@link AmazonInboundTranslator}(fixture 为 schema 推导样例,真凭证样本到位后 --force 校准)
+     */
+    @Override
+    public List<PlatformInboundShipment> createInboundShipmentPlan(ShopSession session,
+                                                                   PlatformInboundPlanRequest request) {
+        requireLwaToken(session);
+        return spApiInboundClient.createInboundShipmentPlan(
+                session.getToken().getAccessToken(), currentAwsCredentials(), request);
+    }
+
+    /**
+     * FBA 板箱运输信息回传(#35):putTransportContent 箱数/重量/尺寸/物流要素,
+     * 返回平台侧受理结果(IsSuccess); partnered 与否的拍板随联调确认(docs/04)
+     */
+    @Override
+    public boolean putTransportContent(ShopSession session, String shipmentId, PlatformTransportContent content) {
+        requireLwaToken(session);
+        return spApiInboundClient.putTransportContent(
+                session.getToken().getAccessToken(), currentAwsCredentials(), shipmentId, content);
+    }
+
+    /**
+     * FBA 平台收货状态拉取(#35):getShipments + getShipmentItems 装配(状态 + Shipped/Received 对账量),
+     * 驱动 fba_shipment_diff 自动对账(FbaReconciliationJob 保留作兜底提醒)
+     */
+    @Override
+    public List<PlatformInboundShipment> pullInboundShipments(ShopSession session, List<String> shipmentIds) {
+        requireLwaToken(session);
+        return spApiInboundClient.pullInboundShipments(
+                session.getToken().getAccessToken(), currentAwsCredentials(), shipmentIds);
+    }
+
+    /** 会话与 LWA accessToken 校验收敛(各数据面方法入口同款断言,缺凭证友好报错禁半配置出请求) */
+    private static void requireLwaToken(ShopSession session) {
+        if (session == null || session.getToken() == null
+                || StrUtil.isBlank(session.getToken().getAccessToken())) {
+            throw new IllegalStateException("ShopSession 缺 LWA accessToken,无法调用 SP-API");
+        }
+    }
+
+    // TODO(#3): 报表平台侧生成 15~60 分钟的轮询异步化评估见 pullProducts 注释(真凭证实测时长后拍板)。
+    // TODO(#35) 联调校准清单(客户端已脱机落地,2026-09-12):①Inbound 报文 fixture 用真报文脱敏样本
+    //   --force 校准一轮(docs/07 §8);②putTransportContent partnered 与否随真实下单方式拍板;
+    //   ③领域编排接线:erp-fulfill 经 SPI 调用(PlatformGateway 已装饰限流),ship 编排/对账自动化
+    //   (FbaReconciliationJob 转兜底)随联调落地。
 }

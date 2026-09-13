@@ -1,10 +1,10 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type {
-  DeliveryOrderResponse,
   DeliveryOrderQuery,
+  DeliveryOrderResponse,
   DeliveryOrderSaveRequest,
 } from '@/api/interface/fulfill/delivery'
+import http from '@/utils/request'
 
 /**
  * 发货单(/api/fulfill/delivery-orders,由 gen:page 生成)

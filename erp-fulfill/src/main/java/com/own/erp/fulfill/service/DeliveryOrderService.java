@@ -191,7 +191,8 @@ public class DeliveryOrderService {
      * ①条件更新占位 SHIPPED(并发双确认/重复确认仅一个成功,affected=0 拒;失败由事务整体回滚);
      * ②逐行库存变更(唯一入口 InventoryService.change,flow_type=OUT_SHIP 数量为负 = 出库核销占用:
      * 在库-数量、占用-数量,可用不变——建单时已占,守卫=在库/占用充足,biz 指向本发货单);
-     * ③回写 shipped_at;
+     * ③回写 shipped_at 与 sync_status=待回传(#11 激活期余量:回传编排/补偿扫/前端可视化的状态基点,
+     * 置入与回传成败无关——回传失败不回滚本地发货,状态机见 DeliveryConsts.SYNC_*);
      * ④发足判定:按 order_item_id 聚合该订单全部非 CANCELLED 发货单明细,仅 sku_id 已绑定行全部发足时
      * casOrderStatus 推进 WAIT_SHIP→SHIPPED(未命中不报错——部分发货/订单已被拉单推进都属正常);
      * ⑤发布 DeliveryShippedEvent(erp-common):仅"事件发布",回传平台编排在 erp-api(ShipmentSyncService)
@@ -224,7 +225,8 @@ public class DeliveryOrderService {
                     .createdBy(delivery.getCreatedBy())
                     .build());
         }
-        DeliveryOrder mark = DeliveryOrder.builder().id(id).shippedAt(LocalDateTime.now()).build();
+        DeliveryOrder mark = DeliveryOrder.builder().id(id).shippedAt(LocalDateTime.now())
+                .syncStatus(DeliveryConsts.SYNC_PENDING).build();
         deliveryOrderMapper.updateById(mark);
         advanceOrderIfFullyShipped(delivery.getOrderId());
         eventPublisher.publishEvent(new DeliveryShippedEvent(id, delivery.getOrderId(), delivery.getShopId()));
@@ -248,6 +250,24 @@ public class DeliveryOrderService {
         if (deliveryOrderMapper.casStatus(id, DeliveryConsts.DELIVERY_SHIPPED, DeliveryConsts.DELIVERY_DELIVERED) == 0) {
             throw new BusinessException("签收失败:发货单不存在或不是已发货状态");
         }
+    }
+
+    /**
+     * 回传成功落状态(#11 激活期余量,调用方 ShipmentSyncService):条件更新守卫在 Mapper,
+     * affected 值不外抛——幂等重复标记属正常,编排侧不依赖返回值
+     */
+    public void markSyncSuccess(Long id) {
+        deliveryOrderMapper.markSyncSuccess(id, LocalDateTime.now());
+    }
+
+    /** 回传失败落状态:FAILED + 失败原因(截断防撑爆列,同 PullLogService 口径),重试计数 SQL 内自增 */
+    public void markSyncFailed(Long id, String reason) {
+        deliveryOrderMapper.markSyncFailed(id, StrUtil.maxLength(reason, 500), LocalDateTime.now());
+    }
+
+    /** 补偿扫候选单 ID(调用方 erp-api ShipmentSyncRetryJob):筛选与退避语义见 Mapper 注释 */
+    public List<Long> listSyncRetryCandidateIds(int maxRetries, int backoffMinutes, LocalDateTime now, int limit) {
+        return deliveryOrderMapper.selectSyncRetryCandidateIds(maxRetries, backoffMinutes, now, limit);
     }
 
     /**

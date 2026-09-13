@@ -7,6 +7,7 @@ import com.own.erp.contract.ProfitDailyTrendRow;
 import com.own.erp.contract.ProfitSkuRankRow;
 import com.own.erp.contract.QueryPage;
 import com.own.erp.finance.entity.PlatformFeeRate;
+import com.own.erp.finance.mapper.FirstLegQueryMapper;
 import com.own.erp.finance.mapper.ProfitQueryMapper;
 import com.own.erp.finance.profit.OrderProfitAmountGroup;
 import com.own.erp.finance.profit.OrderProfitLine;
@@ -42,6 +43,7 @@ class ProfitQueryServiceTest {
     private ProfitQueryMapper profitQueryMapper;
     private ExchangeRateService exchangeRateService;
     private PlatformFeeRateService platformFeeRateService;
+    private FirstLegQueryMapper firstLegQueryMapper;
     private ProfitQueryService profitQueryService;
 
     private static final LocalDateTime ORDER_TIME = LocalDateTime.of(2026, 9, 1, 10, 0);
@@ -51,8 +53,10 @@ class ProfitQueryServiceTest {
         profitQueryMapper = mock(ProfitQueryMapper.class);
         exchangeRateService = mock(ExchangeRateService.class);
         platformFeeRateService = mock(PlatformFeeRateService.class);
+        firstLegQueryMapper = mock(FirstLegQueryMapper.class);
         // Mockito 默认对 List 返回空表 = 费率表无数据,既有"无费率不猜"用例无需逐桩
-        profitQueryService = new ProfitQueryService(profitQueryMapper, exchangeRateService, platformFeeRateService);
+        profitQueryService = new ProfitQueryService(profitQueryMapper, exchangeRateService, platformFeeRateService,
+                firstLegQueryMapper);
     }
 
     /** 主查询行:参数见名 */
@@ -276,6 +280,8 @@ class ProfitQueryServiceTest {
             assertEquals(1, summary.missingRateCount());
             assertEquals(2, summary.costMissingCount());
             assertEquals(2, summary.commissionMissingCount());
+            // 毛利率(#21 后端下发):profit 641.62 / sales 2175 ×100 = 29.5(1 位小数 HALF_UP)
+            assertEquals(0, new BigDecimal("29.5").compareTo(summary.grossMarginRate()));
         }
     }
 
@@ -333,6 +339,8 @@ class ProfitQueryServiceTest {
             assertEquals(2, day.orderItemCount());
             assertEquals(0, new BigDecimal("725.00").compareTo(day.salesCny()));
             assertEquals(0, BigDecimal.ZERO.compareTo(day.profitCny()));
+            // 毛利率:profit 0 / sales 725 → 0.0(sales>0 不踩 NULL 禁猜)
+            assertEquals(0, BigDecimal.ZERO.compareTo(day.grossMarginRate()));
         }
 
         @Test
@@ -354,9 +362,41 @@ class ProfitQueryServiceTest {
             assertEquals(2, rank.size());
             assertEquals(12L, rank.get(0).skuId());
             assertEquals(0, new BigDecimal("750.00").compareTo(rank.get(0).profitCny()));
+            // 毛利率(#21 后端下发):750 / 1450 ×100 = 51.7
+            assertEquals(0, new BigDecimal("51.7").compareTo(rank.get(0).grossMarginRate()));
             // 单行 quantity=3(聚合行数与数量语义不同)
             assertEquals(3, rank.get(0).quantity());
             assertEquals("商品B", rank.get(0).productName());
+        }
+
+        @Test
+        void skuRankEnrichesFirstLegThirdLayer() {
+            // #33 第三层 enrichment(方案 B 整窗摊入):批量合计按排名 SKU 集合取,无分摊 SKU 按 0 兜底
+            stubRate("USD", "7.25");
+            stubEmptyAggregates();
+            when(profitQueryMapper.sumCostByOrderItemIds(anyList())).thenReturn(List.of(
+                    new OrderProfitAmountGroup(null, 501L, null, new BigDecimal("25.00")),
+                    new OrderProfitAmountGroup(null, 502L, null, new BigDecimal("700.00"))));
+            when(profitQueryMapper.selectProfitLinesAll(any(), any(), any(), any(), any(), any()))
+                    .thenReturn(List.of(
+                            flexLine(501L, 11L, "商品A", ORDER_TIME, "USD", "100"),
+                            flexLine(502L, 12L, "商品B", ORDER_TIME, "USD", "200")));
+            when(firstLegQueryMapper.sumAllocBySkuIds(any(), any(), any())).thenReturn(List.of(
+                    new com.own.erp.finance.response.FirstLegSkuAllocSumRow() {{
+                        setSkuId(12L);
+                        setAllocAmountCny(new BigDecimal("100.00"));
+                    }}));
+
+            List<ProfitSkuRankRow> rank = profitQueryService
+                    .listSkuProfitRank(new OrderProfitQuery(null, null, null, null, null, 1, 50, null), 10);
+
+            // sku12:profit 1450−700=750,头程 100,含头程利润 650;sku11:profit 725−25=700,无分摊净利=原利润
+            ProfitSkuRankRow sku12 = rank.stream().filter(r -> r.skuId() == 12L).findFirst().orElseThrow();
+            ProfitSkuRankRow sku11 = rank.stream().filter(r -> r.skuId() == 11L).findFirst().orElseThrow();
+            assertEquals(0, new BigDecimal("100.00").compareTo(sku12.firstLegCny()));
+            assertEquals(0, new BigDecimal("650.00").compareTo(sku12.netProfitCny()));
+            assertEquals(0, BigDecimal.ZERO.compareTo(sku11.firstLegCny()));
+            assertEquals(0, new BigDecimal("700.00").compareTo(sku11.netProfitCny()));
         }
 
         @Test
@@ -394,6 +434,7 @@ class ProfitQueryServiceTest {
             assertTrue(page.list().isEmpty());
             assertEquals(0, summary.orderItemCount());
             assertEquals(0, summary.missingRateCount());
+            assertNull(summary.grossMarginRate(), "空授权集短路:零行 sales=0,毛利率 NULL 禁猜");
             assertTrue(trend.isEmpty());
             assertTrue(rank.isEmpty());
             verifyNoInteractions(profitQueryMapper);

@@ -35,14 +35,15 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'shop-index' })
-import { ref } from 'vue'
-import { CirclePlus, EditPen, Delete, Link } from '@element-plus/icons-vue'
+
+import { CirclePlus, Delete, EditPen, Link } from '@element-plus/icons-vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
+import { shopApi } from '@/api/apis/shop/shop'
+import type { ShopResponse } from '@/api/interface/shop/shop'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
 import { useDictStore } from '@/stores/modules/dict'
-import { shopApi } from '@/api/apis/shop/shop'
-import type { ShopResponse } from '@/api/interface/shop/shop'
 import ShopForm from './components/ShopForm.vue'
 
 // ProTable 实例(getTableList 供刷新)

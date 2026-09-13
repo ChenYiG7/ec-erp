@@ -186,12 +186,19 @@ public final class ConfigConsts {
     /** 预警:积压阈值(天) */
     public static final String KEY_ALERT_OVERSTOCK_DAYS = "erp.alert.overstock-days";
 
+    /** 预警:HIGH 风险订单单日推送上限(超限只记日志不推送,#6 拍板 2026-09-12) */
+    public static final String KEY_ALERT_HIGH_DAILY_LIMIT = "erp.alert.high-daily-limit";
+
+    /** 预警:HIGH 风险订单推送静默期(小时,窗口内只推一条,#6 拍板 2026-09-12) */
+    public static final String KEY_ALERT_HIGH_QUIET_HOURS = "erp.alert.high-quiet-hours";
+
     /** 预警组合法键全集 */
     public static final Set<String> ALERT_KEYS = Set.of(
             KEY_ALERT_ENABLED, KEY_ALERT_QUIET_HOURS, KEY_ALERT_LOW_STOCK_THRESHOLD,
             KEY_ALERT_SHIP_TIMEOUT_HOURS, KEY_ALERT_REFUND_WINDOW_HOURS,
             KEY_ALERT_REFUND_COUNT_THRESHOLD, KEY_ALERT_TOP_N,
-            KEY_ALERT_SLOW_MOVING_DAYS, KEY_ALERT_OVERSTOCK_DAYS);
+            KEY_ALERT_SLOW_MOVING_DAYS, KEY_ALERT_OVERSTOCK_DAYS,
+            KEY_ALERT_HIGH_DAILY_LIMIT, KEY_ALERT_HIGH_QUIET_HOURS);
 
     /** ── 销量统计键(GROUP_SALES)── */
 

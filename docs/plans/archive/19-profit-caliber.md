@@ -1,6 +1,6 @@
 # #19 周期利润口径实施计划书
 
-> 已于 2026-09-11 主体实施,devlog 见 `docs/devlog/TODO19-周期利润口径.md`;
+> 已于 2026-09-11 主体实施,devlog 见 `docs/devlog/archive/TODO19-周期利润口径.md`;
 > **#32 周期校差算法已于 2026-09-12 落地(用户拍板授权 AI 实现,拍板与实施记录见同 devlog 补篇),
 > 余量清零计划书归档**;真库验证 validate_profit_sql.py 12 项全绿,ProfitPeriodJob 默认开。
 

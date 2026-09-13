@@ -20,11 +20,12 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'shop-product-sku-bind-dialog' })
-import { ref } from 'vue'
+
 import { ElButton, ElDialog, ElForm, ElFormItem, ElMessage } from 'element-plus'
+import { ref } from 'vue'
 import { shopProductSkuApi } from '@/api/apis/shop/shop-product-sku'
-import SkuSelector from '@/components/SkuSelector/index.vue'
 import type { ShopProductSkuResponse } from '@/api/interface/shop/shop-product-sku'
+import SkuSelector from '@/components/SkuSelector/index.vue'
 
 const emit = defineEmits<{ saved: [] }>()
 

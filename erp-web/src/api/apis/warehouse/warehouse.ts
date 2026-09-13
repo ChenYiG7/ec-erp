@@ -1,6 +1,6 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type { WarehouseResponse, WarehouseSaveRequest } from '@/api/interface/warehouse/warehouse'
+import http from '@/utils/request'
 
 /**
  * 仓库管理(/api/warehouse/warehouses,由 gen:page 生成)

@@ -2,8 +2,8 @@
 
 | 元信息 | 值 |
 |---|---|
-| TODO 条目 | #24 其他电商平台 adapter 扩展:国内(淘宝/京东/拼多多/微信小店/快手/小红书)、跨境(eBay/Shopee/Lazada/TikTok/速卖通/Temu) |
-| 优先级 | P2(**硬前置 = 各平台 ISV 资质/AppKey**;P1 的首个国内 adapter 与跨境第二平台 adapter 是本手册的首批验证样本) |
+| TODO 条目 | P0 抖店 adapter(国内首个平台,2026-09-13 拍板)+ #24 平台横向铺开:国内(淘宝/京东/拼多多/微信小店/快手/小红书)、跨境(eBay/Shopee/Lazada/TikTok/速卖通/Temu) |
+| 优先级 | **P0(抖店,2026-09-13 拍板——本手册即其实施手册)**;#24 其余平台随各平台 ISV 资质/AppKey 解卡逐个执行(原「跨境第二平台」单列项已并入 #24) |
 | 性质 | **接入手册(SOP)**,非逐平台实施计划——资质未解卡前不写 12 份平台计划;解卡后按本手册逐平台执行 |
 | 目标一句话 | 从 amazon adapter 样板提炼"新平台零阻力接入"完整 checklist,使单平台接入成本稳定在 1-2 周且主系统零改动 |
 | 明确不做 | 电子面单账户管理/CLODOP 打单(#17 独立项,国内平台接入后启动);推送/Webhook 进单的落地方案(本手册只登记设计拍板点);各平台 API 细节(未拿到开放平台文档前**不预设**,执行时预研补录) |
@@ -65,13 +65,13 @@
 
 | 平台 | 授权模式 | 进单形态 | 结算形态 | 电子面单 | 已知坑/拍板 |
 |---|---|---|---|---|---|
-| 抖店(P1 候选) | (预研补) | (预研补) | (预研补) | 需要 | (预研补) |
-| 淘宝/天猫(P1 候选) | 同上 | | | 需要 | |
+| 抖店(**P0 首个实施**,2026-09-13 拍板) | 标准 OAuth2 authorization_code;endpoint=openapi-fxg.jinritemai.com 的 `/token/create`/`/token/refresh`(method=token.create/refresh);code 10min 有效期;access_token 7 天/refresh_token 14 天,**刷新即轮换**(新 refresh 生效旧对失效);app_id 与 shop_id 1:N,shop_id 与 access_token 1:1;所有 API 都要求 `sign` 签名(hmac-sha256 推荐/md5 将下线,`app_key`+`method`+`param_json`(key 排序)+`timestamp`+`v` 按名排序拼接,`app_secret` 两端,值转义 `&→\u0026` `<→\u003c` `>`→`\u003e` `\b`→`\u0008`;`access_token`/`sign_method` 不参与签名) | 拉+推并存;官方推荐「存量拉取+增量推送+漏单补偿」。推送:订单/退款/商品三类事件,请求头 `event-sign`(md5/hmac-sha256,`appId+body+secret`),`msg_id` 去重幂等,重推 3 次(30s/5min/1h),单次 list≤50 事件;**拉单/推送双写口径拍板:推送只做「触发即时拉」信号,数据面仍走统一 pull(playbook Phase 5)→ 接收 Controller 属 erp-api 跨端契约,回根会话 add-domain,本轮 adapter 只做 pull** | API 查询 `/order/getSettleBillDetailV3`(T+1,次日 10 点后;settle_amount/settle_time/shop_order_id)+ 文件下载 `/order/downloadSettleItemToShop`→`/order/downloadToShop`(download_id→URL);周期未明说 | 需要:`/logistics/newCreateOrder` 取号(批量≤50,传收货人密文,按物流商编码 logistics_code+仓/发货地址确定面单关系,子母单母单 track_no)+`/logistics/waybillApply` 拿打印数据 | 关键接口未展开字段需 `--force` 校准(订单 searchList/商品 listV2/售后 List/结算字段,详见 DouyinClient 槽位);限流=按应用维度+接口总维度(非按店),各接口 QPS 不同,`/order/searchList` 应用 1000/s 总 5500/s;错误码 9=访问太频繁;发货 `/order/logisticsAdd` 只支持整单出库(只传父 order_id,行级产品单 product_orders 仅带 SN/IMEI 不推进子单状态);share 暂不接,面单/结算链路后续联调补齐(TODO 槽位) |
+| 淘宝/天猫(随 #24) | 同上 | | | 需要 | |
 | 拼多多 | | | | 需要 | |
 | 京东 | | | | 需要 | |
 | 微信小店/快手/小红书 | | | | 按平台 | |
-| Shopee(P1 候选) | | | | 跨境面单 | |
-| Temu(P1 候选) | | | | (半托管模式差异) | |
+| Shopee(随 #24) | | | | 跨境面单 | |
+| Temu(随 #24) | | | | (半托管模式差异) | |
 | eBay/Lazada/TikTok/速卖通 | | | | | |
 
 ## 四、验收标准(单平台口径)

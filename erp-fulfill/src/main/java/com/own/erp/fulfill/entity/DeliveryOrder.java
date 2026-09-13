@@ -63,6 +63,18 @@ public class DeliveryOrder {
     /** 发货时间(ship 确认时回写) */
     private LocalDateTime shippedAt;
 
+    /** 平台回传状态:NULL未发货无关(存量已发货单不回溯)/PENDING待回传/SUCCESS成功/FAILED失败(#11 激活期余量) */
+    private String syncStatus;
+
+    /** 回传补偿重试次数(失败路径+1,达上限停扫待人工) */
+    private Integer syncRetryCount;
+
+    /** 最近一次回传失败原因(成功即清空) */
+    private String syncFailReason;
+
+    /** 最近一次回传尝试时间(补偿扫退避基准:下次重试需距此 N×backoff 分钟) */
+    private LocalDateTime syncTime;
+
     /** 创建人(sys_user.id,接 SecurityContext 随前端工程;#11 激活加列 2026-09-04) */
     private Long createdBy;
 

@@ -12,9 +12,9 @@
 export type AgentRole = 'SUPPORT' | 'OPS'
 
 export type {
+  AiChatMessageResponse,
   AiChatSessionQuery,
   AiChatSessionResponse,
-  AiChatMessageResponse,
   ChatSendCommand,
   ChatUIMessage,
 } from '@/api/interface/ai/chat'

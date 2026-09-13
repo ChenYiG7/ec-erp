@@ -19,12 +19,13 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'shop-pull-log-index' })
+
 import { ref } from 'vue'
+import { fetchShopOptions } from '@/api/apis/shop/options'
+import { pullLogApi } from '@/api/apis/shop/pull-log'
+import type { PullLogResponse } from '@/api/interface/shop/pull-log'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
-import { pullLogApi } from '@/api/apis/shop/pull-log'
-import { fetchShopOptions } from '@/api/apis/shop/options'
-import type { PullLogResponse } from '@/api/interface/shop/pull-log'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()

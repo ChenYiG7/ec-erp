@@ -7,6 +7,7 @@ import com.own.erp.ai.service.AiSuggestionService;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -23,6 +24,8 @@ import java.util.Map;
  *     风险等级收条目终值(LLM 定级,降级/未送评为规则基线)。重复 run 产生新一批 = 已接受语义
  *     (同补货);接定时前必须先拍去重语义 → TODO(#6)。不碰任何业务单据
  *     (建议只是建议,人工复核后走页面处理,docs/07 §7 AI 只读红线)
+ *     2026-09-12 #6 HIGH 推通知:落库完成后聚合 HIGH 条目发布 AnomalyHighRiskEvent,
+ *     推送与护栏收口 erp-api 监听器(模块解耦同 AlertEvent 先例,禁逐条推防轰炸)
  */
 @Component
 @RequiredArgsConstructor
@@ -33,6 +36,7 @@ public class AnomalyPersistNode implements NodeAction {
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     private final AiSuggestionService aiSuggestionService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @SuppressWarnings("unchecked")
@@ -51,7 +55,22 @@ public class AnomalyPersistNode implements NodeAction {
                     .status(AiConsts.STATUS_PENDING)
                     .build());
         }
+        publishHighRiskEvent(items);
         return Map.of(AnomalyStateKeys.KEY_PERSISTED, items.size());
+    }
+
+    /** HIGH 条目聚合事件(落库后发布,save 逐条独立事务已提交;无 HIGH 不发,禁 MID/LOW 噪音) */
+    private void publishHighRiskEvent(List<AnomalyItem> items) {
+        List<AnomalyHighRiskEvent.HighRiskItem> highItems = items.stream()
+                .filter(item -> AiConsts.RISK_HIGH.equals(item.baselineRisk()))
+                .map(item -> new AnomalyHighRiskEvent.HighRiskItem(item.orderId(), item.shopId(),
+                        item.summary(),
+                        item.orderAmount() == null ? null : item.orderAmount().toPlainString(),
+                        item.currency()))
+                .toList();
+        if (!highItems.isEmpty()) {
+            eventPublisher.publishEvent(new AnomalyHighRiskEvent(highItems.size(), highItems));
+        }
     }
 
     /** payload 键收口拍板口径;时间序列化为 ISO 字符串(裸 ObjectMapper 无 jsr310,且空值须允许) */

@@ -24,12 +24,12 @@
 </template>
 
 <script setup lang="ts">
+import type { SelectProps } from 'element-plus'
 import { ElCheckbox, ElCheckboxGroup, ElOption, ElRadio, ElRadioButton, ElRadioGroup, ElSelect } from 'element-plus'
 import { computed, ref } from 'vue'
-import type { SelectProps } from 'element-plus'
-import { useLoadingStore } from '@/stores/modules/loading'
-import { useDictStore } from '@/stores/modules/dict'
 import { useI18n } from 'vue-i18n'
+import { useDictStore } from '@/stores/modules/dict'
+import { useLoadingStore } from '@/stores/modules/loading'
 
 const { t } = useI18n()
 

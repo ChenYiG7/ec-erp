@@ -336,7 +336,7 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'report-center-index' })
-import { computed, onMounted, ref } from 'vue'
+
 import {
   ElAlert,
   ElButton,
@@ -353,6 +353,7 @@ import {
   ElTabs,
   ElTag,
 } from 'element-plus'
+import { computed, onMounted, ref } from 'vue'
 import { reportApi, saveBlob } from '@/api/apis/report/report'
 import type {
   InventorySnapshotRow,

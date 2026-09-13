@@ -24,7 +24,7 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'SearchFormItem' })
-import { computed, inject, ref, type Component } from 'vue'
+
 import {
   ElCascader,
   ElDatePicker,
@@ -39,8 +39,9 @@ import {
   ElTimeSelect,
   ElTreeSelect,
 } from 'element-plus'
-import { handlePropPath } from '@/utils'
+import { type Component, computed, inject, ref } from 'vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
+import { handlePropPath } from '@/utils'
 
 // 原 <component :is="`el-${el}`"> 依赖 app.use(ElementPlus) 全局注册；改为按需后用此映射按字符串解析对应组件
 const formElMap: Record<string, Component> = {

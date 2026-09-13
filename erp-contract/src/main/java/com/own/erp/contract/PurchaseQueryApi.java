@@ -3,6 +3,7 @@ package com.own.erp.contract;
 import lombok.Builder;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -39,6 +40,13 @@ public interface PurchaseQueryApi {
      * 无采购历史的 SKU 不在返回中(调用方按"无法定位供应商"自行处理);skuIds 为空返回空列表
      */
     List<SkuSupplierView> findLatestSupplierBySkuIds(Collection<Long> skuIds);
+
+    /**
+     * 超期未付清采购单(#31 账期到期提醒取数,2026-09-12 扩容,只加方法不改语义):
+     * 口径 = audit_time(账期起算锚点)+ settle_days &lt; asOf 且未付清(ΣNORMAL 分摊口径同付款视图);
+     * 按审核时间升序(最早超期在前),SQL 侧 LIMIT 500 防御;无命中返回空列表
+     */
+    List<PurchaseOverdueView> listOverduePayables(LocalDate asOf);
 
     /**
      * 过滤条件 + 分页入参(全 record):pageNo/pageSize 为 int,@Builder 不设时默认 0,
@@ -181,6 +189,36 @@ public interface PurchaseQueryApi {
 
             /** 采购总金额(本位币;按单"已付+本次≤总额"超额拦截基准) */
             BigDecimal totalAmount
+    ) {
+    }
+
+    /**
+     * 超期未付清采购单视图(#31 账期到期提醒,2026-09-12):字段 = 告警明细所需最小集
+     * (单号/供应商可读 + 超期计算输入 settleDays/auditTime + 未付金额);无买家 PII 无敏感字段
+     */
+    @Builder
+    record PurchaseOverdueView(
+
+            /** 采购单ID(purchase_order.id) */
+            Long poId,
+
+            /** 采购单号 */
+            String poNo,
+
+            /** 供应商ID(supplier.id) */
+            Long supplierId,
+
+            /** 供应商名称 */
+            String supplierName,
+
+            /** 账期天数(审核日起算) */
+            Integer settleDays,
+
+            /** 审核时间(账期起算锚点) */
+            LocalDateTime auditTime,
+
+            /** 未付金额(本位币) */
+            BigDecimal unpaidAmount
     ) {
     }
 }

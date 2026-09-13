@@ -40,12 +40,13 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'finance-exchange-rate-index' })
-import { reactive, ref } from 'vue'
+
 import { ElButton, ElDatePicker, ElDialog, ElForm, ElFormItem, ElInput, ElMessage } from 'element-plus'
-import ProTable from '@/components/ProTable/index.vue'
-import type { ColumnProps } from '@/components/ProTable/interface'
+import { reactive, ref } from 'vue'
 import { exchangeRateApi } from '@/api/apis/finance/exchange-rate'
 import type { ExchangeRateResponse } from '@/api/interface/finance/exchange-rate'
+import ProTable from '@/components/ProTable/index.vue'
+import type { ColumnProps } from '@/components/ProTable/interface'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
@@ -92,7 +93,11 @@ const onSave = () => {
   }
   saving.value = true
   exchangeRateApi
-    .save({ currency: form.currency.trim().toUpperCase(), rate: form.rate.trim(), quotedAt: quotedAt.value })
+    .save({
+      currency: form.currency.trim().toUpperCase(),
+      rate: form.rate.trim(),
+      quotedAt: quotedAt.value,
+    })
     .then(() => {
       ElMessage.success('汇率快照已录入')
       saveVisible.value = false

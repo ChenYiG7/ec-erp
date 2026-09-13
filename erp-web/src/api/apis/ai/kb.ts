@@ -1,11 +1,11 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type {
+  AiKbChunkResponse,
   AiKbDocumentQuery,
   AiKbDocumentResponse,
-  AiKbChunkResponse,
   KbTextUploadCommand,
 } from '@/api/interface/ai/kb'
+import http from '@/utils/request'
 
 /**
  * AI 知识库(/api/ai/kb,手写页 #6 RAG V1:上传/预览非标准 CRUD,gen:page 不适用)

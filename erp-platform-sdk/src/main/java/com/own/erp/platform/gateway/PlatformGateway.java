@@ -2,12 +2,16 @@ package com.own.erp.platform.gateway;
 
 import com.own.erp.platform.AuthToken;
 import com.own.erp.platform.PlatformClient;
+import com.own.erp.platform.PlatformInboundPlanRequest;
+import com.own.erp.platform.PlatformInboundShipment;
 import com.own.erp.platform.PlatformShipment;
+import com.own.erp.platform.PlatformTransportContent;
 import com.own.erp.platform.PlatformType;
 import com.own.erp.platform.ShopSession;
 import com.own.erp.platform.unified.UnifiedOrder;
 import com.own.erp.platform.unified.UnifiedProduct;
 import com.own.erp.platform.unified.UnifiedRefund;
+import com.own.erp.platform.unified.UnifiedSettlement;
 
 import java.time.Instant;
 import java.util.List;
@@ -73,6 +77,12 @@ public class PlatformGateway implements PlatformClient {
     }
 
     @Override
+    public List<UnifiedSettlement> pullSettlements(ShopSession session) {
+        rateGuard.acquire(platform(), session.getShopId(), PlatformRateGuard.BUCKET_PULL);
+        return delegate.pullSettlements(session);
+    }
+
+    @Override
     public void uploadTracking(ShopSession session, PlatformShipment shipment) {
         rateGuard.acquire(platform(), session.getShopId(), PlatformRateGuard.BUCKET_WRITE);
         delegate.uploadTracking(session, shipment);
@@ -82,5 +92,26 @@ public class PlatformGateway implements PlatformClient {
     public String fetchWaybill(ShopSession session, String platformOrderId) {
         rateGuard.acquire(platform(), session.getShopId(), PlatformRateGuard.BUCKET_WRITE);
         return delegate.fetchWaybill(session, platformOrderId);
+    }
+
+    // ---- FBA 入库(#35):计划生成/板箱回传走回写桶,收货状态拉取走拉取桶 ----
+
+    @Override
+    public List<PlatformInboundShipment> createInboundShipmentPlan(ShopSession session,
+                                                                   PlatformInboundPlanRequest request) {
+        rateGuard.acquire(platform(), session.getShopId(), PlatformRateGuard.BUCKET_WRITE);
+        return delegate.createInboundShipmentPlan(session, request);
+    }
+
+    @Override
+    public boolean putTransportContent(ShopSession session, String shipmentId, PlatformTransportContent content) {
+        rateGuard.acquire(platform(), session.getShopId(), PlatformRateGuard.BUCKET_WRITE);
+        return delegate.putTransportContent(session, shipmentId, content);
+    }
+
+    @Override
+    public List<PlatformInboundShipment> pullInboundShipments(ShopSession session, List<String> shipmentIds) {
+        rateGuard.acquire(platform(), session.getShopId(), PlatformRateGuard.BUCKET_PULL);
+        return delegate.pullInboundShipments(session, shipmentIds);
     }
 }

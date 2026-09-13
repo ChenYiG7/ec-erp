@@ -1,10 +1,10 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type {
-  ShopProductSkuResponse,
-  ShopProductSkuQuery,
   ShopProductSkuBindRequest,
+  ShopProductSkuQuery,
+  ShopProductSkuResponse,
 } from '@/api/interface/shop/shop-product-sku'
+import http from '@/utils/request'
 
 /**
  * SKU匹配(/api/shop-product-skus,由 gen:page 生成)

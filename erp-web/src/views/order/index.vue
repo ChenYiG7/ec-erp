@@ -55,18 +55,19 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'order-index' })
-import { ref } from 'vue'
+
 import { CirclePlus, EditPen, Select } from '@element-plus/icons-vue'
 import { ElButton } from 'element-plus'
-import ProTable from '@/components/ProTable/index.vue'
-import type { ColumnProps } from '@/components/ProTable/interface'
-import { useDictStore } from '@/stores/modules/dict'
+import { ref } from 'vue'
 import { shopOrderApi } from '@/api/apis/order/order'
 import { fetchShopOptions } from '@/api/apis/shop/options'
 import type { ShopOrderResponse } from '@/api/interface/order/order'
+import ProTable from '@/components/ProTable/index.vue'
+import type { ColumnProps } from '@/components/ProTable/interface'
+import { useDictStore } from '@/stores/modules/dict'
+import ManualOrderForm from './components/ManualOrderForm.vue'
 import OrderItems from './components/OrderItems.vue'
 import ReviewDialog from './components/ReviewDialog.vue'
-import ManualOrderForm from './components/ManualOrderForm.vue'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
@@ -91,7 +92,13 @@ const orderSourceEnum = [
 const columns: ColumnProps<ShopOrderResponse>[] = [
   { type: 'expand', width: 44 },
   { type: 'index', label: '#', width: 55 },
-  { prop: 'shopId', label: '店铺', width: 130, enum: fetchShopOptions, search: { el: 'select', order: 1 } },
+  {
+    prop: 'shopId',
+    label: '店铺',
+    width: 130,
+    enum: fetchShopOptions,
+    search: { el: 'select', order: 1 },
+  },
   {
     prop: 'platform',
     label: '平台',
@@ -116,7 +123,13 @@ const columns: ColumnProps<ShopOrderResponse>[] = [
     ],
     search: { el: 'select', order: 3 },
   },
-  { prop: 'orderSource', label: '来源', width: 100, enum: orderSourceEnum, search: { el: 'select', order: 4 } },
+  {
+    prop: 'orderSource',
+    label: '来源',
+    width: 100,
+    enum: orderSourceEnum,
+    search: { el: 'select', order: 4 },
+  },
   {
     prop: 'reviewStatus',
     label: '审核状态',

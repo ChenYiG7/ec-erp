@@ -5,7 +5,8 @@
   1. 建表/加列/菜单种子幂等重放(first_leg_shipment/first_leg_box/first_leg_box_item/
      first_leg_alloc CREATE IF NOT EXISTS 从正本 SQL 逐字提取;product_sku 长宽高 information_schema 判存;
      sys_menu 43/4301~4308 + sys_role_menu INSERT IGNORE)——已建库对齐等价于存量迁移;
-  2. 分页联表(FirstLegQueryMapper.xml pageRows):双仓名 join 投影;
+  2. 分页联表(FirstLegQueryMapper.xml pageRows):双仓名 join 投影 + 构造映射参列数对齐
+     (record 明细 List NULL 占位,缺列=有行即 500,#26 七轮);
      SKU 维度分摊聚合(listSkuAllocSummary):只计 ALLOCATED/CLOSED,Σ 头程运费 CNY;
   3. 唯一键(uk_shipment_box/uk_shipment_sku)+ 状态机 cas 条件更新守卫(DRAFT→BOXED/已分摊不可再分/已分摊不可取消)。
 
@@ -165,6 +166,21 @@ def main():
         assert s1[5] == '__val__FL海外仓', f'目的仓名 join 异常: {s1}'
         ok('pageRows(双仓名 LEFT JOIN 投影,单据头全列)')
 
+        # 1b) 构造映射参列数对齐(#26 七轮 2026-09-13):record 无 setter,MyBatis 按列序构造自动映射,
+        #     缺列=有行即 500,且空表/直跑 SQL 均不暴露(FbaQueryMapper.pageRows 同日实锚)——
+        #     静态断言 pageRows 列数与 FirstLegShipmentResponse 构造参数数相等(明细 List NULL 占位)
+        resp_java = (ROOT / 'erp-finance/src/main/java/com/own/erp/finance/response/'
+                              'FirstLegShipmentResponse.java').read_text(encoding='utf-8')
+        rm = re.search(r'public record FirstLegShipmentResponse\((.*?)\)\s*\{', resp_java, re.S)
+        assert rm, 'FirstLegShipmentResponse record 头解析失败'
+        args = re.sub(r'/\*\*.*?\*/', ' ', rm.group(1), flags=re.S)
+        args = re.sub(r'List<[^<>]*>', 'LIST', args)
+        arg_count = len([a for a in args.split(',') if a.strip()])
+        select_part = extract_statement('pageRows').split(' FROM ')[0]
+        col_count = len([c for c in select_part.split(',') if c.strip()])
+        assert arg_count == col_count, f'pageRows 列数({col_count}) != record 构造参数数({arg_count}),有行即 500'
+        ok(f'pageRows 构造映射参列数对齐(record {arg_count} 参 = SQL {col_count} 列)')
+
         # 2) listSkuAllocSummary:ALLOCATED 100(60/40)+ CLOSED 50(25/25);DRAFT 无分摊不计
         cur.execute(extract_statement('listSkuAllocSummary'))
         agg = {r[0]: r for r in cur.fetchall()}
@@ -173,6 +189,18 @@ def main():
         assert float(agg[SKU2][3]) == 40.0 and agg[SKU2][2] == 1, f'SKU2 应=40/1单: {agg[SKU2]}'
         assert float(agg[SKU3][3]) == 25.0 and agg[SKU3][2] == 1, f'SKU3 应=25/1单: {agg[SKU3]}'
         ok('listSkuAllocSummary(只计 ALLOCATED/CLOSED,Σ 分摊 CNY/单数)')
+
+        # 2b) sumAllocBySkuIds(#33 利润第三层 enrichment 批量版):口径同上;动态 <if> 窗口段按本脚本
+        #     口径剥离(验证无过滤形态),窗外过滤由同源 listSkuAllocSummary 的窗口形态等价覆盖
+        id_list = f"{SKU1},{SKU2},{SKU3}"
+        sql = (extract_statement('sumAllocBySkuIds')
+               .replace("#{skuId}", id_list)
+               .replace("#{shippedFrom}", "'2026-09-01 00:00:00'")
+               .replace("#{shippedTo}", "'2026-09-30 23:59:59'"))
+        cur.execute(sql)
+        sums = {r[0]: float(r[1]) for r in cur.fetchall()}
+        assert sums == {SKU1: 85.0, SKU2: 40.0, SKU3: 25.0}, f'批量合计不符: {sums}'
+        ok('sumAllocBySkuIds(#33 第三层批量合计:口径同源/集合 IN 传参/7 列外两列出参)')
 
         # 3) uk_shipment_box:同单同箱号第二条必须被唯一键拦
         blocked = False

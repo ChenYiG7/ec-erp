@@ -132,7 +132,7 @@ class SelectionCollectNodeTest {
         when(profitQueryApi.listSkuProfitRank(any(), anyInt()))
                 .thenReturn(List.of(new ProfitSkuRankRow(1L, "商品甲", 5, 30,
                         new BigDecimal("1000"), new BigDecimal("400"),
-                        new BigDecimal("-150"), new BigDecimal("300"))));
+                        new BigDecimal("-150"), new BigDecimal("300"), null, null, null)));
 
         Map<String, Object> result = node.apply(state());
         assertEquals(4, result.get(SelectionStateKeys.KEY_SCANNED));
@@ -222,10 +222,10 @@ class SelectionCollectNodeTest {
         when(profitQueryApi.listSkuProfitRank(any(), anyInt()))
                 .thenReturn(List.of(new ProfitSkuRankRow(1L, "商品甲", 5, 30,
                         new BigDecimal("1000"), new BigDecimal("400"),
-                        BigDecimal.ZERO, new BigDecimal("300")),
+                        BigDecimal.ZERO, new BigDecimal("300"), null, null, null),
                         new ProfitSkuRankRow(2L, "商品甲", 5, 30,
                                 new BigDecimal("800"), new BigDecimal("200"),
-                                BigDecimal.ZERO, new BigDecimal("200"))));
+                                BigDecimal.ZERO, new BigDecimal("200"), null, null, null)));
         when(aiSuggestionService.findPendingRefIds(AiConsts.TYPE_SELECTION, AiConsts.REF_TYPE_GOODS_SKU))
                 .thenReturn(Set.of(2L));
 

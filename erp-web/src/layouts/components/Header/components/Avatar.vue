@@ -28,16 +28,17 @@
 defineOptions({
   name: 'Avatar',
 })
+
 import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElIcon, ElMessage, ElMessageBox } from 'element-plus'
 import { computed, ref } from 'vue'
-import { useUserStore } from '@/stores/modules/user'
-import InfoDialog from './InfoDialog.vue'
-import PasswordDialog from './PasswordDialog.vue'
-import { logoutWithRedirect } from '@/utils'
 import { useRoute } from 'vue-router'
 import { useDictStore } from '@/stores/modules/dict'
-import { useTabsStore } from '@/stores/modules/tabs'
 import { useKeepAliveStore } from '@/stores/modules/keepAlive'
+import { useTabsStore } from '@/stores/modules/tabs'
+import { useUserStore } from '@/stores/modules/user'
+import { logoutWithRedirect } from '@/utils'
+import InfoDialog from './InfoDialog.vue'
+import PasswordDialog from './PasswordDialog.vue'
 
 const route = useRoute()
 const userStore = useUserStore()

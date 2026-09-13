@@ -42,14 +42,14 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'ai-agent-index' })
-import { computed, onMounted, ref } from 'vue'
-import { ElButton, ElEmpty, ElMessage, ElRadioButton, ElRadioGroup, ElScrollbar } from 'element-plus'
+
 import { Plus } from '@element-plus/icons-vue'
-import MessageList from '@/components/chat/MessageList.vue'
-import ChatInput from '@/components/chat/ChatInput.vue'
+import { ElButton, ElEmpty, ElMessage, ElRadioButton, ElRadioGroup, ElScrollbar } from 'element-plus'
+import { computed, onMounted, ref } from 'vue'
 import { agentApi } from '@/api/apis/ai/agent'
-import type { AgentRole } from '@/api/interface/ai/agent'
-import type { AiChatSessionResponse, ChatUIMessage } from '@/api/interface/ai/agent'
+import type { AgentRole, AiChatSessionResponse, ChatUIMessage } from '@/api/interface/ai/agent'
+import ChatInput from '@/components/chat/ChatInput.vue'
+import MessageList from '@/components/chat/MessageList.vue'
 
 /** 角色文案词表(spec 拍板收口,禁散落模板字面量) */
 const ROLES: { value: AgentRole; label: string }[] = [

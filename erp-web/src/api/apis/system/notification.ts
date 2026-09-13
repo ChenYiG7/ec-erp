@@ -1,6 +1,6 @@
+import type { NotificationFrame, PageQuery, PageResult, SysNotificationResponse } from '@/api/interface'
 import http from '@/utils/request'
 import { postSse } from '@/utils/sse'
-import type { NotificationFrame, PageQuery, PageResult, SysNotificationResponse } from '@/api/interface'
 
 export interface NotificationQuery extends PageQuery {
   /** 0未读 1已读,不传=全部 */

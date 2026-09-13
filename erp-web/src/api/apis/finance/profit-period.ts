@@ -1,6 +1,6 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
-import type { ProfitPeriodReportResponse, ProfitPeriodReportQuery } from '@/api/interface/finance/profit-period'
+import type { ProfitPeriodReportQuery, ProfitPeriodReportResponse } from '@/api/interface/finance/profit-period'
+import http from '@/utils/request'
 
 /**
  * 周期利润(/api/finance/profit-periods,由 gen:page 生成)

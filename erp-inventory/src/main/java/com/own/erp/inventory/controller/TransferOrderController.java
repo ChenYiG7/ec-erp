@@ -61,11 +61,19 @@ public class TransferOrderController {
         return Result.ok();
     }
 
-    @Operation(summary = "确认调拨", description = "DRAFT→CONFIRMED;同事务逐行两腿动账(TRANSFER_OUT/IN,biz_type=TRANSFER_ORDER),调出仓可用不足整单回滚")
+    @Operation(summary = "确认调拨", description = "DRAFT→CONFIRMED(DIRECT)/DRAFT→IN_TRANSIT(在途模式);同事务逐行动账(biz_type=TRANSFER_ORDER),可用不足整单回滚")
     @OperLog(module = "inventory", action = "transfer-confirm")
     @PostMapping("/{id}/confirm")
     public Result<Void> confirm(@PathVariable Long id) {
         transferOrderService.confirm(id);
+        return Result.ok();
+    }
+
+    @Operation(summary = "到货确认", description = "IN_TRANSIT→CONFIRMED(#30 在途模式);逐行调入仓 IN_TRANSFER 核销(在途转在库),按计划数全额核销,短少走盘点调整")
+    @OperLog(module = "inventory", action = "transfer-receive")
+    @PostMapping("/{id}/receive")
+    public Result<Void> receive(@PathVariable Long id) {
+        transferOrderService.receive(id);
         return Result.ok();
     }
 

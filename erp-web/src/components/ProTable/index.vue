@@ -142,23 +142,25 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'ProTable' })
-import { computed, onMounted, provide, ref, unref, watch } from 'vue'
-import { ElButton, ElIcon, ElMessage, ElRadio, ElTable, ElTableColumn, ElTag, TableInstance } from 'element-plus'
-import { useTable } from '@/hooks/useTable'
-import { useSelection } from '@/hooks/useSelection'
-import { type ColumnProps, type ProTableProps, ColumnTypes } from './interface'
-import { handlePropPath } from '@/utils'
-import SearchForm from '@/components/SearchForm/index.vue'
-import Pagination from './components/Pagination.vue'
-import ColSetting from './components/ColSetting.vue'
-import TableColumn from './components/TableColumn'
-import Sortable from 'sortablejs'
-import { applyColSetting, toolbarButtonsConfig } from '@/utils/proTable'
+
 import { Operation } from '@element-plus/icons-vue'
-import { ProTablePaginationEnum } from '@/enums'
+import { ElButton, ElIcon, ElMessage, ElRadio, ElTable, ElTableColumn, ElTag, TableInstance } from 'element-plus'
+import Sortable from 'sortablejs'
+import { computed, onActivated, onMounted, provide, ref, unref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useLoadingStore } from '@/stores/modules/loading'
+import SearchForm from '@/components/SearchForm/index.vue'
 import { SORT_HANDLER_CLASS_NAME } from '@/constants/proTable'
+import { ProTablePaginationEnum } from '@/enums'
+import { useSelection } from '@/hooks/useSelection'
+import { useTable } from '@/hooks/useTable'
+import { useLoadingStore } from '@/stores/modules/loading'
+import { handlePropPath } from '@/utils'
+import { applyColSetting, toolbarButtonsConfig } from '@/utils/proTable'
+import ColSetting from './components/ColSetting.vue'
+import Pagination from './components/Pagination.vue'
+import TableColumn from './components/TableColumn'
+import { type ColumnProps, ColumnTypes, type ProTableProps } from './interface'
+
 const { t } = useI18n()
 // 接受父组件参数，配置默认值
 const props = withDefaults(defineProps<ProTableProps>(), {
@@ -287,12 +289,27 @@ onMounted(() => {
     })
 })
 
-// 监听页面 initParam 改化，重新获取表格数据
+// 监听页面 initParam 改化，重新获取表格数据(筛选语义:回第一页,防深页码下筛选变窄后停留越界空白页)
 watch(
   () => props.initParam,
-  () => getTableList(false),
+  () => {
+    pageable.value.pageNum = 1
+    getTableList(false)
+  },
   { deep: true }
 )
+
+// KeepAlive 缓存页切回自动重取当前页(保留筛选/页码,过期响应由 useTable 序号守卫兜底)。
+// 首次激活与 onMounted 查询重合,跳过防双查;手写分析页(报表中心/看板等)不走 ProTable,
+// 有手动查询入口保持现状(#26 七轮拍板:仅 ProTable 列表页激活刷新)
+let isFirstActivate = true
+onActivated(() => {
+  if (isFirstActivate) {
+    isFirstActivate = false
+    return
+  }
+  getTableList()
+})
 
 // 接收 columns 并设置为响应式
 const tableColumns = computed(() => props.columns)

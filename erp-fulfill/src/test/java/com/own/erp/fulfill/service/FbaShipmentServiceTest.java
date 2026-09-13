@@ -7,6 +7,8 @@ import com.own.erp.contract.GoodsQueryApi.SkuView;
 import com.own.erp.contract.InventoryChangeApi;
 import com.own.erp.contract.InventoryChangeCommand;
 import com.own.erp.contract.InventoryConsts;
+import com.own.erp.contract.ShopQueryApi;
+import com.own.erp.contract.ShopQueryApi.ShopView;
 import com.own.erp.contract.WarehouseApi;
 import com.own.erp.contract.WarehouseApi.WarehouseView;
 import com.own.erp.fulfill.constant.FbaConsts;
@@ -50,7 +52,7 @@ import static org.mockito.Mockito.when;
  * @author : chenyi
  * @Date : 2026/9/12
  * @Description : FbaShipmentService 单测(fba-shipment,AIR:mock Mapper/契约,不依赖数据库):
- *     建单守卫链(仓型非SELF/计划行空/计划SKU重复/箱号重复/箱内计划外SKU)、改删状态守卫、
+ *     建单守卫链(店铺不存在/仓型非SELF/计划行空/计划SKU重复/箱号重复/箱内计划外SKU)、改删状态守卫、
  *     装箱勾稽预检(空箱/缺SKU/数量不平)、SHIPPED 复合事务(勾稽失败拦截 + 逐SKU OUT_SHIP 动账断言:
  *     flowType/bizType/bizId/负数量)、收货登记(状态守卫/缺发出SKU拦截/diff 三态 SHORT/EXTRA/OK 生成/
  *     RECEIVING 重复登记覆盖先删后插)、超期取数口。
@@ -72,6 +74,7 @@ class FbaShipmentServiceTest {
     private GoodsQueryApi goodsQueryApi;
     private InventoryChangeApi inventoryChangeApi;
     private CurrentUserApi currentUserApi;
+    private ShopQueryApi shopQueryApi;
     private FbaShipmentService service;
 
     private long boxIdSeq = 500L;
@@ -88,8 +91,10 @@ class FbaShipmentServiceTest {
         goodsQueryApi = mock(GoodsQueryApi.class);
         inventoryChangeApi = mock(InventoryChangeApi.class);
         currentUserApi = mock(CurrentUserApi.class);
+        shopQueryApi = mock(ShopQueryApi.class);
         service = new FbaShipmentService(shipmentMapper, planItemMapper, boxMapper, boxItemMapper,
-                diffMapper, queryMapper, warehouseApi, goodsQueryApi, inventoryChangeApi, currentUserApi);
+                diffMapper, queryMapper, warehouseApi, goodsQueryApi, inventoryChangeApi, currentUserApi,
+                shopQueryApi);
 
         when(shipmentMapper.selectCount(any())).thenReturn(0L);
         doAnswer(inv -> {
@@ -103,6 +108,9 @@ class FbaShipmentServiceTest {
         when(currentUserApi.currentUserId()).thenReturn(USER);
         when(warehouseApi.findWarehouseViewById(WH)).thenReturn(WarehouseView.builder()
                 .id(WH).whName("国内仓").whType("SELF").country("CN").status(1).build());
+        // 默认店铺存在(request() 固定 shopId=1;不存在性用例各自覆写)
+        when(shopQueryApi.getShop(1L)).thenReturn(ShopView.builder()
+                .id(1L).platform("AMAZON").shopName("测试店").status(1).build());
     }
 
     // ============================ 造数辅助 ============================
@@ -174,6 +182,25 @@ class FbaShipmentServiceTest {
         BusinessException e = assertThrows(BusinessException.class,
                 () -> service.save(request(List.of(plan(10L, 1)), List.of())));
         assertTrue(e.getMessage().contains("必须是国内自仓"));
+    }
+
+    @Test
+    void saveRejectsUnknownShop() {
+        when(shopQueryApi.getShop(1L)).thenReturn(null);
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.save(request(List.of(plan(10L, 1)), List.of())));
+        assertTrue(e.getMessage().contains("店铺不存在"));
+        verify(shipmentMapper, never()).insert(any(FbaShipment.class));
+    }
+
+    @Test
+    void updateRejectsUnknownShop() {
+        when(shipmentMapper.selectByIdForUpdate(9001L)).thenReturn(shipmentOf(FbaConsts.STATUS_DRAFT));
+        when(shopQueryApi.getShop(1L)).thenReturn(null);
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.update(9001L, request(List.of(plan(10L, 1)), List.of())));
+        assertTrue(e.getMessage().contains("店铺不存在"));
+        verify(shipmentMapper, never()).updateById(any(FbaShipment.class));
     }
 
     @Test

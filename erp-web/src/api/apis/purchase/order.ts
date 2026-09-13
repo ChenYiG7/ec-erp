@@ -1,6 +1,6 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type { PurchaseOrderResponse, PurchaseOrderSaveRequest } from '@/api/interface/purchase/order'
+import http from '@/utils/request'
 
 /**
  * 采购单(/api/purchase/orders,由 gen:page 生成)

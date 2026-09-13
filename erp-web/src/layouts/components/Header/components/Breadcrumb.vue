@@ -20,14 +20,14 @@
 </template>
 
 <script setup lang="ts">
+import { ArrowRight } from '@element-plus/icons-vue'
 import { ElBreadcrumb, ElBreadcrumbItem, ElIcon } from 'element-plus'
 import { computed } from 'vue'
-import { HOME_URL } from '@/config'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight } from '@element-plus/icons-vue'
+import type { MenuOptions } from '@/api/interface'
+import { HOME_URL } from '@/config'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useGlobalStore } from '@/stores/modules/global'
-import type { MenuOptions } from '@/api/interface'
 
 const route = useRoute()
 const router = useRouter()

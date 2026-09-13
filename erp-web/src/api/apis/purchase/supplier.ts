@@ -1,6 +1,6 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type { SupplierResponse, SupplierSaveRequest } from '@/api/interface/purchase/supplier'
+import http from '@/utils/request'
 
 /**
  * 供应商管理(/api/purchase/suppliers,由 gen:page 生成)

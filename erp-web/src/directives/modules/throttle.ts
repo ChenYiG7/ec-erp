@@ -9,6 +9,7 @@
   <button v-throttle="debounceClick">节流提交</button>
 */
 import type { Directive, DirectiveBinding } from 'vue'
+
 interface ElType extends HTMLElement {
   __handleClick__: () => any
   disabled: boolean

@@ -16,12 +16,12 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
 import { ElButton, ElCheckbox, ElCheckboxGroup, ElDialog, ElEmpty, ElMessage } from 'element-plus'
-import { sysUserApi } from '@/api/apis/system/user'
+import { ref } from 'vue'
 import { sysRoleApi } from '@/api/apis/system/role'
-import type { SysUserResponse } from '@/api/interface/system/user'
+import { sysUserApi } from '@/api/apis/system/user'
 import type { SysRoleResponse } from '@/api/interface/system/role'
+import type { SysUserResponse } from '@/api/interface/system/user'
 
 defineOptions({ name: 'UserRoleDialog' })
 

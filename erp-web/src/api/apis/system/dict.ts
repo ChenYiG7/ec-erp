@@ -1,6 +1,6 @@
-import http from '@/utils/request'
 import type { DictItem, PageQuery, PageResult } from '@/api/interface'
-import type { SysDictResponse, SysDictSaveRequest, SysDictQuery } from '@/api/interface/system/dict'
+import type { SysDictQuery, SysDictResponse, SysDictSaveRequest } from '@/api/interface/system/dict'
+import http from '@/utils/request'
 
 /**
  * 字典接口(/api/system/dicts)

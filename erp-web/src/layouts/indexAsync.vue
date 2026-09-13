@@ -17,11 +17,12 @@
 defineOptions({
   name: 'LayoutAsync',
 })
+
 import { ElWatermark } from 'element-plus'
-import { computed, defineAsyncComponent, reactive, watch, type Component } from 'vue'
+import { type Component, computed, defineAsyncComponent, reactive, watch } from 'vue'
+import Loading from '@/components/Loading/index.vue'
 import type { LayoutType } from '@/stores/interface/store'
 import { useGlobalStore } from '@/stores/modules/global'
-import Loading from '@/components/Loading/index.vue'
 import ThemeDrawer from './components/ThemeDrawer/index.vue'
 
 const LayoutComponents: Record<LayoutType, Component> = {

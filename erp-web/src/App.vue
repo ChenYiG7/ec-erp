@@ -5,15 +5,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, computed } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { getBrowserLang } from '@/utils'
-import { useTheme } from '@/hooks/useTheme'
 import { ElConfigProvider } from 'element-plus'
-import type { LanguageType } from './stores/interface/store'
-import { useGlobalStore } from '@/stores/modules/global'
 import en from 'element-plus/es/locale/lang/en'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import { computed, onMounted, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useTheme } from '@/hooks/useTheme'
+import { useGlobalStore } from '@/stores/modules/global'
+import { getBrowserLang } from '@/utils'
+import type { LanguageType } from './stores/interface/store'
 
 const globalStore = useGlobalStore()
 

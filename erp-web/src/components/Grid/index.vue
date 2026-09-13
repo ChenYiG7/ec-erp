@@ -6,9 +6,10 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'Grid' })
-import type { VNodeArrayChildren, VNode } from 'vue'
-import { ref, watch, useSlots, computed, provide, onBeforeMount, onMounted, onActivated } from 'vue'
+
 import { useEventListener } from '@vueuse/core'
+import type { VNode, VNodeArrayChildren } from 'vue'
+import { computed, onActivated, onBeforeMount, onMounted, provide, ref, useSlots, watch } from 'vue'
 import type { BreakPoint } from './interface/index'
 
 type Props = {

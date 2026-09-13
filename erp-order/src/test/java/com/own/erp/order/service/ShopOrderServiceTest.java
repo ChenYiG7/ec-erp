@@ -7,6 +7,7 @@ import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.OrderReviewConsts;
 import com.own.erp.order.entity.ShopOrder;
 import com.own.erp.order.entity.ShopOrderItem;
+import com.own.erp.order.event.OrderReviewedEvent;
 import com.own.erp.order.mapper.ShopOrderItemMapper;
 import com.own.erp.order.mapper.ShopOrderMapper;
 import com.own.erp.order.request.query.ShopOrderQuery;
@@ -272,5 +273,44 @@ class ShopOrderServiceTest {
         order.setDiscountAmount(new BigDecimal("2.00"));
         order.setRawJson("{\"id\":\"P-001\"}");
         return order;
+    }
+
+    @Test
+    void reviewApprovedPublishesReviewedEventWithItems() {
+        // #29 余量「自动拆单建议」:通过分支 cas 命中后发布事件(明细映射 skuId+数量);驳回不发
+        when(shopOrderMapper.casReviewStatus(1L, OrderReviewConsts.REVIEW_APPROVED, null, 7L)).thenReturn(1);
+        when(currentUserApi.currentUserId()).thenReturn(7L);
+        ShopOrder order = new ShopOrder();
+        order.setId(1L);
+        order.setShopId(1L);
+        order.setPlatformOrderId("P-001");
+        when(shopOrderMapper.selectById(1L)).thenReturn(order);
+        ShopOrderItem item = new ShopOrderItem();
+        item.setSkuId(11L);
+        item.setQuantity(3);
+        when(shopOrderItemMapper.selectList(any())).thenReturn(List.of(item));
+
+        shopOrderService.review(1L, true, null);
+
+        org.mockito.ArgumentCaptor<OrderReviewedEvent> captor =
+                org.mockito.ArgumentCaptor.forClass(OrderReviewedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertEquals(1L, captor.getValue().orderId());
+        assertEquals(1L, captor.getValue().shopId());
+        assertEquals("P-001", captor.getValue().platformOrderId());
+        assertEquals(1, captor.getValue().items().size());
+        assertEquals(11L, captor.getValue().items().get(0).skuId());
+        assertEquals(3, captor.getValue().items().get(0).quantity());
+    }
+
+    @Test
+    void reviewRejectedDoesNotPublishEvent() {
+        when(shopOrderMapper.casReviewStatus(1L, OrderReviewConsts.REVIEW_REJECTED, null, 7L)).thenReturn(1);
+        when(currentUserApi.currentUserId()).thenReturn(7L);
+
+        shopOrderService.review(1L, false, null);
+
+        verify(shopOrderMapper, never()).selectById(1L);
+        verifyNoInteractions(eventPublisher);
     }
 }

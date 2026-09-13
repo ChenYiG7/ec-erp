@@ -1,6 +1,6 @@
 # #25 OSS 对象存储(RustFS)实施计划书
 
-> ✅ 已于 2026-09-11 实施,devlog 见 `docs/devlog/TODO25-OSS对象存储(RustFS).md`(拍板:sys_config 凭证例外扩容至 OSS SecretKey;导出方案 A 落地;真 RustFS 冒烟因会话环境无 docker 登记余量)。
+> ✅ 已于 2026-09-11 实施,devlog 见 `docs/devlog/archive/TODO25-OSS对象存储(RustFS).md`(拍板:sys_config 凭证例外扩容至 OSS SecretKey;导出方案 A 落地;真 RustFS 冒烟因会话环境无 docker 登记余量)。
 
 | 元信息 | 值 |
 |---|---|

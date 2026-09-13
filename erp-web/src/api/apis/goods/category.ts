@@ -1,5 +1,5 @@
-import http from '@/utils/request'
 import type { CategoryNode, ProductCategorySaveRequest } from '@/api/interface/goods/category'
+import http from '@/utils/request'
 
 /**
  * 商品分类接口(/api/goods/categories,手写:树形域——契约仅 tree + POST/PUT/DELETE,无分页/详情端点,

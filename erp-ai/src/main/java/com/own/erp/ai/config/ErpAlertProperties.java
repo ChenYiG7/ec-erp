@@ -40,6 +40,12 @@ public class ErpAlertProperties {
     /** 通知内容明细最大条数(超出以"等"收尾,写侧另有 1000 截断兜底) */
     private int topN = 5;
 
+    /** HIGH 风险订单单日推送上限(0=不限;超限轮次只记日志不推送,#6 拍板 2026-09-12) */
+    private int highDailyLimit = 10;
+
+    /** HIGH 风险订单推送静默期(小时,窗口内只推一条聚合通知,#6 拍板 2026-09-12) */
+    private long highQuietHours = 24;
+
     /** 单页扫描量(契约钳制 ≤100) */
     private int scanPageSize = 100;
 

@@ -12,16 +12,16 @@ import 'element-plus/theme-chalk/dark/css-vars.css'
 import '@/styles/element-dark.scss'
 // custom element css
 import '@/styles/element.scss'
-// element plus（按需导入：各组件在用到处显式 import；此处仅引入 v-loading 指令所需）
-import { ElLoading } from 'element-plus'
 // element icons
 import * as Icons from '@element-plus/icons-vue'
+// element plus（按需导入：各组件在用到处显式 import；此处仅引入 v-loading 指令所需）
+import { ElLoading } from 'element-plus'
 // custom directives
 import directives from '@/directives/index'
-// vue Router
-import router from '@/routers'
 // vue i18n
 import I18n from '@/locales/index'
+// vue Router
+import router from '@/routers'
 // pinia store
 import pinia from '@/stores'
 // errorHandler

@@ -24,6 +24,7 @@ import org.springframework.dao.DuplicateKeyException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -394,6 +395,20 @@ class DeliveryOrderServiceTest {
         assertEquals(1L, event.deliveryId());
         assertEquals(ORDER_ID, event.orderId());
         assertEquals(2L, event.shopId());
+    }
+
+    @Test
+    void shipMarksSyncPendingForPlatformSync() {
+        // #11 激活期余量:ship 即置"待回传"(与回传成败无关——失败不回滚本地发货),
+        // 补偿扫与前端可视化以此列为状态基点
+        stubShippableDelivery();
+
+        deliveryOrderService.ship(1L);
+
+        ArgumentCaptor<DeliveryOrder> markCaptor = ArgumentCaptor.forClass(DeliveryOrder.class);
+        verify(deliveryOrderMapper).updateById(markCaptor.capture());
+        assertEquals("PENDING", markCaptor.getValue().getSyncStatus());
+        assertNotNull(markCaptor.getValue().getShippedAt());
     }
 
     @Test

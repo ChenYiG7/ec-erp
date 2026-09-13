@@ -1,7 +1,7 @@
-import { defineStore } from 'pinia'
-import type { DictItem } from '@/api/interface'
 import { useStorage } from '@vueuse/core'
+import { defineStore } from 'pinia'
 import { DictApi } from '@/api/apis/system/dict'
+import type { DictItem } from '@/api/interface'
 import { DICT_CACHE_TIME } from '@/constants'
 
 /**

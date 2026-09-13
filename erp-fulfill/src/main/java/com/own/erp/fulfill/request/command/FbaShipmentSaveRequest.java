@@ -20,7 +20,7 @@ import java.util.List;
 @Builder
 public record FbaShipmentSaveRequest(
 
-        /** 店铺ID(shop.id,归属信息,前端店铺下拉选择;V1 不做后端存在性校验) */
+        /** 店铺ID(shop.id,归属信息,前端店铺下拉选择;存在性经 ShopQueryApi.getShop 后端校验,#26 余量② 2026-09-13) */
         @NotNull(message = "店铺必填")
         Long shopId,
 

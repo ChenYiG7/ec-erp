@@ -36,8 +36,9 @@
 </template>
 <script setup lang="ts">
 defineOptions({ name: 'finance-profit-period-detail-drawer' })
-import { computed, ref } from 'vue'
+
 import { ElDescriptions, ElDescriptionsItem, ElDrawer, ElTable, ElTableColumn, ElTag } from 'element-plus'
+import { computed, ref } from 'vue'
 import { profitPeriodReportApi } from '@/api/apis/finance/profit-period'
 import type { ProfitPeriodReportResponse } from '@/api/interface/finance/profit-period'
 
@@ -72,6 +73,7 @@ const compareRows = computed(() => {
 
 const open = async (id: number) => {
   visible.value = true
+  detail.value = undefined // 重开清旧数据:加载期/取数失败不闪现上一单内容(#26 六轮)
   loading.value = true
   try {
     detail.value = await profitPeriodReportApi.detail(id)

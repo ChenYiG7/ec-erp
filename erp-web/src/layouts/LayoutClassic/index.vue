@@ -40,15 +40,16 @@
 defineOptions({
   name: 'LayoutClassic',
 })
+
 import { ElAside, ElContainer, ElHeader, ElMenu, ElScrollbar } from 'element-plus'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAuthStore } from '@/stores/modules/auth'
-import { useGlobalStore } from '@/stores/modules/global'
-import MainContainer from '@/layouts/components/Main/index.vue'
-import SubMenu from '@/layouts/components/Menu/SubMenu.vue'
 import ToolBarLeft from '@/layouts/components/Header/ToolBarLeft.vue'
 import ToolBarRight from '@/layouts/components/Header/ToolBarRight.vue'
+import MainContainer from '@/layouts/components/Main/index.vue'
+import SubMenu from '@/layouts/components/Menu/SubMenu.vue'
+import { useAuthStore } from '@/stores/modules/auth'
+import { useGlobalStore } from '@/stores/modules/global'
 
 const title = import.meta.env.VITE_GLOB_APP_TITLE
 

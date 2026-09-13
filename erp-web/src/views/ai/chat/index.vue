@@ -25,6 +25,10 @@
     <!-- 对话区 -->
     <main class="chat-main">
       <MessageList :messages="messages" />
+      <!-- 停止生成:仅流式进行中可见,abort 当次 SSE 流(#6 拍板轻量实现,零新依赖) -->
+      <div v-if="sending" class="chat-stop">
+        <el-button size="small" :icon="VideoPause" @click="onStop">停止生成</el-button>
+      </div>
       <ChatInput :disabled="sending" @send="onSend" />
     </main>
   </div>
@@ -33,13 +37,14 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'ai-chat-index' })
-import { onMounted, onUnmounted, ref } from 'vue'
+
+import { Plus, VideoPause } from '@element-plus/icons-vue'
 import { ElButton, ElEmpty, ElMessage, ElScrollbar } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import MessageList from '@/components/chat/MessageList.vue'
-import ChatInput from '@/components/chat/ChatInput.vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { aiChatApi } from '@/api/apis/ai/chat'
 import type { AiChatSessionResponse, ChatUIMessage } from '@/api/interface/ai/chat'
+import ChatInput from '@/components/chat/ChatInput.vue'
+import MessageList from '@/components/chat/MessageList.vue'
 
 const sessions = ref<AiChatSessionResponse[]>([])
 const activeSessionId = ref<number>()
@@ -87,9 +92,14 @@ const onNewSession = async () => {
 }
 
 // 首条消息自动建会话;流式 chunk 追加到占位 AI 行;结束/失败都以服务端历史回读兜底
-// 当前流的中止器:页面卸载时断流(避免离开页面后 fetch 继续拉取,#26 二轮走查)
+// 当前流的中止器:页面卸载时断流(避免离开页面后 fetch 继续拉取,#26 二轮走查);
+// 「停止生成」按钮复用同一中止器(#6):abort 后 catch 静默、finally 以服务端历史回读兜底
 let streamController: AbortController | null = null
 onUnmounted(() => streamController?.abort())
+
+const onStop = () => {
+  streamController?.abort()
+}
 
 const onSend = async (text: string) => {
   if (sending.value) {
@@ -208,6 +218,11 @@ onMounted(async () => {
     flex-direction: column;
     min-width: 0;
     padding: 12px 16px 16px;
+    .chat-stop {
+      display: flex;
+      justify-content: center;
+      padding: 4px 0;
+    }
   }
 }
 </style>

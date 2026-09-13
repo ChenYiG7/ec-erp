@@ -107,7 +107,7 @@ class ProfitPeriodReportServiceTest {
                 new SettlementFeeSum("TRANSFER", new BigDecimal("595.00"))));
         when(profitQueryService.summarize(any())).thenReturn(
                 new OrderProfitSummary(1, new BigDecimal("700.00"), new BigDecimal("400.00"),
-                        new BigDecimal("-105.00"), new BigDecimal("195.00"), 0, 0, 0));
+                        new BigDecimal("-105.00"), new BigDecimal("195.00"), 0, 0, 0, null));
 
         service.rebuildForReport(7L);
 
@@ -142,7 +142,7 @@ class ProfitPeriodReportServiceTest {
                 new SettlementFeeSum("COMMISSION", new BigDecimal("-105.00"))));
         when(profitQueryService.summarize(any())).thenReturn(
                 new OrderProfitSummary(10, new BigDecimal("700.00"), new BigDecimal("400.00"),
-                        new BigDecimal("-104.50"), new BigDecimal("195.00"), 2, 1, 3));
+                        new BigDecimal("-104.50"), new BigDecimal("195.00"), 2, 1, 3, null));
 
         service.rebuildForReport(7L);
 
@@ -172,7 +172,7 @@ class ProfitPeriodReportServiceTest {
                 new SettlementFeeSum("SALE", new BigDecimal("700.00"))));
         when(profitQueryService.summarize(any())).thenReturn(
                 new OrderProfitSummary(10, new BigDecimal("700.00"), new BigDecimal("400.00"),
-                        new BigDecimal("-105.00"), new BigDecimal("195.00"), 2, 1, 3));
+                        new BigDecimal("-105.00"), new BigDecimal("195.00"), 2, 1, 3, null));
 
         service.rebuildForReport(7L);
 
@@ -207,7 +207,7 @@ class ProfitPeriodReportServiceTest {
                 new SettlementFeeSum("SALE", new BigDecimal("700.01"))));
         when(profitQueryService.summarize(any())).thenReturn(
                 new OrderProfitSummary(1, new BigDecimal("700.00"), new BigDecimal("400.00"),
-                        new BigDecimal("-105.00"), new BigDecimal("195.00"), 0, 0, 0));
+                        new BigDecimal("-105.00"), new BigDecimal("195.00"), 0, 0, 0, null));
 
         service.rebuildForReport(7L);
 

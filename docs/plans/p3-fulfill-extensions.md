@@ -35,6 +35,22 @@
 - **禁复用 pullScheduler**(TODO 原文红线):独立 executor 命名 `ship-sync-`,池大小 2-4,队列有界(100),拒绝策略=记 pull_log 等补偿扫。
 - 语义变化登记:回传成功前订单本地已 SHIPPED(现状也是——回传失败本就不回滚),异步化只是把"用户等待回传"变成"后台追";**回传状态可视化**(发货单加 sync_status 列:待回传/成功/失败,前端列展示)是配套必做项,否则失败不可见。
 - 幂等:同发货单重复回传由平台侧幂等+本地 sync_status 条件更新守卫。
+- **预做登记(2026-09-12,联调前脱机落地)**:executor + 开关通道已就绪——开关 `erp.shipment.sync-async`
+  默认 false(与同域 `erp.shipment.sync-enabled` 同命名空间,替代本节草案键 `erp.ship.sync.async-enabled`);
+  独立单线程 executor `ship-sync-`(懒线程+空闲回收,关态零常驻;池参数按实测调的拍板不变,激活时只改参数)、
+  有界队列 100;拒绝策略偏离登记:用 **CallerRuns 背压**(满载降级回同步不丢事件)替代草案"拒绝记 pull_log"
+  ——负载型拒绝在 CallerRuns 下不存在,拒绝只在停机期出现(此时记 error 留痕, pull_log 写入同样不可靠);
+  失败补偿扫语义不受影响(仍扫 pull_log 失败记录)。**激活期余量不变**:sync_status 列 + 前端可视化 +
+  失败补偿扫,真凭证实测耗时后拍板。
+- **余量补齐登记(2026-09-12,同日脱机落地——激活只剩翻开关)**:三项余量全部落地,形态与草案对齐带一处细化——
+  ①`delivery_order` 加 `sync_status(PENDING待回传/SUCCESS成功/FAILED失败,NULL=未发货无关,存量已发货单不回溯)/
+  sync_retry_count/sync_fail_reason/sync_time` 四列 + idx_sync(ship 即置 PENDING;成功条件更新翻牌仅 PENDING/FAILED
+  可翻,幂等;失败计数 SQL 内自增);②前端发货单页加"回传状态"列(待回传/成功/失败 tag);③补偿扫=
+  `ShipmentSyncRetryJob`(`erp.shipment.retry-*` 五参:enabled 默认关/30min 一扫/上限 5 次/退避 10min×计数/
+  批量 100),扫"已发货未回传成功"的**发货单**重试而非字面扫 pull_log——pull_log 无 delivery 维度无法定位单据,
+  且发货单态天然涵盖"事件丢失的 PENDING"(停机期提交被拒/崩溃于 AFTER_COMMIT 后)与"跳过未遂"(adapter 后接入),
+  失败原因细节仍在 pull_log 互补;退避=距上次尝试 N×backoff 分钟,超限停扫保持 FAILED 待人工,无运单号不选。
+  已建库跑 `scripts/replay_schema_migration.py` 补列(HISTORY_COLUMNS 已登记,真库验证 3/3 过)
 
 ## 三、开工路径
 

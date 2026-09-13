@@ -54,7 +54,7 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'aftersale-receive-return-form' })
-import { ref } from 'vue'
+
 import {
   ElButton,
   ElDialog,
@@ -68,9 +68,10 @@ import {
   ElTable,
   ElTableColumn,
 } from 'element-plus'
+import { ref } from 'vue'
 import { aftersaleOrderApi } from '@/api/apis/aftersale/order'
-import { shopOrderApi } from '@/api/apis/order/order'
 import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
+import { shopOrderApi } from '@/api/apis/order/order'
 import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
 import type { AftersaleOrderResponse } from '@/api/interface/aftersale/order'
 
@@ -106,7 +107,12 @@ const open = async (data: AftersaleOrderResponse) => {
     warehouseOptions.value = whOptions
     lines.value = (order.items ?? [])
       .filter(item => item.skuId != null)
-      .map(item => ({ orderItemId: item.id!, skuId: item.skuId!, quantity: item.quantity ?? 0, returnQty: 0 }))
+      .map(item => ({
+        orderItemId: item.id!,
+        skuId: item.skuId!,
+        quantity: item.quantity ?? 0,
+        returnQty: 0,
+      }))
     // 内部SKU 列翻译(#7 专条):明细行去重批量预取,渲染读 options 模块缓存
     fetchSkuNames(lines.value.map(l => l.skuId))
   } finally {

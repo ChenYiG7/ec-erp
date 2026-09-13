@@ -1,4 +1,3 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type {
   ManualOrderSaveRequest,
@@ -6,6 +5,7 @@ import type {
   ShopOrderResponse,
   ShopOrderReviewCommand,
 } from '@/api/interface/order/order'
+import http from '@/utils/request'
 
 /**
  * 订单管理(/api/orders,由 gen:page 生成)

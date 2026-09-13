@@ -1,6 +1,6 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type { BrandResponse, BrandSaveRequest } from '@/api/interface/goods/brand'
+import http from '@/utils/request'
 
 /**
  * 品牌管理(/api/goods/brands,由 gen:page 生成)

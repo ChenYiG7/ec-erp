@@ -2,6 +2,10 @@ package com.own.erp.platform.adapter.amazon;
 
 import cn.hutool.core.util.StrUtil;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.own.erp.platform.gateway.PlatformRateGuard;
+import com.own.erp.platform.gateway.RateLimitObserver;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
@@ -43,13 +47,15 @@ public class SpApiFinancesClient {
     private final URI baseUri;
     private final String region;
     private final Clock clock;
+    private final RateLimitObserver observer;
     private final RestClient restClient;
     private final SpApiSigner signer = new SpApiSigner();
 
-    public SpApiFinancesClient(String baseUrl, String region, Clock clock) {
+    public SpApiFinancesClient(String baseUrl, String region, Clock clock, RateLimitObserver observer) {
         this.baseUri = URI.create(baseUrl);
         this.region = region;
         this.clock = clock;
+        this.observer = observer;
         this.restClient = RestClient.builder().baseUrl(baseUrl).build();
     }
 
@@ -95,7 +101,7 @@ public class SpApiFinancesClient {
     private JsonNode execute(SpApiSigner.SignedHeaders signed, String lwaAccessToken,
                              SpApiSigner.AwsCredentials awsCredentials) {
         String url = baseUri + FINANCIAL_EVENTS_PATH + "?" + signed.canonicalQueryString();
-        JsonNode body;
+        ResponseEntity<JsonNode> entity;
         try {
             RestClient.RequestHeadersSpec<?> spec = restClient.get()
                     .uri(URI.create(url))
@@ -105,14 +111,28 @@ public class SpApiFinancesClient {
             if (StrUtil.isNotBlank(awsCredentials.sessionToken())) {
                 spec = spec.header("X-Amz-Security-Token", awsCredentials.sessionToken());
             }
-            body = spec.retrieve().body(JsonNode.class);
+            entity = spec.retrieve().toEntity(JsonNode.class);
         } catch (RestClientResponseException e) {
+            reportRateLimit("listFinancialEvents", e.getResponseHeaders());
             // 响应原文可能含调用参数与账号上下文,只透出状态码定位问题(docs/07 §7)
             throw new IllegalStateException("SP-API listFinancialEvents 调用失败:HTTP " + e.getStatusCode().value(), e);
         }
+        reportRateLimit("listFinancialEvents", entity.getHeaders());
+        JsonNode body = entity.getBody();
         if (body == null || body.get("payload") == null) {
             throw new IllegalStateException("SP-API listFinancialEvents 响应缺 payload");
         }
         return body.get("payload");
+    }
+
+    /** 限流头上报(guard 缺位 observer=null 静默跳过;Finances 拉取恒走拉取桶) */
+    private void reportRateLimit(String operation, HttpHeaders headers) {
+        if (observer == null || headers == null) {
+            return;
+        }
+        String value = headers.getFirst(PlatformRateGuard.RATE_LIMIT_HEADER);
+        if (StrUtil.isNotBlank(value)) {
+            observer.observe(RateLimitObserver.BUCKET_PULL, operation, value);
+        }
     }
 }

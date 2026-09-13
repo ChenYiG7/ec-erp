@@ -37,7 +37,7 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   ElButton,
   ElDialog,
@@ -49,9 +49,9 @@ import {
   ElOption,
   ElSelect,
 } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
+import { ref } from 'vue'
 import { supplierApi } from '@/api/apis/purchase/supplier'
-import type { SupplierSaveRequest, SupplierResponse } from '@/api/interface/purchase/supplier'
+import type { SupplierResponse, SupplierSaveRequest } from '@/api/interface/purchase/supplier'
 
 defineOptions({ name: 'SupplierForm' })
 

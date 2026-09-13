@@ -49,9 +49,10 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'goods-category-index' })
-import { onMounted, ref } from 'vue'
-import { ElButton, ElMessage, ElMessageBox, ElTable, ElTableColumn, ElTag } from 'element-plus'
+
 import { CirclePlus, Refresh } from '@element-plus/icons-vue'
+import { ElButton, ElMessage, ElMessageBox, ElTable, ElTableColumn, ElTag } from 'element-plus'
+import { onMounted, ref } from 'vue'
 import { categoryApi } from '@/api/apis/goods/category'
 import type { CategoryNode } from '@/api/interface/goods/category'
 import CategoryForm from './components/CategoryForm.vue'
@@ -71,7 +72,9 @@ const onRemove = async (row: CategoryNode) => {
     ElMessage.warning('存在子分类,请先删除子级')
     return
   }
-  await ElMessageBox.confirm(`确认删除分类「${row.name}」?一期为硬删,不可恢复`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(`确认删除分类「${row.name}」?一期为硬删,不可恢复`, '提示', {
+    type: 'warning',
+  })
   await categoryApi.remove(row.id)
   ElMessage.success('删除成功')
   loadTree()

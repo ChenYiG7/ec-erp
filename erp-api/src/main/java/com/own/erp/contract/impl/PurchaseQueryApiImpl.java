@@ -6,11 +6,13 @@ import com.own.erp.contract.QueryPage;
 import com.own.erp.purchase.request.query.PurchaseOrderQuery;
 import com.own.erp.purchase.response.PurchaseOrderItemResponse;
 import com.own.erp.purchase.response.PurchaseOrderResponse;
+import com.own.erp.purchase.response.PurchaseOverdueRow;
 import com.own.erp.purchase.response.SkuSupplierRow;
 import com.own.erp.purchase.service.PurchaseOrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 
@@ -65,6 +67,26 @@ public class PurchaseQueryApiImpl implements PurchaseQueryApi {
         return purchaseOrderService.listByIds(poIds).stream()
                 .map(PurchaseQueryApiImpl::toPayableView)
                 .toList();
+    }
+
+    @Override
+    public List<PurchaseOverdueView> listOverduePayables(LocalDate asOf) {
+        return purchaseOrderService.listOverduePayables(asOf).stream()
+                .map(PurchaseQueryApiImpl::toOverdueView)
+                .toList();
+    }
+
+    /** 域投影行 → 契约视图显式逐字段映射(#31 账期提醒,漏字段编译期可见,禁反射拷贝) */
+    private static PurchaseOverdueView toOverdueView(PurchaseOverdueRow row) {
+        return PurchaseOverdueView.builder()
+                .poId(row.getPoId())
+                .poNo(row.getPoNo())
+                .supplierId(row.getSupplierId())
+                .supplierName(row.getSupplierName())
+                .settleDays(row.getSettleDays())
+                .auditTime(row.getAuditTime())
+                .unpaidAmount(row.getUnpaidAmount())
+                .build();
     }
 
     /** 域投影行 → 契约视图显式逐字段映射(漏字段编译期可见,禁反射拷贝) */

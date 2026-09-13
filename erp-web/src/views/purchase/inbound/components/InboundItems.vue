@@ -13,10 +13,10 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
 import { ElEmpty, ElTable, ElTableColumn } from 'element-plus'
-import { purchaseInboundApi } from '@/api/apis/purchase/inbound'
+import { onMounted, ref } from 'vue'
 import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
+import { purchaseInboundApi } from '@/api/apis/purchase/inbound'
 import type { PurchaseInboundItemResponse, PurchaseInboundResponse } from '@/api/interface/purchase/inbound'
 
 defineOptions({ name: 'InboundItems' })

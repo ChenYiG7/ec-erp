@@ -10,8 +10,18 @@
         "parameters": [
           { "name": "pageNo", "in": "query", "schema": { "type": "integer" } },
           { "name": "pageSize", "in": "query", "schema": { "type": "integer" } },
-          { "name": "name", "in": "query", "description": "名称模糊", "schema": { "type": "string" } },
-          { "name": "status", "in": "query", "description": "状态", "schema": { "type": "integer" } }
+          {
+            "name": "name",
+            "in": "query",
+            "description": "名称模糊",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "状态",
+            "schema": { "type": "integer" }
+          }
         ],
         "responses": {
           "200": {
@@ -26,10 +36,14 @@
         "summary": "新增冒烟",
         "operationId": "createSmoke",
         "requestBody": {
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SmokeSaveRequest" } } }
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/SmokeSaveRequest" } }
+          }
         },
         "responses": {
-          "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultLong" } } } }
+          "200": {
+            "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultLong" } } }
+          }
         }
       }
     },
@@ -39,10 +53,19 @@
         "summary": "冒烟详情",
         "operationId": "getSmoke",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" }
+          }
         ],
         "responses": {
-          "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultSmokeResponse" } } } }
+          "200": {
+            "content": {
+              "*/*": { "schema": { "$ref": "#/components/schemas/ResultSmokeResponse" } }
+            }
+          }
         }
       },
       "put": {
@@ -50,13 +73,22 @@
         "summary": "修改冒烟",
         "operationId": "updateSmoke",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" }
+          }
         ],
         "requestBody": {
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SmokeSaveRequest" } } }
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/SmokeSaveRequest" } }
+          }
         },
         "responses": {
-          "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } } }
+          "200": {
+            "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } }
+          }
         }
       },
       "delete": {
@@ -64,10 +96,17 @@
         "summary": "删除冒烟",
         "operationId": "deleteSmoke",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" }
+          }
         ],
         "responses": {
-          "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } } }
+          "200": {
+            "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } }
+          }
         }
       }
     },
@@ -77,13 +116,24 @@
         "summary": "激活冒烟",
         "operationId": "activateSmoke",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" }
+          }
         ],
         "requestBody": {
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SmokeActivateRequest" } } }
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SmokeActivateRequest" }
+            }
+          }
         },
         "responses": {
-          "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } } }
+          "200": {
+            "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } }
+          }
         }
       }
     },
@@ -93,10 +143,17 @@
         "summary": "冒烟日志(扩展动作示范)",
         "operationId": "listSmokeLogs",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" }
+          }
         ],
         "responses": {
-          "200": { "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } } }
+          "200": {
+            "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ResultBoolean" } } }
+          }
         }
       }
     },

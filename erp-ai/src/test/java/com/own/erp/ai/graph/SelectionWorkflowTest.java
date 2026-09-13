@@ -108,7 +108,7 @@ class SelectionWorkflowTest {
         when(profitQueryApi.listSkuProfitRank(any(), anyInt()))
                 .thenReturn(List.of(new ProfitSkuRankRow(1L, "测试商品", 5, 120,
                         new BigDecimal("6000"), new BigDecimal("2400"),
-                        new BigDecimal("-900"), new BigDecimal("2700"))));
+                        new BigDecimal("-900"), new BigDecimal("2700"), null, null, null)));
     }
 
     @Test

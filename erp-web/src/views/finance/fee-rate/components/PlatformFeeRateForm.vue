@@ -39,7 +39,7 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   ElButton,
   ElDatePicker,
@@ -51,10 +51,10 @@ import {
   ElOption,
   ElSelect,
 } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import Dict from '@/components/Dict/index.vue'
+import { ref } from 'vue'
 import { platformFeeRateApi } from '@/api/apis/finance/fee-rate'
-import type { PlatformFeeRateSaveRequest, PlatformFeeRateResponse } from '@/api/interface/finance/fee-rate'
+import type { PlatformFeeRateResponse, PlatformFeeRateSaveRequest } from '@/api/interface/finance/fee-rate'
+import Dict from '@/components/Dict/index.vue'
 
 defineOptions({ name: 'PlatformFeeRateForm' })
 

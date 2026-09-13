@@ -11,8 +11,10 @@
 
 <script setup lang="ts">
 defineOptions({ name: '403' })
+
 import { ElButton } from 'element-plus'
 import { useRouter } from 'vue-router'
+
 const router = useRouter()
 </script>
 

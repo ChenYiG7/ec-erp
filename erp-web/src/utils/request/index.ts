@@ -1,5 +1,5 @@
-import { RequestHttp } from './base'
 import { ResultEnum } from '@/enums/httpEnum'
+import { RequestHttp } from './base'
 
 const config = {
   // 接口基础地址:留空 = 同源(dev 走 vite proxy /api -> 8088;prod 同域反代)

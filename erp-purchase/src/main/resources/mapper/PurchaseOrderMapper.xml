@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.own.erp.purchase.mapper.PurchaseOrderMapper">
+
+    <!-- 超期未付清采购单(#31 账期到期提醒取数,2026-09-12):口径拍板——
+         起算锚点 = audit_time(审核动作落,#31 加列;历史单 NULL 不参与,防整库历史单误报);
+         到期日 = audit_time + settle_days 天(settle_days 未设不提醒);未付清 = 总额 − ΣNORMAL 分摊 > 0
+         (聚合语义同 erp-finance sumPaidByPoIds:payment_alloc alloc_biz_type='PURCHASE' join NORMAL 流水,
+          VOIDED 经状态条件自然失效;跨域只读 join 先例同供应商应付视图反向);状态口径同付款登记可付集(非 DRAFT/CANCELED);
+         按审核时间升序(最早超期在前),LIMIT 500 防御大结果(告警聚合明细另有 topN 截断) -->
+    <select id="listOverduePayables" resultType="com.own.erp.purchase.response.PurchaseOverdueRow">
+        SELECT po.id           AS poId,
+               po.po_no        AS poNo,
+               po.supplier_id  AS supplierId,
+               s.name          AS supplierName,
+               s.settle_days   AS settleDays,
+               po.audit_time   AS auditTime,
+               po.total_amount - IFNULL(pp.paid_amount, 0) AS unpaidAmount
+        FROM purchase_order po
+                 JOIN supplier s ON s.id = po.supplier_id AND s.deleted = 0
+                 LEFT JOIN (
+            SELECT a.alloc_biz_id AS po_id, SUM(a.amount) AS paid_amount
+            FROM payment_alloc a
+                     JOIN payment_record pr ON a.payment_id = pr.id
+            WHERE a.alloc_biz_type = 'PURCHASE'
+              AND pr.status = 'NORMAL'
+              AND pr.deleted = 0
+            GROUP BY a.alloc_biz_id
+        ) pp ON pp.po_id = po.id
+        WHERE po.status IN ('AUDITED', 'PARTIAL_RECEIVED', 'RECEIVED', 'CLOSED')
+          AND s.settle_days IS NOT NULL
+          AND po.audit_time IS NOT NULL
+          AND po.audit_time + INTERVAL s.settle_days DAY &lt; #{asOf}
+          AND po.total_amount - IFNULL(pp.paid_amount, 0) &gt; 0
+        ORDER BY po.audit_time ASC
+        LIMIT 500
+    </select>
+</mapper>

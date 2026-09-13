@@ -1,7 +1,7 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
+import type { AiChatMessageResponse, AiChatSessionQuery, AiChatSessionResponse } from '@/api/interface/ai/chat'
+import http from '@/utils/request'
 import { postSse } from '@/utils/sse'
-import type { AiChatSessionQuery, AiChatSessionResponse, AiChatMessageResponse } from '@/api/interface/ai/chat'
 
 /**
  * AI 助手(/api/ai/chat,手写页 #6:chat 域非 CRUD 范式,gen:page 不适用)

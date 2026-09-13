@@ -1,13 +1,13 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type {
-  SysUserResponse,
-  SysUserSaveRequest,
-  SysUserQuery,
-  SysUserRolesRequest,
-  SysUserShopsRequest,
   SysUserPasswordRequest,
+  SysUserQuery,
+  SysUserResponse,
+  SysUserRolesRequest,
+  SysUserSaveRequest,
+  SysUserShopsRequest,
 } from '@/api/interface/system/user'
+import http from '@/utils/request'
 
 /**
  * 用户接口(/api/system/users)

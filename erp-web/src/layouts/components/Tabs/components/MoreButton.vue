@@ -32,14 +32,14 @@
 </template>
 
 <script setup lang="ts">
+import { ArrowDownBold } from '@element-plus/icons-vue'
 import { ElDropdown, ElDropdownItem, ElDropdownMenu, ElIcon } from 'element-plus'
 import { inject, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { HOME_URL } from '@/config'
-import { useTabsStore } from '@/stores/modules/tabs'
 import { useGlobalStore } from '@/stores/modules/global'
 import { useKeepAliveStore } from '@/stores/modules/keepAlive'
-import { useRoute, useRouter } from 'vue-router'
-import { ArrowDownBold } from '@element-plus/icons-vue'
+import { useTabsStore } from '@/stores/modules/tabs'
 
 const route = useRoute()
 const router = useRouter()

@@ -27,11 +27,11 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
-import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
+import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
+import { ref } from 'vue'
 import { brandApi } from '@/api/apis/goods/brand'
-import type { BrandSaveRequest, BrandResponse } from '@/api/interface/goods/brand'
+import type { BrandResponse, BrandSaveRequest } from '@/api/interface/goods/brand'
 
 defineOptions({ name: 'BrandForm' })
 

@@ -52,16 +52,17 @@
 defineOptions({
   name: 'LayoutColumns',
 })
+
 import { ElAside, ElContainer, ElHeader, ElIcon, ElMenu, ElScrollbar } from 'element-plus'
-import { ref, computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/modules/auth'
-import { useGlobalStore } from '@/stores/modules/global'
-import MainContainer from '@/layouts/components/Main/index.vue'
+import type { MenuOptions } from '@/api/interface'
 import ToolBarLeft from '@/layouts/components/Header/ToolBarLeft.vue'
 import ToolBarRight from '@/layouts/components/Header/ToolBarRight.vue'
+import MainContainer from '@/layouts/components/Main/index.vue'
 import SubMenu from '@/layouts/components/Menu/SubMenu.vue'
-import type { MenuOptions } from '@/api/interface'
+import { useAuthStore } from '@/stores/modules/auth'
+import { useGlobalStore } from '@/stores/modules/global'
 
 const title = import.meta.env.VITE_GLOB_APP_TITLE
 

@@ -1,8 +1,8 @@
-import { defineComponent, inject, ref, unref, useSlots } from 'vue'
-import type { ColumnProps, RenderScope, HeaderRenderScope } from '../interface'
-import { filterEnum, formatValue, handlePropPath, handleRowAccordingToProp } from '@/utils'
 import { ElTableColumn, ElTag, ElText } from 'element-plus'
+import { defineComponent, inject, ref, unref, useSlots } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { filterEnum, formatValue, handlePropPath, handleRowAccordingToProp } from '@/utils'
+import type { ColumnProps, HeaderRenderScope, RenderScope } from '../interface'
 
 const highlightKeyword = (value: string, keyword: string) => {
   const index = value.indexOf(keyword)

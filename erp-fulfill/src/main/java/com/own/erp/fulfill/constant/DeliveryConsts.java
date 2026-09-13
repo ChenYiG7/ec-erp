@@ -18,6 +18,13 @@ public final class DeliveryConsts {
     /** delivery_order.status:已取消(终态,不占订单可发量) */
     public static final String DELIVERY_CANCELLED = "CANCELLED";
 
+    /** delivery_order.sync_status:待回传(ship 时置入;跳过未遂/事件丢失也停留此态,由补偿扫兜底,#11 激活期余量) */
+    public static final String SYNC_PENDING = "PENDING";
+    /** delivery_order.sync_status:回传成功(终态,补偿扫不再选中) */
+    public static final String SYNC_SUCCESS = "SUCCESS";
+    /** delivery_order.sync_status:回传失败(补偿扫带计数退避重试,达上限停扫待人工) */
+    public static final String SYNC_FAILED = "FAILED";
+
     /** inventory_flow.biz_type:销售发货出库(关联单据 = delivery_order.id) */
     public static final String BIZ_TYPE_DELIVERY_ORDER = "DELIVERY_ORDER";
 

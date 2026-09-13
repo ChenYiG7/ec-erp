@@ -33,7 +33,7 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   ElButton,
   ElDialog,
@@ -45,9 +45,9 @@ import {
   ElOption,
   ElSelect,
 } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
+import { ref } from 'vue'
 import { sysDictApi } from '@/api/apis/system/dict'
-import type { SysDictSaveRequest, SysDictResponse } from '@/api/interface/system/dict'
+import type { SysDictResponse, SysDictSaveRequest } from '@/api/interface/system/dict'
 
 defineOptions({ name: 'SysDictForm' })
 

@@ -1,5 +1,5 @@
+import type { RoleMenuAssignRequest, SysMenuResponse, SysMenuSaveRequest } from '@/api/interface/system/menu'
 import http from '@/utils/request'
-import type { SysMenuResponse, SysMenuSaveRequest, RoleMenuAssignRequest } from '@/api/interface/system/menu'
 
 /**
  * 菜单接口(/api/system/menus,手写:树形例外页,无分页无详情)

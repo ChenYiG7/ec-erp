@@ -41,14 +41,15 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'finance-fee-rate-index' })
-import { ref } from 'vue'
-import { CirclePlus, EditPen, Delete } from '@element-plus/icons-vue'
+
+import { CirclePlus, Delete, EditPen } from '@element-plus/icons-vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
+import { platformFeeRateApi } from '@/api/apis/finance/fee-rate'
+import type { PlatformFeeRateResponse } from '@/api/interface/finance/fee-rate'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
 import { useDictStore } from '@/stores/modules/dict'
-import { platformFeeRateApi } from '@/api/apis/finance/fee-rate'
-import type { PlatformFeeRateResponse } from '@/api/interface/finance/fee-rate'
 import PlatformFeeRateForm from './components/PlatformFeeRateForm.vue'
 
 // ProTable 实例(getTableList 供刷新)

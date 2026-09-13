@@ -4,9 +4,11 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.finance.request.query.FirstLegShipmentQuery;
 import com.own.erp.finance.response.FirstLegShipmentResponse;
 import com.own.erp.finance.response.FirstLegSkuAllocRow;
+import com.own.erp.finance.response.FirstLegSkuAllocSumRow;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -28,6 +30,15 @@ public interface FirstLegQueryMapper {
      * 可按 skuId 精确过滤、按发货时间(shipped_at)开区间过滤;无分摊的 SKU 不在返回中
      */
     List<FirstLegSkuAllocRow> listSkuAllocSummary(@Param("skuId") Long skuId,
+                                                  @Param("shippedFrom") LocalDateTime shippedFrom,
+                                                  @Param("shippedTo") LocalDateTime shippedTo);
+
+    /**
+     * SKU 集合批量头程分摊合计(#33 利润第三层 enrichment,2026-09-12 方案 B 整窗摊入):
+     * 口径与 listSkuAllocSummary 同源(ALLOCATED/CLOSED 主单,shipped_at 锚点);
+     * 无分摊 SKU 不在返回中,调用方按 0 兜底;skuIds 空由调用方短路不触库
+     */
+    List<FirstLegSkuAllocSumRow> sumAllocBySkuIds(@Param("skuIds") Collection<Long> skuIds,
                                                   @Param("shippedFrom") LocalDateTime shippedFrom,
                                                   @Param("shippedTo") LocalDateTime shippedTo);
 }

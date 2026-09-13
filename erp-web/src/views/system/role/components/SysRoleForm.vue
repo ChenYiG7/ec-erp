@@ -27,11 +27,11 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
-import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
+import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
+import { ref } from 'vue'
 import { sysRoleApi } from '@/api/apis/system/role'
-import type { SysRoleSaveRequest, SysRoleResponse } from '@/api/interface/system/role'
+import type { SysRoleResponse, SysRoleSaveRequest } from '@/api/interface/system/role'
 
 defineOptions({ name: 'SysRoleForm' })
 

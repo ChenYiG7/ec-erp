@@ -1,7 +1,7 @@
 <!--
   利润看板(#21 利润面产品化,手写页):汇总卡 + SVG 日趋势(零图表依赖)+ SKU 利润排行表
   口径与实时销售利润页同源(同一契约 /summary /trend /sku-rank)——缺成本/缺汇率行不计入对应金额,
-  毛利率=利润/销售额 前端自算(缺口口径见汇总卡计数)
+  毛利率后端统一下发(#21 拍板:profit/sales×100 保留 1 位小数;sales≤0 下发 null,页面显示 '-')
 -->
 
 <template>
@@ -103,7 +103,13 @@
     </el-card>
     <!-- SKU 利润排行 -->
     <el-card shadow="never">
-      <template #header><span>SKU 利润排行(Top 10,按利润降序;未绑定 SKU 的订单行不参与)</span></template>
+      <template #header>
+        <div class="rank-header">
+          <span>SKU 利润排行(Top 10,按利润降序;未绑定 SKU 的订单行不参与)</span>
+          <!-- #33 第三层口径切换:开启后利润列显示含头程净利(后端下发 netProfitCny,禁前端算金额) -->
+          <el-switch v-model="thirdLayer" active-text="含头程运费口径" size="small" />
+        </div>
+      </template>
       <el-table :data="rank" stripe>
         <el-table-column type="index" label="#" width="55" />
         <el-table-column label="内部SKU" width="150">
@@ -114,9 +120,14 @@
         <el-table-column prop="salesCny" label="销售额(CNY)" width="120" />
         <el-table-column prop="costCny" label="成本(CNY)" width="110" />
         <el-table-column prop="commissionCny" label="佣金(CNY)" width="110" />
-        <el-table-column label="利润(CNY)" width="120">
+        <el-table-column label="头程(CNY)" width="110">
+          <template #default="{ row }">{{ row.firstLegCny }}</template>
+        </el-table-column>
+        <el-table-column :label="thirdLayer ? '含头程利润(CNY)' : '利润(CNY)'" width="130">
           <template #default="{ row }">
-            <span :class="Number(row.profitCny) < 0 ? 'profit-negative' : ''">{{ row.profitCny }}</span>
+            <span :class="Number(profitOf(row as ProfitSkuRankRow)) < 0 ? 'profit-negative' : ''">{{
+              profitOf(row as ProfitSkuRankRow)
+            }}</span>
           </template>
         </el-table-column>
         <el-table-column label="利润率" width="90">
@@ -129,7 +140,7 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'finance-profit-dashboard-index' })
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+
 import {
   ElButton,
   ElCard,
@@ -142,16 +153,17 @@ import {
   ElTableColumn,
   ElTag,
 } from 'element-plus'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { profitApi } from '@/api/apis/finance/profit'
-import { fetchShopOptions } from '@/api/apis/shop/options'
 import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
-import { useDictStore } from '@/stores/modules/dict'
+import { fetchShopOptions } from '@/api/apis/shop/options'
 import type {
   OrderProfitQuery,
   OrderProfitSummary,
   ProfitDailyTrendRow,
   ProfitSkuRankRow,
 } from '@/api/interface/finance/profit'
+import { useDictStore } from '@/stores/modules/dict'
 
 // 筛选态(与利润明细页同款,少 SKU 维度——看板看全局)
 const filter = reactive<{ shopId?: number; platform?: string }>({})
@@ -163,15 +175,15 @@ const trend = ref<ProfitDailyTrendRow[]>([])
 const rank = ref<ProfitSkuRankRow[]>([])
 
 const profitClass = computed(() => (Number(summary.value?.profitCny ?? 0) < 0 ? 'profit-negative' : ''))
-const marginRate = computed(() => {
-  const sales = Number(summary.value?.salesCny ?? 0)
-  const profit = Number(summary.value?.profitCny ?? 0)
-  return sales > 0 ? ((profit / sales) * 100).toFixed(1) + '%' : '-'
-})
-const marginOf = (row: { salesCny: string | number; profitCny: string | number }) => {
-  const sales = Number(row.salesCny)
-  return sales > 0 ? ((Number(row.profitCny) / sales) * 100).toFixed(1) + '%' : '-'
-}
+// 毛利率后端统一下发(#21 拍板,前端禁再自算防止口径漂移);sales≤0 时后端下发 null → 显示 '-'
+const formatMargin = (rate: number | null | undefined) => (rate != null ? `${rate}%` : '-')
+const marginRate = computed(() => formatMargin(summary.value?.grossMarginRate))
+const marginOf = (row: { grossMarginRate: number | null }) => formatMargin(row.grossMarginRate)
+
+// #33 第三层口径切换:关闭=一层利润(profitCny)/开启=含头程净利(netProfitCny,后端单点计算下发)
+const thirdLayer = ref(false)
+const profitOf = (row: { profitCny: string; netProfitCny: string }) =>
+  thirdLayer.value ? row.netProfitCny : row.profitCny
 
 // 三路并发竞态守卫:快速改筛选/连点查询时,慢的旧响应不得覆盖新结果(#26 二轮走查)
 let fetchSeq = 0
@@ -205,7 +217,13 @@ fetchShopOptions().then(opts => (shopOptions.value = opts))
 const platformOptions = ref<Array<{ label: string; value: string }>>([])
 useDictStore()
   .getDict('shop_platform')
-  .then(list => (platformOptions.value = list.map(item => ({ label: item.dictLabel, value: item.dictValue }))))
+  .then(
+    list =>
+      (platformOptions.value = list.map(item => ({
+        label: item.dictLabel,
+        value: item.dictValue,
+      })))
+  )
 
 const applyFilter = () => {
   initParam.shopId = filter.shopId

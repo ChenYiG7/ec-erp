@@ -9,11 +9,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import screenfull from 'screenfull'
-import MaterialSymbolsFullscreenExit from '~icons/material-symbols/fullscreen-exit?width=20px&height=20px'
+import { onMounted, ref } from 'vue'
 import MaterialSymbolsFullscreen from '~icons/material-symbols/fullscreen?width=20px&height=20px'
+import MaterialSymbolsFullscreenExit from '~icons/material-symbols/fullscreen-exit?width=20px&height=20px'
 
 const isFullscreen = ref(screenfull.isFullscreen)
 

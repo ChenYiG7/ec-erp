@@ -38,8 +38,9 @@
 </template>
 <script setup lang="ts">
 defineOptions({ name: 'finance-payment-platform-table' })
-import { onMounted, ref } from 'vue'
+
 import { ElButton, ElDatePicker, ElForm, ElFormItem, ElTable, ElTableColumn, ElTag } from 'element-plus'
+import { onMounted, ref } from 'vue'
 import { paymentRecordApi } from '@/api/apis/finance/payment'
 import type { PlatformReceiptRow } from '@/api/interface/finance/payment'
 

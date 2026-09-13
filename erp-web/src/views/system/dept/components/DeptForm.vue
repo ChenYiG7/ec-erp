@@ -36,7 +36,7 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   ElButton,
   ElDialog,
@@ -49,7 +49,7 @@ import {
   ElSelect,
   ElTreeSelect,
 } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
+import { ref } from 'vue'
 import { sysDeptApi } from '@/api/apis/system/dept'
 import type { DeptNode, SysDeptSaveRequest } from '@/api/interface/system/dept'
 

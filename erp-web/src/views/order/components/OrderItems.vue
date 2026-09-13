@@ -18,10 +18,10 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
 import { ElEmpty, ElTable, ElTableColumn } from 'element-plus'
-import { shopOrderApi } from '@/api/apis/order/order'
+import { onMounted, ref } from 'vue'
 import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
+import { shopOrderApi } from '@/api/apis/order/order'
 import type { ShopOrderItemResponse, ShopOrderResponse } from '@/api/interface/order/order'
 
 defineOptions({ name: 'OrderItems' })

@@ -1,5 +1,5 @@
-import http from '@/utils/request'
 import type { ProductSkuResponse, SkuOptionResponse } from '@/api/interface/goods/sku'
+import http from '@/utils/request'
 
 /**
  * 商品SKU(/api/goods/skus,gen:page 契约外人工登记:#16 SKU 搜索选择器槽位)

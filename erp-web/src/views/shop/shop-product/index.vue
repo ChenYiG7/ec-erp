@@ -19,12 +19,13 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'shop-shop-product-index' })
+
 import { ref } from 'vue'
+import { fetchShopOptions } from '@/api/apis/shop/options'
+import { shopProductApi } from '@/api/apis/shop/shop-product'
+import type { ShopProductResponse } from '@/api/interface/shop/shop-product'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
-import { shopProductApi } from '@/api/apis/shop/shop-product'
-import { fetchShopOptions } from '@/api/apis/shop/options'
-import type { ShopProductResponse } from '@/api/interface/shop/shop-product'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()

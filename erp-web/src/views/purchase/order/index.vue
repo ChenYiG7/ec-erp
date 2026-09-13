@@ -56,18 +56,19 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'purchase-order-index' })
-import { ref } from 'vue'
-import { CirclePlus, EditPen, Delete } from '@element-plus/icons-vue'
+
+import { CirclePlus, Delete, EditPen } from '@element-plus/icons-vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
+import { paymentRecordApi } from '@/api/apis/finance/payment'
+import { purchaseOrderApi } from '@/api/apis/purchase/order'
+import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import type { PageQuery } from '@/api/interface'
+import type { PurchaseOrderResponse } from '@/api/interface/purchase/order'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
-import { purchaseOrderApi } from '@/api/apis/purchase/order'
-import { paymentRecordApi } from '@/api/apis/finance/payment'
-import type { PurchaseOrderResponse } from '@/api/interface/purchase/order'
-import type { PageQuery } from '@/api/interface'
-import PurchaseOrderForm from './components/PurchaseOrderForm.vue'
 import PurchasePaymentDialog from '@/views/finance/payment/components/PurchasePaymentDialog.vue'
-import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import PurchaseOrderForm from './components/PurchaseOrderForm.vue'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
@@ -138,7 +139,9 @@ const handleDelete = async (row: PurchaseOrderResponse) => {
 
 // 审核:DRAFT→AUDITED(条件更新在后端,失败弹拦截器报错;admin 按钮权限 + 后端 @PreAuthorize hasRole('admin') 双闸)
 const onAudit = async (row: PurchaseOrderResponse) => {
-  await ElMessageBox.confirm(`确认审核采购单 ${row.poNo} 吗?审核后不可编辑。`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(`确认审核采购单 ${row.poNo} 吗?审核后不可编辑。`, '提示', {
+    type: 'warning',
+  })
   await purchaseOrderApi.audit(row.id)
   ElMessage.success('审核通过')
   refreshTable()
@@ -146,7 +149,9 @@ const onAudit = async (row: PurchaseOrderResponse) => {
 
 // 关闭:AUDITED/PARTIAL_RECEIVED/RECEIVED→CLOSED,剩余未收量作废(草稿单请走删除)
 const onClose = async (row: PurchaseOrderResponse) => {
-  await ElMessageBox.confirm(`确认关闭采购单 ${row.poNo} 吗?剩余未收量将作废。`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(`确认关闭采购单 ${row.poNo} 吗?剩余未收量将作废。`, '提示', {
+    type: 'warning',
+  })
   await purchaseOrderApi.close(row.id)
   ElMessage.success('已关闭')
   refreshTable()

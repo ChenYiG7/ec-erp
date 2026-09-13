@@ -35,6 +35,10 @@ public final class AiConsts {
     /** 建议类型:选品(#17 落位表「智能选品」三期提前,2026-09-08:启用 SKU 三维加权评分产重点关注建议) */
     public static final String TYPE_SELECTION = "SELECTION";
 
+    /** 建议类型:拆单(#29 余量「自动拆单建议」,2026-09-12 方案 A 纯规则:审核通过按 SKU→最优发货仓分组,
+     *  需多仓履约的订单产拆单建议供人工确认;refType=SHOP_ORDER,refId=orderId) */
+    public static final String TYPE_SPLIT_ADVICE = "SPLIT_ADVICE";
+
     /** 关联业务类型:订单(异常建议 refType) */
     public static final String REF_TYPE_SHOP_ORDER = "SHOP_ORDER";
 

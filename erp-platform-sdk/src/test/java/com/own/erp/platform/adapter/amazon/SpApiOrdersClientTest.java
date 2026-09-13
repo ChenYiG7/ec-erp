@@ -91,7 +91,7 @@ class SpApiOrdersClientTest {
         server.createContext("/", this::route);
         server.start();
         client = new SpApiOrdersClient("http://127.0.0.1:" + server.getAddress().getPort(),
-                "us-east-1", "ATVPDKIKX0DER", Clock.fixed(NOW, ZoneId.of("Asia/Shanghai")));
+                "us-east-1", "ATVPDKIKX0DER", Clock.fixed(NOW, ZoneId.of("Asia/Shanghai")), null);
     }
 
     @AfterEach
@@ -241,7 +241,7 @@ class SpApiOrdersClientTest {
     void rejectsBlankMarketplaceConfigBeforeCallingPlatform() {
         SpApiOrdersClient unconfigured = new SpApiOrdersClient(
                 "http://127.0.0.1:" + server.getAddress().getPort(), "us-east-1", "",
-                Clock.fixed(NOW, ZoneId.of("Asia/Shanghai")));
+                Clock.fixed(NOW, ZoneId.of("Asia/Shanghai")), null);
 
         IllegalStateException exception = assertThrows(IllegalStateException.class,
                 () -> unconfigured.pullOrders("Atoken-LWA", AWS, WINDOW_START, WINDOW_END));
@@ -390,7 +390,7 @@ class SpApiOrdersClientTest {
     void confirmShipmentRejectsBlankMarketplaceConfigBeforeCallingPlatform() {
         SpApiOrdersClient unconfigured = new SpApiOrdersClient(
                 "http://127.0.0.1:" + server.getAddress().getPort(), "us-east-1", "",
-                Clock.fixed(NOW, ZoneId.of("Asia/Shanghai")));
+                Clock.fixed(NOW, ZoneId.of("Asia/Shanghai")), null);
 
         IllegalStateException exception = assertThrows(IllegalStateException.class,
                 () -> unconfigured.confirmShipment("Atoken-LWA", AWS, shipment()));

@@ -1,9 +1,9 @@
-import router from '@/routers'
 import { defineStore } from 'pinia'
+import router from '@/routers'
+import piniaPersistConfig from '@/stores/helper/persist'
+import type { TabsMenuProps, TabsState } from '@/stores/interface/store'
 import { getUrlWithParams } from '@/utils'
 import { useKeepAliveStore } from './keepAlive'
-import type { TabsState, TabsMenuProps } from '@/stores/interface/store'
-import piniaPersistConfig from '@/stores/helper/persist'
 
 export const useTabsStore = defineStore('geeker-tabs', {
   state: (): TabsState => ({

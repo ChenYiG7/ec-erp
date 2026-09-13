@@ -4,8 +4,9 @@
  * 约定:perms 集合为空 = 引导期(尚无 menuType=3 种子),放行;非空则严格判断(docs/09 §7)
  * 仅做展示层裁剪,真正的越权拦截在后端 @PreAuthorize
  */
-import { useAuthStore } from '@/stores/modules/auth'
+
 import type { Directive, DirectiveBinding } from 'vue'
+import { useAuthStore } from '@/stores/modules/auth'
 
 const auth: Directive = {
   mounted(el: HTMLElement, binding: DirectiveBinding) {

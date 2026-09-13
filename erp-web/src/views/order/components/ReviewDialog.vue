@@ -38,8 +38,8 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
 import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElMessage, ElRadio, ElRadioGroup, ElTag } from 'element-plus'
+import { ref } from 'vue'
 import { shopOrderApi } from '@/api/apis/order/order'
 import type { ShopOrderResponse } from '@/api/interface/order/order'
 
@@ -68,7 +68,10 @@ const handleSubmit = async () => {
   }
   submitting.value = true
   try {
-    await shopOrderApi.review(id, { approve: approve.value, remark: remark.value.trim() || undefined })
+    await shopOrderApi.review(id, {
+      approve: approve.value,
+      remark: remark.value.trim() || undefined,
+    })
     ElMessage.success(approve.value ? '审核通过' : '已驳回')
     emit('saved')
     visible.value = false

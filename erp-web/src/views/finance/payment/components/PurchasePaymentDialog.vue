@@ -73,7 +73,8 @@
 </template>
 <script setup lang="ts">
 defineOptions({ name: 'finance-payment-purchase-dialog' })
-import { ref } from 'vue'
+
+import { CirclePlus } from '@element-plus/icons-vue'
 import {
   ElButton,
   ElDatePicker,
@@ -87,11 +88,11 @@ import {
   ElTable,
   ElTableColumn,
 } from 'element-plus'
-import { CirclePlus } from '@element-plus/icons-vue'
+import { ref } from 'vue'
 import { paymentRecordApi } from '@/api/apis/finance/payment'
 import { purchaseOrderApi } from '@/api/apis/purchase/order'
-import type { PurchaseOrderResponse } from '@/api/interface/purchase/order'
 import type { PurchasePaymentAlloc } from '@/api/interface/finance/payment'
+import type { PurchaseOrderResponse } from '@/api/interface/purchase/order'
 
 const METHODS = ['银行转账', '支付宝', '微信', '承兑汇票', '现金', '其他']
 // 可付款状态 = 非 DRAFT(服务端守卫同源词面)

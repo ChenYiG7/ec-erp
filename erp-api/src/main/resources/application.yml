@@ -208,6 +208,19 @@ erp:
     # 发货回传平台(#11 编排,2026-09-08):确认发货事务提交后回传运单号与行级发运;
     # 置 false 则只落本地不回传(接真凭证灰度期用);adapter 未接入的店铺永远静默跳过,不产生失败噪音
     sync-enabled: true
+    # 回传异步化(#11 预做,2026-09-12):默认 false=ship 请求线程内同步回传(现状不变);
+    # true=切独立单线程 executor(ship-sync-,禁复用 pullScheduler 调度线程,MDC traceId 随任务透传),
+    # 有界队列满载 CallerRuns 降级回同步不丢事件;真凭证实测平台耗时拖长发货响应后拍板翻开,零代码改动
+    sync-async: false
+    # 回传补偿扫(#11 激活期余量,2026-09-12 预做):定时扫已发货未回传成功的发货单重试
+    # (PENDING=事件丢失或跳过未遂如 adapter 后接入,FAILED=回传失败);单单重试达上限停扫保持 FAILED
+    # 待人工,退避=距上次尝试 N×backoff 分钟;无运单号不选(要素未齐回传无意义);存量 NULL 不回溯;
+    # 默认关——与 sync-async 同拍板节奏,真凭证联调时一并翻开
+    retry-enabled: false
+    # retry-interval-ms: 1800000    # 30 分钟一扫(fixedDelay,上一轮结束再计时)
+    # retry-max-count: 5            # 单单重试上限(超限停扫保持 FAILED 待人工)
+    # retry-backoff-minutes: 10     # 退避基数:第 N 次重试需距上次尝试 N×10 分钟
+    # retry-batch-size: 100         # 单轮扫描上限(防一次性大批量回传放大平台限流压力)
   inventory-snapshot:
     # 库存日快照(#6 库存快照数据面,2026-09-08):每日低峰取当前存量按 (SKU, 仓) 落 snapshot;
     # 01:30 错峰(销量 01:00 之后、补货 02:00 之前);不可回溯——历史日期只取已有快照行;
@@ -234,6 +247,20 @@ erp:
       role-session-name: erp-pull
       sts-base-url: https://sts.amazonaws.com
       sts-region: us-east-1
+    douyin:
+      # 抖店 adapter(P0 国内首个平台,2026-09-13 拍板)默认关闭:Bean 不注册,拉单调度静默跳过;
+      # 资质(AppKey/AppSecret)到位后置 true 并补 app-key/app-secret 与授权页 URL(经环境/属性覆盖)
+      enabled: false
+      # 开放平台 API 基地址(单测/联调可指本地假服务)
+      base-url: https://openapi-fxg.jinritemai.com
+      # 授权跳转页前缀(含应用标识参数名以控制台实际为准,资质到位后校准,buildAuthUrl 未配置即报错)
+      authorize-url: ${DOUYIN_AUTHORIZE_URL:}
+      # 应用凭证:app-key 非密可入配置,app-secret 为签名密钥走环境变量覆盖,禁明文入库
+      app-key: ${DOUYIN_APP_KEY:}
+      app-secret: ${DOUYIN_APP_SECRET:}
+      # 开放平台版本参数 v / 签名算法 sign-method(md5 官方将下线,默认 hmac-sha256)
+      v: 2
+      sign-method: hmac-sha256
     # 结算报告拉取(#19 周期口径):遍历启用店铺拉平台已生成结算报告落库(无窗口,uk 幂等);
     # 默认关——卡 #3 SP-API 真凭证,就绪后置 true(false→true 不改代码);未实现平台静默跳过
     settlement-pull:
@@ -250,6 +277,10 @@ erp:
     amazon:
       # SP-API 拉单保守默认;真值以响应头 x-amzn-RateLimit-Limit 为准,随 #3 SigV4 实调校准
       pull-interval-ms: 2000
+    douyin:
+      # 抖店默认按 app+店+桶的保守间隔(毫秒/次);真值以开放平台各接口限流文档为准,
+      # 随联调校准(无响应头,x-amzn 系真值动态校准通道不适用,#3 先例)
+      pull-interval-ms: 1500
 
 logging:
   pattern:

@@ -81,7 +81,8 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import { CirclePlus, Delete } from '@element-plus/icons-vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   ElButton,
   ElDialog,
@@ -93,12 +94,11 @@ import {
   ElOption,
   ElSelect,
 } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import { CirclePlus, Delete } from '@element-plus/icons-vue'
+import { ref } from 'vue'
 import { shopOrderApi } from '@/api/apis/order/order'
 import { fetchShopOptions } from '@/api/apis/shop/options'
-import SkuSelector from '@/components/SkuSelector/index.vue'
 import type { ManualOrderItemSaveRequest, ShopOrderResponse } from '@/api/interface/order/order'
+import SkuSelector from '@/components/SkuSelector/index.vue'
 
 defineOptions({ name: 'ManualOrderForm' })
 

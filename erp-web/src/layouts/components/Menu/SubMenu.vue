@@ -24,9 +24,10 @@
 defineOptions({
   name: 'SubMenu',
 })
+
 import { ElIcon, ElMenuItem, ElSubMenu } from 'element-plus'
-import type { MenuOptions } from '@/api/interface'
 import { useRouter } from 'vue-router'
+import type { MenuOptions } from '@/api/interface'
 
 defineProps<{ menuList: MenuOptions[] }>()
 

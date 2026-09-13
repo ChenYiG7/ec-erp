@@ -1,21 +1,21 @@
-import { defineConfig, loadEnv, ConfigEnv, UserConfig } from 'vite'
-import { resolve, dirname } from 'path'
-import { wrapperEnv } from './build/getEnv'
-import { createProxy } from './build/proxy'
-import { createVitePlugins } from './build/plugins'
-import pkg from './package.json'
-import { dayjs } from 'element-plus'
-import { fileURLToPath } from 'url'
+import { dayjs } from 'element-plus';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { ConfigEnv, defineConfig, loadEnv, UserConfig } from 'vite';
+import { wrapperEnv } from './build/getEnv';
+import { createVitePlugins } from './build/plugins';
+import { createProxy } from './build/proxy';
+import pkg from './package.json';
 
 // Create equivalents for __dirname and __filename
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-const { dependencies, devDependencies, name, version } = pkg
+const { dependencies, devDependencies, name, version } = pkg;
 const __APP_INFO__ = {
   pkg: { dependencies, devDependencies, name, version },
   lastBuildTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-}
+};
 
 /**
  * 按模块路径推导分块名，用于 Rolldown 的 codeSplitting（替代已废弃的 manualChunks）。
@@ -25,29 +25,29 @@ const __APP_INFO__ = {
  */
 function getChunkName(id: string): string | null {
   if (id.includes('node_modules')) {
-    let pkgName = ''
+    let pkgName = '';
     if (id.includes('.pnpm')) {
       // pnpm compatible - extract package name and version
-      const match = id.match(/\.pnpm\/([^/]+)\//)
+      const match = id.match(/\.pnpm\/([^/]+)\//);
       if (match) {
-        let pkgStr = match[1]
+        let pkgStr = match[1];
         // Handle pnpm scoped packages and peer dependencies
         if (pkgStr.includes('+')) {
-          pkgStr = pkgStr.split('+').pop()!
+          pkgStr = pkgStr.split('+').pop()!;
         }
-        pkgStr = pkgStr.split('_')[0]
-        pkgName = pkgStr
+        pkgStr = pkgStr.split('_')[0];
+        pkgName = pkgStr;
       }
     } else {
-      const parts = id.split('node_modules/')
-      let name = parts[parts.length - 1].split('/')[0]
+      const parts = id.split('node_modules/');
+      let name = parts[parts.length - 1].split('/')[0];
       if (name.startsWith('@')) {
-        name = parts[parts.length - 1].split('/').slice(0, 2).join('/')
+        name = parts[parts.length - 1].split('/').slice(0, 2).join('/');
       }
-      pkgName = name
+      pkgName = name;
     }
 
-    if (!pkgName) return null
+    if (!pkgName) return null;
 
     // Ignore specific packages causing empty chunks or known to be problematic
     const ignoreList = [
@@ -59,43 +59,43 @@ function getChunkName(id: string): string | null {
       'lodash-unified',
       'perfect-debounce',
       'vue-demi',
-    ]
+    ];
 
     // Check if pkgName exactly matches or starts with "name@" (for versioned pnpm names)
-    const isIgnored = ignoreList.some(item => {
-      return pkgName === item || pkgName.startsWith(item + '@')
-    })
+    const isIgnored = ignoreList.some((item) => {
+      return pkgName === item || pkgName.startsWith(item + '@');
+    });
 
-    if (isIgnored) return null
+    if (isIgnored) return null;
 
-    return pkgName
+    return pkgName;
   }
   if (id.includes('/src/')) {
     if (id.includes('/components/')) {
-      const match = id.match(/\/src\/components\/([^/]+)/)
-      return match ? `components-${match[1]}` : 'components-common'
+      const match = id.match(/\/src\/components\/([^/]+)/);
+      return match ? `components-${match[1]}` : 'components-common';
     }
-    if (id.includes('/utils/')) return 'utils'
-    if (id.includes('/stores/')) return 'stores'
-    if (id.includes('/routers/')) return 'routers'
-    if (id.includes('/styles/')) return 'styles'
+    if (id.includes('/utils/')) return 'utils';
+    if (id.includes('/stores/')) return 'stores';
+    if (id.includes('/routers/')) return 'routers';
+    if (id.includes('/styles/')) return 'styles';
     if (id.includes('/views/')) {
-      const relativePath = id.split('/views/')[1]
+      const relativePath = id.split('/views/')[1];
       if (relativePath) {
-        const folders = relativePath.split('/')
-        folders.pop()
-        return folders.length > 0 ? folders.join('-') : 'views-root'
+        const folders = relativePath.split('/');
+        folders.pop();
+        return folders.length > 0 ? folders.join('-') : 'views-root';
       }
     }
   }
-  return null
+  return null;
 }
 
 // @see: https://vitejs.dev/config/
 export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
-  const root = process.cwd()
-  const env = loadEnv(mode, root)
-  const viteEnv = wrapperEnv(env)
+  const root = process.cwd();
+  const env = loadEnv(mode, root);
+  const viteEnv = wrapperEnv(env);
 
   return {
     base: viteEnv.VITE_PUBLIC_PATH,
@@ -154,5 +154,5 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
         },
       },
     },
-  }
-})
+  };
+});

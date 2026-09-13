@@ -11,6 +11,7 @@
 	<div class="dialog-model" v-draggable></div>
 */
 import type { Directive } from 'vue'
+
 interface ElType extends HTMLElement {
   parentNode: any
 }

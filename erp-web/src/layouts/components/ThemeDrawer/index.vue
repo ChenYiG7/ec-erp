@@ -147,14 +147,15 @@
 defineOptions({
   name: 'ThemeDrawer',
 })
+
 import { ElColorPicker, ElDivider, ElDrawer, ElIcon, ElSwitch, ElTooltip } from 'element-plus'
-import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useTheme } from '@/hooks/useTheme'
-import { useGlobalStore } from '@/stores/modules/global'
-import type { LayoutType } from '@/stores/interface/store'
-import { DEFAULT_PRIMARY } from '@/config'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import SwitchDark from '@/components/SwitchDark/index.vue'
+import { DEFAULT_PRIMARY } from '@/config'
+import { useTheme } from '@/hooks/useTheme'
+import type { LayoutType } from '@/stores/interface/store'
+import { useGlobalStore } from '@/stores/modules/global'
 
 const { changePrimary, changeGreyOrWeak, setAsideTheme, setHeaderTheme } = useTheme()
 
@@ -198,7 +199,11 @@ const setLayout = (val: LayoutType) => {
 
 // 打开主题设置
 const drawerVisible = ref(false)
-window.addEventListener('openThemeDrawer', () => (drawerVisible.value = true))
+// 实例级注册 + 卸载清理:script setup 内裸挂 window 监听器会随登出→再登录累积
+// (旧实例滞留 + 监听器叠加,#26 六轮);Header ThemeSetting 派发 CustomEvent 触发
+const onOpenDrawer = () => (drawerVisible.value = true)
+onMounted(() => window.addEventListener('openThemeDrawer', onOpenDrawer))
+onBeforeUnmount(() => window.removeEventListener('openThemeDrawer', onOpenDrawer))
 </script>
 
 <style scoped lang="scss">

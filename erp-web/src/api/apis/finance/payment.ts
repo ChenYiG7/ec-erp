@@ -1,4 +1,3 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type {
   ManualPaymentRequest,
@@ -11,6 +10,7 @@ import type {
   PurchasePaymentRequest,
   SupplierPayableRow,
 } from '@/api/interface/finance/payment'
+import http from '@/utils/request'
 
 /**
  * 资金流水(/api/finance/payments)

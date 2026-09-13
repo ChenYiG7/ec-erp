@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
-import type { GlobalState } from '@/stores/interface/store'
 import { DEFAULT_PRIMARY } from '@/config'
 import piniaPersistConfig from '@/stores/helper/persist'
+import type { GlobalState } from '@/stores/interface/store'
 
 export const useGlobalStore = defineStore<'geeker-global', GlobalState>('geeker-global', {
   // 修改默认值之后，需清除 localStorage 数据

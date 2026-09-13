@@ -123,4 +123,62 @@ class PlatformRateGuardTest {
         assertEquals(503, e.getCode());
         verify(rateLimiter, never()).tryAcquire(anyLong(), any(TimeUnit.class));
     }
+
+    // ---- 限流真值校准(#3,2026-09-12:x-amzn-RateLimit-Limit 响应头动态收紧) ----
+
+    @Test
+    void observationTightensIntervalBeyondConfiguredValue() {
+        // 观测 limit=0.25/s → interval=4000ms > 配置 2000ms,取更保守者
+        guard.observeRateLimit(PlatformType.AMAZON, PlatformRateGuard.BUCKET_PULL, "getOrders", "0.25");
+
+        guard.acquire(PlatformType.AMAZON, 1L, PlatformRateGuard.BUCKET_PULL);
+
+        verify(rateLimiter).setRate(RateType.OVERALL, 1L, 4000L, RateIntervalUnit.MILLISECONDS);
+    }
+
+    @Test
+    void observationLooserThanConfigDoesNotWidenInterval() {
+        // 观测 limit=2/s → interval=500ms < 配置 2000ms,保持配置值(只收紧不放宽)
+        guard.observeRateLimit(PlatformType.AMAZON, PlatformRateGuard.BUCKET_PULL, "getOrders", "2");
+
+        guard.acquire(PlatformType.AMAZON, 1L, PlatformRateGuard.BUCKET_PULL);
+
+        verify(rateLimiter).setRate(RateType.OVERALL, 1L, 2000L, RateIntervalUnit.MILLISECONDS);
+    }
+
+    @Test
+    void keepsMostConservativeObservedLimitAcrossEndpoints() {
+        // 多 endpoint 保守合并取最小速率:0.5 与 0.25 共存时取 0.25
+        guard.observeRateLimit(PlatformType.AMAZON, PlatformRateGuard.BUCKET_PULL, "getOrders", "0.5");
+        guard.observeRateLimit(PlatformType.AMAZON, PlatformRateGuard.BUCKET_PULL, "listFinancialEvents", "0.25");
+
+        guard.acquire(PlatformType.AMAZON, 1L, PlatformRateGuard.BUCKET_PULL);
+
+        verify(rateLimiter).setRate(RateType.OVERALL, 1L, 4000L, RateIntervalUnit.MILLISECONDS);
+    }
+
+    @Test
+    void recalibratesRedisConfigAfterObservationArrives() {
+        // 已下发过 setRate 的桶在校准刷新后失效重下发(原"每 JVM 一次"机制按校准动态打破):
+        // 首次 2000(默认配置)→ 观测 0.25/s → 再次 acquire 重下发 4000
+        guard.acquire(PlatformType.AMAZON, 1L, PlatformRateGuard.BUCKET_PULL);
+        guard.observeRateLimit(PlatformType.AMAZON, PlatformRateGuard.BUCKET_PULL, "getOrders", "0.25");
+        guard.acquire(PlatformType.AMAZON, 1L, PlatformRateGuard.BUCKET_PULL);
+
+        verify(rateLimiter).setRate(RateType.OVERALL, 1L, 2000L, RateIntervalUnit.MILLISECONDS);
+        verify(rateLimiter).setRate(RateType.OVERALL, 1L, 4000L, RateIntervalUnit.MILLISECONDS);
+    }
+
+    @Test
+    void invalidOrBlankHeaderSilentlyIgnored() {
+        guard.observeRateLimit(PlatformType.AMAZON, PlatformRateGuard.BUCKET_PULL, "getOrders", null);
+        guard.observeRateLimit(PlatformType.AMAZON, PlatformRateGuard.BUCKET_PULL, "getOrders", "");
+        guard.observeRateLimit(PlatformType.AMAZON, PlatformRateGuard.BUCKET_PULL, "getOrders", "abc");
+        guard.observeRateLimit(PlatformType.AMAZON, PlatformRateGuard.BUCKET_PULL, "getOrders", "-1");
+
+        guard.acquire(PlatformType.AMAZON, 1L, PlatformRateGuard.BUCKET_PULL);
+
+        // 非法值零生效,间隔仍为配置默认(校准是增强不绑架调用)
+        verify(rateLimiter).setRate(RateType.OVERALL, 1L, 2000L, RateIntervalUnit.MILLISECONDS);
+    }
 }

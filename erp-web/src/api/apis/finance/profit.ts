@@ -1,4 +1,3 @@
-import http from '@/utils/request'
 import type { PageQuery } from '@/api/interface'
 import type {
   OrderProfitQuery,
@@ -7,6 +6,7 @@ import type {
   ProfitDailyTrendRow,
   ProfitSkuRankRow,
 } from '@/api/interface/finance/profit'
+import http from '@/utils/request'
 
 /** 后端契约 QueryPage record 序列化形态(list/total,非 MP Page 的 records) */
 interface QueryPageResult<T> {

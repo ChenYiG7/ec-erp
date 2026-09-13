@@ -1,6 +1,6 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
-import type { ShopResponse, ShopSaveRequest, ShopQuery } from '@/api/interface/shop/shop'
+import type { ShopQuery, ShopResponse, ShopSaveRequest } from '@/api/interface/shop/shop'
+import http from '@/utils/request'
 
 /**
  * 店铺管理(/api/shops,由 gen:page 生成)

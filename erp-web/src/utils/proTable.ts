@@ -1,7 +1,7 @@
+import type { ButtonProps } from 'element-plus'
 import type { IColumnSettingItem } from '@/components/ProTable/components/ColSetting.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
 import { COL_SETTINGS_CACHE_KEY } from '@/constants/proTable'
-import type { ButtonProps } from 'element-plus'
 
 /**
  * @description 表格工具栏按钮配置

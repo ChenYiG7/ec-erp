@@ -22,15 +22,16 @@
 defineOptions({
   name: 'MainContainer',
 })
-import { ElFooter, ElMain } from 'element-plus'
-import { ref, provide, watch, h } from 'vue'
-import { storeToRefs } from 'pinia'
+
 import { useDebounceFn, useEventListener } from '@vueuse/core'
+import { ElFooter, ElMain } from 'element-plus'
+import { storeToRefs } from 'pinia'
+import { h, provide, ref, watch } from 'vue'
+import Footer from '@/layouts/components/Footer/index.vue'
+import Tabs from '@/layouts/components/Tabs/index.vue'
 import { useGlobalStore } from '@/stores/modules/global'
 import { useKeepAliveStore } from '@/stores/modules/keepAlive'
 import Maximize from './components/Maximize.vue'
-import Tabs from '@/layouts/components/Tabs/index.vue'
-import Footer from '@/layouts/components/Footer/index.vue'
 
 const globalStore = useGlobalStore()
 const { maximize, isCollapse, layout, tabs, footer } = storeToRefs(globalStore)

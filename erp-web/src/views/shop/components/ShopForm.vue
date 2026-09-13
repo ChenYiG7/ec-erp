@@ -36,12 +36,12 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
-import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import Dict from '@/components/Dict/index.vue'
+import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
+import { ref } from 'vue'
 import { shopApi } from '@/api/apis/shop/shop'
-import type { ShopSaveRequest, ShopResponse } from '@/api/interface/shop/shop'
+import type { ShopResponse, ShopSaveRequest } from '@/api/interface/shop/shop'
+import Dict from '@/components/Dict/index.vue'
 
 defineOptions({ name: 'ShopForm' })
 

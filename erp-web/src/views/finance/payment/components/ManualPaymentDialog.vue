@@ -60,7 +60,7 @@
 </template>
 <script setup lang="ts">
 defineOptions({ name: 'finance-payment-manual-dialog' })
-import { ref } from 'vue'
+
 import {
   ElButton,
   ElDatePicker,
@@ -75,6 +75,7 @@ import {
   ElRadioGroup,
   ElSelect,
 } from 'element-plus'
+import { ref } from 'vue'
 import { paymentRecordApi } from '@/api/apis/finance/payment'
 
 const METHODS = ['银行转账', '支付宝', '微信', '平台打款', '承兑汇票', '现金', '其他']
@@ -119,6 +120,12 @@ const submit = async () => {
     ElMessage.warning('供应商/平台往来方必须填写 ID')
     return
   }
+  // 币种大写归一 + ISO 4217 三字母约束:小写/乱串会使回溯汇率解析失败留缺口
+  const cur = currency.value.trim().toUpperCase() || 'CNY'
+  if (!/^[A-Z]{3}$/.test(cur)) {
+    ElMessage.warning('币种请填 3 位字母 ISO 代码(如 CNY/USD)')
+    return
+  }
   submitting.value = true
   try {
     await paymentRecordApi.registerManual({
@@ -126,7 +133,7 @@ const submit = async () => {
       partyType: partyType.value,
       partyId: partyType.value === 'OTHER' ? undefined : partyId.value,
       amount: amount.value.trim(),
-      currency: currency.value.trim() || 'CNY',
+      currency: cur,
       paidAt: paidAt.value ? String(paidAt.value) : undefined,
       method: method.value || undefined,
       remark: remark.value.trim() || undefined,

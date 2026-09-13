@@ -12,6 +12,7 @@ import com.own.erp.contract.GoodsQueryApi.SkuView;
 import com.own.erp.contract.InventoryChangeApi;
 import com.own.erp.contract.InventoryChangeCommand;
 import com.own.erp.contract.InventoryConsts;
+import com.own.erp.contract.ShopQueryApi;
 import com.own.erp.contract.WarehouseApi;
 import com.own.erp.contract.WarehouseApi.WarehouseView;
 import com.own.erp.fulfill.constant.FbaConsts;
@@ -85,6 +86,7 @@ public class FbaShipmentService {
     private final GoodsQueryApi goodsQueryApi;
     private final InventoryChangeApi inventoryChangeApi;
     private final CurrentUserApi currentUserApi;
+    private final ShopQueryApi shopQueryApi;
 
     /** 契约接口注入一律 @Lazy 断构造环:实现收口 erp-api 反向注入域 Service,急切装配成环(docs/07 §2.2) */
     public FbaShipmentService(FbaShipmentMapper shipmentMapper,
@@ -96,7 +98,8 @@ public class FbaShipmentService {
                               @Lazy WarehouseApi warehouseApi,
                               @Lazy GoodsQueryApi goodsQueryApi,
                               @Lazy InventoryChangeApi inventoryChangeApi,
-                              @Lazy CurrentUserApi currentUserApi) {
+                              @Lazy CurrentUserApi currentUserApi,
+                              @Lazy ShopQueryApi shopQueryApi) {
         this.shipmentMapper = shipmentMapper;
         this.planItemMapper = planItemMapper;
         this.boxMapper = boxMapper;
@@ -107,6 +110,7 @@ public class FbaShipmentService {
         this.goodsQueryApi = goodsQueryApi;
         this.inventoryChangeApi = inventoryChangeApi;
         this.currentUserApi = currentUserApi;
+        this.shopQueryApi = shopQueryApi;
     }
 
     // ============================ 查询面 ============================
@@ -174,9 +178,10 @@ public class FbaShipmentService {
 
     // ============================ 写侧:建单/改单/删除(仅 DRAFT) ============================
 
-    /** 建单(DRAFT):发货仓 SELF 校验 + 计划行/装箱校验 → 生成 FB 单号落主单 → 落计划行/箱/内件(同事务) */
+    /** 建单(DRAFT):店铺存在性 + 发货仓 SELF 校验 + 计划行/装箱校验 → 生成 FB 单号落主单 → 落计划行/箱/内件(同事务) */
     @Transactional(rollbackFor = Exception.class)
     public Long save(FbaShipmentSaveRequest request) {
+        validateShop(request.shopId());
         validateWarehouse(request.warehouseId());
         validatePlanItems(request.planItems());
         validateBoxes(request.boxes(), request.planItems());
@@ -210,6 +215,7 @@ public class FbaShipmentService {
         if (!FbaConsts.STATUS_DRAFT.equals(exist.getStatus())) {
             throw new BusinessException("仅草稿状态可修改,当前状态:" + exist.getStatus());
         }
+        validateShop(request.shopId());
         validateWarehouse(request.warehouseId());
         validatePlanItems(request.planItems());
         validateBoxes(request.boxes(), request.planItems());
@@ -468,6 +474,13 @@ public class FbaShipmentService {
     }
 
     // ============================ 内部装配/校验 ============================
+
+    /** 店铺存在性校验:经契约 getShop(ManualOrderService 同口径仅查存在性,停用店铺不拦——既有链路仍需履约) */
+    private void validateShop(Long shopId) {
+        if (shopQueryApi.getShop(shopId) == null) {
+            throw new BusinessException("店铺不存在:" + shopId);
+        }
+    }
 
     /** 仓型校验:发货仓必须 SELF 国内仓(出库动账在此仓;FBA 目的仓档案存在但不入账,V1 不校验目的仓) */
     private void validateWarehouse(Long warehouseId) {

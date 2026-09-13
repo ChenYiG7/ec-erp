@@ -25,6 +25,7 @@ import com.own.erp.purchase.request.command.PurchaseOrderSaveRequest;
 import com.own.erp.purchase.request.query.PurchaseOrderQuery;
 import com.own.erp.purchase.response.PurchaseOrderItemResponse;
 import com.own.erp.purchase.response.PurchaseOrderResponse;
+import com.own.erp.purchase.response.PurchaseOverdueRow;
 import com.own.erp.purchase.response.SkuSupplierRow;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
@@ -32,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -121,6 +123,11 @@ public class PurchaseOrderService {
             return List.of();
         }
         return purchaseOrderItemMapper.findLatestSupplierRows(skuIds);
+    }
+
+    /** 超期未付清采购单(#31 账期到期提醒取数,2026-09-12):SQL 口径见 PurchaseOrderMapper.xml 注释 */
+    public List<PurchaseOverdueRow> listOverduePayables(LocalDate asOf) {
+        return purchaseOrderMapper.listOverduePayables(asOf);
     }
 
     /** 分页查询(按 id 倒序;过滤:供应商/仓库/状态);列表不带明细 */
@@ -213,7 +220,8 @@ public class PurchaseOrderService {
      */
     @Transactional(rollbackFor = Exception.class)
     public void audit(Long id) {
-        if (purchaseOrderMapper.casStatus(id, PurchaseConsts.PO_DRAFT, PurchaseConsts.PO_AUDITED) == 0) {
+        // audit_time 与状态同语句原子落库(#31 账期起算锚点,到期提醒依据;历史单 NULL 不参与)
+        if (purchaseOrderMapper.auditOrder(id) == 0) {
             throw new BusinessException("审核失败:采购单不存在或不是草稿状态");
         }
         adjustTransit(id, 1, "采购单审核占在途");

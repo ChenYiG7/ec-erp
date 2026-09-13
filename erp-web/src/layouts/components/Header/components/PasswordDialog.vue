@@ -24,6 +24,7 @@
 defineOptions({
   name: 'PasswordDialog',
 })
+
 import {
   ElButton,
   ElDialog,
@@ -35,10 +36,10 @@ import {
   type FormRules,
 } from 'element-plus'
 import { reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { UserApi } from '@/api/apis/system/user'
 import { useUserStore } from '@/stores/modules/user'
 import { logoutWithRedirect } from '@/utils'
-import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -80,7 +81,10 @@ const submit = () => {
     }
     submitting.value = true
     try {
-      await UserApi.changePassword({ oldPassword: form.oldPassword, newPassword: form.newPassword })
+      await UserApi.changePassword({
+        oldPassword: form.oldPassword,
+        newPassword: form.newPassword,
+      })
       ElMessage.success('密码修改成功，请重新登录')
       dialogVisible.value = false
       userStore.clearUserInfo()

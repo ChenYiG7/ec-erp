@@ -36,14 +36,15 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'system-dict-index' })
-import { ref } from 'vue'
-import { CirclePlus, EditPen, Delete } from '@element-plus/icons-vue'
+
+import { CirclePlus, Delete, EditPen } from '@element-plus/icons-vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
+import { sysDictApi } from '@/api/apis/system/dict'
+import type { SysDictResponse } from '@/api/interface/system/dict'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
-import { sysDictApi } from '@/api/apis/system/dict'
 import { useDictStore } from '@/stores/modules/dict'
-import type { SysDictResponse } from '@/api/interface/system/dict'
 import SysDictForm from './components/SysDictForm.vue'
 
 // ProTable 实例(getTableList 供刷新)

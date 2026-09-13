@@ -50,7 +50,8 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import { CirclePlus, Delete } from '@element-plus/icons-vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   ElButton,
   ElDialog,
@@ -62,13 +63,12 @@ import {
   ElOption,
   ElSelect,
 } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import { CirclePlus, Delete } from '@element-plus/icons-vue'
-import { purchaseOrderApi } from '@/api/apis/purchase/order'
+import { ref } from 'vue'
 import { fetchSupplierOptions } from '@/api/apis/purchase/options'
+import { purchaseOrderApi } from '@/api/apis/purchase/order'
 import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import type { PurchaseOrderResponse, PurchaseOrderSaveRequest } from '@/api/interface/purchase/order'
 import SkuSelector from '@/components/SkuSelector/index.vue'
-import type { PurchaseOrderSaveRequest, PurchaseOrderResponse } from '@/api/interface/purchase/order'
 
 defineOptions({ name: 'PurchaseOrderForm' })
 
@@ -90,7 +90,13 @@ const editId = ref<number>()
 const supplierOptions = ref<Awaited<ReturnType<typeof fetchSupplierOptions>>>([])
 const warehouseOptions = ref<Awaited<ReturnType<typeof fetchWarehouseOptions>>>([])
 // 类型断言收敛在表单初始化(空表单起填,提交前 rules + 明细校验 + 后端兜底校验)
-const formData = ref<{ poNo: string; supplierId?: number; warehouseId?: number; remark?: string; items: ItemDraft[] }>({
+const formData = ref<{
+  poNo: string
+  supplierId?: number
+  warehouseId?: number
+  remark?: string
+  items: ItemDraft[]
+}>({
   poNo: '',
   items: [],
 })

@@ -1,5 +1,14 @@
 # P3 前端 AI 页面体验增强实施计划书(markdown 渲染/停止生成/建议结构化渲染)
 
+> **落地状态(2026-09-13)**:§2.1 markdown 渲染已落地(拍板 marked 18.0.12 + dompurify 3.4.15,`-E` 钉版;
+> `src/components/AiMarkdown/index.vue` 统一入口,流式纯文本/完成态渲染分态,DOMPurify USE_PROFILES html +
+> afterSanitizeAttributes 链接新窗 noopener 钩子;MessageList 接入 chat/agent 两页,真机渲染+注入净化实测通过,
+> marked 懒加载 chunk ~13KB gzip);§2.2 停止生成已于 2026-09-12 落地;§2.3 payloadJson 结构化渲染仍未触发
+> (schema 未收敛前不开工);代码块复制按钮(§2.1 可后置项)未做。
+> **余量已删除(2026-09-13 优先级重整)**:§2.3 payloadJson 结构化渲染与 §2.1 代码块复制按钮移出排期,
+> 本计划书不再投喂;明细见 TODO.md「已删除条目」。
+> **已归档(2026-09-13 文档整理)**:主体落地(§2.1/§2.2)、余量已删除,移入 archive/ 存档。
+
 | 元信息 | 值 |
 |---|---|
 | TODO 条目 | #6:前端聊天页 markdown 渲染/停止生成(引库需拍板);ai_suggestion payloadJson 结构化渲染(随前端评估) |

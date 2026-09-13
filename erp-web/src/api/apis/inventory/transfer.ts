@@ -1,6 +1,6 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type { TransferOrderResponse, TransferOrderSaveRequest } from '@/api/interface/inventory/transfer'
+import http from '@/utils/request'
 
 /**
  * 调拨单(/api/inventory/transfer-orders,由 gen:page 生成)
@@ -21,8 +21,10 @@ export const transferOrderApi = {
     http.put<boolean>(`/api/inventory/transfer-orders/${id}`, data),
   /** 删除 */
   remove: (id: number) => http.delete<boolean>(`/api/inventory/transfer-orders/${id}`),
-  /** 确认调拨(POST /api/inventory/transfer-orders/{id}/confirm) */
+  /** 确认调拨(POST /api/inventory/transfer-orders/{id}/confirm):DIRECT 直达 / IN_TRANSIT 模式落在途 */
   confirm: (id: number) => http.post<unknown>(`/api/inventory/transfer-orders/${id}/confirm`),
+  /** 到货确认(POST /api/inventory/transfer-orders/{id}/receive,#30 在途模式):IN_TRANSIT→CONFIRMED,在途转在库 */
+  receive: (id: number) => http.post<unknown>(`/api/inventory/transfer-orders/${id}/receive`),
   /** 取消调拨单(POST /api/inventory/transfer-orders/{id}/cancel) */
   cancel: (id: number) => http.post<unknown>(`/api/inventory/transfer-orders/${id}/cancel`),
 }

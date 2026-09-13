@@ -25,15 +25,16 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'goods-product-index' })
+
 import { reactive, ref } from 'vue'
-import ProTable from '@/components/ProTable/index.vue'
-import TreeFilter from '@/components/TreeFilter/index.vue'
-import type { ColumnProps } from '@/components/ProTable/interface'
-import { productApi } from '@/api/apis/goods/product'
-import { categoryApi } from '@/api/apis/goods/category'
 import { brandApi } from '@/api/apis/goods/brand'
-import type { ProductResponse } from '@/api/interface/goods/product'
+import { categoryApi } from '@/api/apis/goods/category'
+import { productApi } from '@/api/apis/goods/product'
 import type { CategoryNode } from '@/api/interface/goods/category'
+import type { ProductResponse } from '@/api/interface/goods/product'
+import ProTable from '@/components/ProTable/index.vue'
+import type { ColumnProps } from '@/components/ProTable/interface'
+import TreeFilter from '@/components/TreeFilter/index.vue'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
@@ -95,5 +96,14 @@ const refreshTable = () => proTableRef.value?.getTableList()
 <style scoped lang="scss">
 .product-box {
   flex-direction: row;
+
+  /* 窄视口防挤压:公共 .table-main 带 width:100%,row 布局下与分类树争宽,而 ProTable 最小内容宽
+     不可缩(min-width:auto),树面板被挤到不可见;树定宽不缩,表格容器放开 min-width,列超宽交 el-table 横向滚动 */
+  :deep(.card.filter) {
+    flex-shrink: 0;
+  }
+  .table-main {
+    min-width: 0;
+  }
 }
 </style>

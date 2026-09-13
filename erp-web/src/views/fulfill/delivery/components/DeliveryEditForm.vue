@@ -42,8 +42,9 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'fulfill-delivery-edit-form' })
-import { computed, ref } from 'vue'
+
 import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElMessage, ElTable, ElTableColumn } from 'element-plus'
+import { computed, ref } from 'vue'
 import { deliveryOrderApi } from '@/api/apis/fulfill/delivery'
 import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
 import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'

@@ -35,11 +35,11 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
-import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
+import { ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
+import { ref } from 'vue'
 import { warehouseApi } from '@/api/apis/warehouse/warehouse'
-import type { WarehouseSaveRequest, WarehouseResponse } from '@/api/interface/warehouse/warehouse'
+import type { WarehouseResponse, WarehouseSaveRequest } from '@/api/interface/warehouse/warehouse'
 
 defineOptions({ name: 'WarehouseForm' })
 

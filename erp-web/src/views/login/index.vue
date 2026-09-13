@@ -18,8 +18,9 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'Login' })
-import LoginForm from './components/LoginForm.vue'
+
 import SwitchDark from '@/components/SwitchDark/index.vue'
+import LoginForm from './components/LoginForm.vue'
 </script>
 
 <style scoped lang="scss">

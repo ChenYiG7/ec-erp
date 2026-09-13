@@ -36,12 +36,13 @@
 defineOptions({
   name: 'Message',
 })
+
 import { ElBadge, ElButton, ElMessage, ElPopover, ElScrollbar } from 'element-plus'
 import { computed, ref } from 'vue'
-import LineMdBell from '~icons/line-md/bell?width=20px&height=20px'
 import { NotificationApi } from '@/api/apis/system/notification'
 import type { SysNotificationResponse } from '@/api/interface'
 import { useNotificationStore } from '@/stores/modules/notification'
+import LineMdBell from '~icons/line-md/bell?width=20px&height=20px'
 
 const PAGE_SIZE = 20
 const notificationStore = useNotificationStore()

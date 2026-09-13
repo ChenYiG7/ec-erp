@@ -20,6 +20,13 @@
           <el-option v-for="w in warehouseOptions" :key="w.value" :label="w.label" :value="w.value" />
         </el-select>
       </el-form-item>
+      <el-form-item label="动账模式" prop="transitMode">
+        <!-- #30 余量①:DIRECT 确认即达 / IN_TRANSIT 在途(发出→到货确认两段);仅建单可选,确认后不可改 -->
+        <el-radio-group v-model="formData.transitMode">
+          <el-radio value="DIRECT">确认即达</el-radio>
+          <el-radio value="IN_TRANSIT">在途(发出→到货确认)</el-radio>
+        </el-radio-group>
+      </el-form-item>
       <el-form-item label="调拨明细" prop="items">
         <!-- 明细行编辑:行内 skuId/数量必填正数(提交前校验);确认时调出仓可用不足由后端整单回滚 -->
         <div class="tf-items">
@@ -51,7 +58,8 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import { CirclePlus, Delete } from '@element-plus/icons-vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   ElButton,
   ElDialog,
@@ -61,14 +69,15 @@ import {
   ElInputNumber,
   ElMessage,
   ElOption,
+  ElRadio,
+  ElRadioGroup,
   ElSelect,
 } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import { CirclePlus, Delete } from '@element-plus/icons-vue'
+import { ref } from 'vue'
 import { transferOrderApi } from '@/api/apis/inventory/transfer'
 import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import type { TransferOrderResponse, TransferOrderSaveRequest } from '@/api/interface/inventory/transfer'
 import SkuSelector from '@/components/SkuSelector/index.vue'
-import type { TransferOrderSaveRequest, TransferOrderResponse } from '@/api/interface/inventory/transfer'
 
 defineOptions({ name: 'TransferOrderForm' })
 
@@ -91,10 +100,12 @@ const formData = ref<{
   transferNo: string
   fromWarehouseId?: number
   toWarehouseId?: number
+  transitMode: string
   remark?: string
   items: ItemDraft[]
 }>({
   transferNo: '',
+  transitMode: 'DIRECT',
   items: [],
 })
 
@@ -111,7 +122,7 @@ const open = async (m: 'add' | 'edit', row?: TransferOrderResponse) => {
   mode.value = m
   editId.value = row?.id
   title.value = (m === 'add' ? '新增' : '编辑') + '调拨单'
-  formData.value = { transferNo: '', items: [] }
+  formData.value = { transferNo: '', transitMode: 'DIRECT', items: [] }
   visible.value = true
   if (m === 'edit' && row) {
     const detail = await transferOrderApi.detail(row.id)
@@ -119,6 +130,7 @@ const open = async (m: 'add' | 'edit', row?: TransferOrderResponse) => {
       transferNo: detail.transferNo,
       fromWarehouseId: detail.fromWarehouseId,
       toWarehouseId: detail.toWarehouseId,
+      transitMode: detail.transitMode || 'DIRECT',
       remark: detail.remark,
       items: (detail.items ?? []).map(it => ({ skuId: it.skuId, quantity: it.quantity })),
     }
@@ -149,6 +161,7 @@ const handleSubmit = async () => {
       transferNo: formData.value.transferNo,
       fromWarehouseId: formData.value.fromWarehouseId,
       toWarehouseId: formData.value.toWarehouseId,
+      transitMode: formData.value.transitMode,
       remark: formData.value.remark,
       items: formData.value.items.map(it => ({ skuId: it.skuId!, quantity: it.quantity! })),
     } as TransferOrderSaveRequest

@@ -43,8 +43,8 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
 import { ElAlert, ElButton, ElDialog, ElInputNumber, ElMessage, ElTable, ElTableColumn } from 'element-plus'
+import { ref } from 'vue'
 import { fbaShipmentApi } from '@/api/apis/fulfill/fbaShipment'
 import type { FbaShipmentResponse } from '@/api/interface/fulfill/fbaShipment'
 

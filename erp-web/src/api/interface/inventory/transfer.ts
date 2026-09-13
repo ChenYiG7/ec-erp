@@ -16,8 +16,10 @@ export interface TransferOrderResponse {
   fromWarehouseId: number
   /** 调入仓 */
   toWarehouseId: number
-  /** 状态 */
+  /** 状态:DRAFT草稿/IN_TRANSIT在途(已发未达)/CONFIRMED已确认/CANCELED已取消 */
   status: string
+  /** 动账模式(#30):DIRECT确认即达/IN_TRANSIT在途(OUT→到货IN) */
+  transitMode: string
   /** 备注 */
   remark: string
   /** createdBy */
@@ -38,6 +40,8 @@ export interface TransferOrderSaveRequest {
   fromWarehouseId?: number
   /** toWarehouseId */
   toWarehouseId?: number
+  /** 动账模式(#30):DIRECT确认即达(默认)/IN_TRANSIT在途(OUT→到货IN) */
+  transitMode?: string
   /** remark */
   remark?: string
   /** items */

@@ -36,13 +36,14 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'warehouse-warehouse-index' })
-import { ref } from 'vue'
-import { CirclePlus, EditPen, Delete } from '@element-plus/icons-vue'
+
+import { CirclePlus, Delete, EditPen } from '@element-plus/icons-vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
-import ProTable from '@/components/ProTable/index.vue'
-import type { ColumnProps } from '@/components/ProTable/interface'
+import { ref } from 'vue'
 import { warehouseApi } from '@/api/apis/warehouse/warehouse'
 import type { WarehouseResponse } from '@/api/interface/warehouse/warehouse'
+import ProTable from '@/components/ProTable/index.vue'
+import type { ColumnProps } from '@/components/ProTable/interface'
 import WarehouseForm from './components/WarehouseForm.vue'
 
 // ProTable 实例(getTableList 供刷新)

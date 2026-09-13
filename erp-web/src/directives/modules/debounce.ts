@@ -4,6 +4,7 @@
  * 接收参数：function类型，延迟时间
  */
 import type { Directive, DirectiveBinding } from 'vue'
+
 interface ElType extends HTMLElement {
   __handleClick__: () => any
 }

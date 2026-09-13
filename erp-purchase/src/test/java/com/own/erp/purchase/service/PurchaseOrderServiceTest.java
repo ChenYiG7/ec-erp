@@ -204,7 +204,7 @@ class PurchaseOrderServiceTest {
 
         @Test
         void auditOccupiesTransitPerLineOnCasHit() {
-            when(purchaseOrderMapper.casStatus(1L, PurchaseConsts.PO_DRAFT, PurchaseConsts.PO_AUDITED)).thenReturn(1);
+            when(purchaseOrderMapper.auditOrder(1L)).thenReturn(1);
             when(purchaseOrderMapper.selectById(1L)).thenReturn(order(1L, "PO001", 2L, 7L));
             when(purchaseOrderItemMapper.selectList(any())).thenReturn(List.of(
                     item(501L, 0, 10, 100L), item(502L, 0, 3, 200L)));
@@ -227,7 +227,7 @@ class PurchaseOrderServiceTest {
 
         @Test
         void auditFailsOnCasMissWithoutTransitOccupied() {
-            when(purchaseOrderMapper.casStatus(2L, PurchaseConsts.PO_DRAFT, PurchaseConsts.PO_AUDITED)).thenReturn(0);
+            when(purchaseOrderMapper.auditOrder(2L)).thenReturn(0);
             assertTrue(assertThrows(BusinessException.class, () -> purchaseOrderService.audit(2L))
                     .getMessage().contains("审核失败"));
             verify(inventoryChangeApi, never()).change(any());

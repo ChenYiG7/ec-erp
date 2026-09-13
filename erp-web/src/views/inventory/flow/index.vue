@@ -21,13 +21,14 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'inventory-flow-index' })
+
 import { ref } from 'vue'
-import ProTable from '@/components/ProTable/index.vue'
-import type { ColumnProps } from '@/components/ProTable/interface'
-import { inventoryFlowApi } from '@/api/apis/inventory/flow'
 import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
+import { inventoryFlowApi } from '@/api/apis/inventory/flow'
 import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
 import type { InventoryFlowResponse } from '@/api/interface/inventory/flow'
+import ProTable from '@/components/ProTable/index.vue'
+import type { ColumnProps } from '@/components/ProTable/interface'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()

@@ -1,12 +1,12 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type {
+  FirstLegShipmentQuery,
   FirstLegShipmentResponse,
   FirstLegShipmentSaveRequest,
-  FirstLegShipmentQuery,
   FirstLegShipmentShipRequest,
   FirstLegSkuAllocRow,
 } from '@/api/interface/finance/firstLeg'
+import http from '@/utils/request'
 
 /**
  * 头程发货单(/api/finance/first-leg-shipments,由 gen:page 生成)

@@ -15,12 +15,13 @@
 defineOptions({
   name: 'Language',
 })
+
 import { ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { useGlobalStore } from '@/stores/modules/global'
-import type { LanguageType } from '@/stores/interface/store'
-import MeteorIconsLanguage from '~icons/meteor-icons/language?width=20px&height=20px'
 import { localeMapping } from '@/locales'
+import type { LanguageType } from '@/stores/interface/store'
+import { useGlobalStore } from '@/stores/modules/global'
+import MeteorIconsLanguage from '~icons/meteor-icons/language?width=20px&height=20px'
 
 const { locale, availableLocales } = useI18n({ useScope: 'global' })
 

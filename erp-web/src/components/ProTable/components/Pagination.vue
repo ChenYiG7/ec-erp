@@ -16,8 +16,10 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'Pagination' })
+
 import { ElPagination } from 'element-plus'
 import { useGlobalStore } from '@/stores/modules/global'
+
 const globalStore = useGlobalStore()
 
 interface Pageable {

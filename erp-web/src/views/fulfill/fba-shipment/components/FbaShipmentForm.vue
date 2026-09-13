@@ -89,7 +89,8 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import { CirclePlus, Delete } from '@element-plus/icons-vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   ElButton,
   ElDialog,
@@ -101,13 +102,12 @@ import {
   ElOption,
   ElSelect,
 } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import { CirclePlus, Delete } from '@element-plus/icons-vue'
+import { ref } from 'vue'
 import { fbaShipmentApi } from '@/api/apis/fulfill/fbaShipment'
 import { shopApi } from '@/api/apis/shop/shop'
 import { warehouseApi } from '@/api/apis/warehouse/warehouse'
+import type { FbaShipmentResponse, FbaShipmentSaveRequest } from '@/api/interface/fulfill/fbaShipment'
 import SkuSelector from '@/components/SkuSelector/index.vue'
-import type { FbaShipmentSaveRequest, FbaShipmentResponse } from '@/api/interface/fulfill/fbaShipment'
 
 defineOptions({ name: 'FbaShipmentForm' })
 

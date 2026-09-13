@@ -10,17 +10,18 @@
 defineOptions({
   name: 'Layout',
 })
+
 import { ElWatermark } from 'element-plus'
-import { computed, onBeforeUnmount, onMounted, reactive, watch, type Component } from 'vue'
+import { type Component, computed, onBeforeUnmount, onMounted, reactive, watch } from 'vue'
 import type { LayoutType } from '@/stores/interface/store'
 import { useGlobalStore } from '@/stores/modules/global'
-import { useUserStore } from '@/stores/modules/user'
 import { useNotificationStore } from '@/stores/modules/notification'
+import { useUserStore } from '@/stores/modules/user'
 import ThemeDrawer from './components/ThemeDrawer/index.vue'
-import LayoutVertical from './LayoutVertical/index.vue'
 import LayoutClassic from './LayoutClassic/index.vue'
-import LayoutTransverse from './LayoutTransverse/index.vue'
 import LayoutColumns from './LayoutColumns/index.vue'
+import LayoutTransverse from './LayoutTransverse/index.vue'
+import LayoutVertical from './LayoutVertical/index.vue'
 
 const LayoutComponents: Record<LayoutType, Component> = {
   vertical: LayoutVertical,

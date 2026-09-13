@@ -101,8 +101,9 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'report-goods-analysis-index' })
-import { computed, onMounted, reactive, ref } from 'vue'
+
 import { ElButton, ElCard, ElDatePicker, ElForm, ElFormItem, ElOption, ElSelect } from 'element-plus'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { reportApi } from '@/api/apis/report/report'
 import type { SkuOptionRow, SkuTrendResponse } from '@/api/interface/report/report'
 

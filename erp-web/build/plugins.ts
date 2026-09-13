@@ -1,26 +1,27 @@
-import type { PluginOption } from 'vite'
-import { VitePWA } from 'vite-plugin-pwa'
-import { createHtmlPlugin } from 'vite-plugin-html'
-import { visualizer } from 'rollup-plugin-visualizer'
-import vue from '@vitejs/plugin-vue'
-import vueJsx from '@vitejs/plugin-vue-jsx'
-import viteCompression from 'vite-plugin-compression'
-import NextDevTools from 'vite-plugin-vue-devtools'
-import { codeInspectorPlugin } from 'code-inspector-plugin'
-import devtoolsJson from 'vite-plugin-devtools-json'
-import UnoCSS from 'unocss/vite'
-import { FileSystemIconLoader } from 'unplugin-icons/loaders'
-import Icons from 'unplugin-icons/vite'
-import { analyzer } from 'vite-bundle-analyzer'
+import vue from '@vitejs/plugin-vue';
+import vueJsx from '@vitejs/plugin-vue-jsx';
+import { codeInspectorPlugin } from 'code-inspector-plugin';
+import { visualizer } from 'rollup-plugin-visualizer';
+import UnoCSS from 'unocss/vite';
+import { FileSystemIconLoader } from 'unplugin-icons/loaders';
+import Icons from 'unplugin-icons/vite';
+import type { PluginOption } from 'vite';
+import { analyzer } from 'vite-bundle-analyzer';
+import viteCompression from 'vite-plugin-compression';
+import devtoolsJson from 'vite-plugin-devtools-json';
+import { createHtmlPlugin } from 'vite-plugin-html';
+import { VitePWA } from 'vite-plugin-pwa';
+import NextDevTools from 'vite-plugin-vue-devtools';
 
-const iconsDir = './src/assets/icons/svg'
+const iconsDir = './src/assets/icons/svg';
 
 /**
  * 创建 vite 插件
  * @param viteEnv
  */
 export const createVitePlugins = (viteEnv: ViteEnv): (PluginOption | PluginOption[])[] => {
-  const { VITE_GLOB_APP_TITLE, VITE_REPORT, VITE_DEVTOOLS, VITE_PWA, VITE_CODE_INSPECTOR } = viteEnv
+  const { VITE_GLOB_APP_TITLE, VITE_REPORT, VITE_DEVTOOLS, VITE_PWA, VITE_CODE_INSPECTOR } =
+    viteEnv;
   return [
     VITE_REPORT && analyzer(),
     vue(),
@@ -46,11 +47,11 @@ export const createVitePlugins = (viteEnv: ViteEnv): (PluginOption | PluginOptio
       compiler: 'vue3',
       autoInstall: true,
       customCollections: {
-        localSvgIcon: FileSystemIconLoader(iconsDir, svg => {
+        localSvgIcon: FileSystemIconLoader(iconsDir, (svg) => {
           // const symbol = svg.includes('fill="') ? svg : svg.replace(/^<svg /, '<svg fill="currentColor" ')
           // console.log(1111, symbol)
           // return symbol.replace(/width="[\d.]+" height="[\d.]+"/, '')
-          return svg
+          return svg;
         }),
       },
       // todo w/h not working
@@ -73,7 +74,8 @@ export const createVitePlugins = (viteEnv: ViteEnv): (PluginOption | PluginOptio
     // vitePWA
     VITE_PWA && createVitePwa(viteEnv),
     // 是否生成包预览，分析依赖包大小做优化处理
-    VITE_REPORT && (visualizer({ filename: 'stats.html', gzipSize: true, brotliSize: true }) as PluginOption),
+    VITE_REPORT &&
+      (visualizer({ filename: 'stats.html', gzipSize: true, brotliSize: true }) as PluginOption),
     // 自动 IDE 并将光标定位到 DOM 对应的源代码位置。see: https://inspector.fe-dev.cn/guide/start.html
     VITE_CODE_INSPECTOR &&
       codeInspectorPlugin({
@@ -81,25 +83,25 @@ export const createVitePlugins = (viteEnv: ViteEnv): (PluginOption | PluginOptio
       }),
     // mock
     // mockDevServerPlugin(),
-  ]
-}
+  ];
+};
 
 /**
  * @description 根据 compress 配置，生成不同的压缩规则
  * @param viteEnv
  */
 const createCompression = (viteEnv: ViteEnv): PluginOption | PluginOption[] => {
-  const { VITE_BUILD_COMPRESS = 'none', VITE_BUILD_COMPRESS_DELETE_ORIGIN_FILE } = viteEnv
-  const compressList = VITE_BUILD_COMPRESS.split(',')
-  const plugins: PluginOption[] = []
+  const { VITE_BUILD_COMPRESS = 'none', VITE_BUILD_COMPRESS_DELETE_ORIGIN_FILE } = viteEnv;
+  const compressList = VITE_BUILD_COMPRESS.split(',');
+  const plugins: PluginOption[] = [];
   if (compressList.includes('gzip')) {
     plugins.push(
       viteCompression({
         ext: '.gz',
         algorithm: 'gzip',
         deleteOriginFile: VITE_BUILD_COMPRESS_DELETE_ORIGIN_FILE,
-      })
-    )
+      }),
+    );
   }
   if (compressList.includes('brotli')) {
     plugins.push(
@@ -107,18 +109,18 @@ const createCompression = (viteEnv: ViteEnv): PluginOption | PluginOption[] => {
         ext: '.br',
         algorithm: 'brotliCompress',
         deleteOriginFile: VITE_BUILD_COMPRESS_DELETE_ORIGIN_FILE,
-      })
-    )
+      }),
+    );
   }
-  return plugins
-}
+  return plugins;
+};
 
 /**
  * @description VitePwa
  * @param viteEnv
  */
 const createVitePwa = (viteEnv: ViteEnv): PluginOption | PluginOption[] => {
-  const { VITE_GLOB_APP_TITLE } = viteEnv
+  const { VITE_GLOB_APP_TITLE } = viteEnv;
   return VitePWA({
     registerType: 'autoUpdate',
     manifest: {
@@ -144,5 +146,5 @@ const createVitePwa = (viteEnv: ViteEnv): PluginOption | PluginOption[] => {
         },
       ],
     },
-  })
-}
+  });
+};

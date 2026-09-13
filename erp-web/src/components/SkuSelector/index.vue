@@ -21,8 +21,9 @@
 <script setup lang="ts">
 // 跨页面组件命名与文件路径一致(src/components/SkuSelector/index.vue)
 defineOptions({ name: 'SkuSelector' })
-import { ref } from 'vue'
+
 import { ElOption, ElSelect } from 'element-plus'
+import { onBeforeUnmount, ref } from 'vue'
 import { productApi } from '@/api/apis/goods/product'
 import { goodsSkuApi } from '@/api/apis/goods/sku'
 import type { ProductResponse } from '@/api/interface/goods/product'
@@ -98,6 +99,13 @@ const onSelect = (value: number | undefined) => {
     options.value.find(o => o.value === value)
   )
 }
+
+// 卸载清掉未触发的防抖:防组件销毁后定时器仍发起搜索请求(#26 六轮)
+onBeforeUnmount(() => {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+  }
+})
 
 const onClear = () => {
   emit('update:modelValue', undefined)

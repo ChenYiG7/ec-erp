@@ -1,6 +1,6 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type { SysRoleResponse, SysRoleSaveRequest } from '@/api/interface/system/role'
+import http from '@/utils/request'
 
 /**
  * 角色管理(/api/system/roles,由 gen:page 生成)

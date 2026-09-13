@@ -59,9 +59,10 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'system-config-index' })
+
 // Element Plus 按需显式导入(main.ts 不再全量 app.use):漏导入的组件会被 Vue 当原生自定义元素渲染,整页空白/裸标签
 import { ElButton, ElForm, ElFormItem, ElInput, ElMessage, ElSwitch, ElTabPane, ElTabs, ElTag } from 'element-plus'
-import { ref, computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { SystemConfigApi } from '@/api/apis/system/config'
 import type { SysConfig } from '@/api/interface'
 
@@ -180,9 +181,21 @@ const CONFIG_ITEMS: Record<string, { label: string; desc?: string; def?: string 
   },
   'erp.ai.replenish.summary-prompt': { label: '摘要生成提示词' },
   // —— AI 组 · 订单异常检测 ——
-  'erp.ai.anomaly.big-order-amount': { label: '大额订单阈值', desc: '本位币口径(下单金额×汇率)', def: '10000' },
-  'erp.ai.anomaly.unpaid-hours': { label: '未支付超时(小时)', desc: '待支付超 N 小时命中', def: '48' },
-  'erp.ai.anomaly.high-discount-ratio': { label: '高折扣比率(0~1)', desc: '折扣金额≥下单金额×此比率命中', def: '0.5' },
+  'erp.ai.anomaly.big-order-amount': {
+    label: '大额订单阈值',
+    desc: '本位币口径(下单金额×汇率)',
+    def: '10000',
+  },
+  'erp.ai.anomaly.unpaid-hours': {
+    label: '未支付超时(小时)',
+    desc: '待支付超 N 小时命中',
+    def: '48',
+  },
+  'erp.ai.anomaly.high-discount-ratio': {
+    label: '高折扣比率(0~1)',
+    desc: '折扣金额≥下单金额×此比率命中',
+    def: '0.5',
+  },
   'erp.ai.anomaly.llm-max-items': {
     label: '单轮送评上限',
     desc: '单轮送 LLM 评分的可疑单上限,超限按基线风险降序截断(成本护栏)',
@@ -238,40 +251,88 @@ const CONFIG_ITEMS: Record<string, { label: string; desc?: string; def?: string 
   },
   // —— ALERT 组:库存预警 ——
   'erp.alert.enabled': { label: '总开关', def: 'true' },
-  'erp.alert.quiet-hours': { label: '静默期(小时)', desc: '同类型告警窗口内只发一条防刷屏', def: '24' },
+  'erp.alert.quiet-hours': {
+    label: '静默期(小时)',
+    desc: '同类型告警窗口内只发一条防刷屏',
+    def: '24',
+  },
   'erp.alert.low-stock-threshold': { label: '低库存阈值', desc: '可用库存 ≤ 此值命中', def: '10' },
-  'erp.alert.ship-timeout-hours': { label: '发货超时(小时)', desc: '待发货超 N 小时命中', def: '48' },
-  'erp.alert.refund-window-hours': { label: '退款统计窗口(小时)', desc: '仅统计窗口内创建的退款单', def: '24' },
-  'erp.alert.refund-count-threshold': { label: '退款次数阈值', desc: '单店铺窗口内退款单数 ≥ 此值命中', def: '5' },
-  'erp.alert.top-n': { label: '通知明细条数上限', desc: '告警通知内容明细最大条数,超出以"等"收尾', def: '5' },
+  'erp.alert.ship-timeout-hours': {
+    label: '发货超时(小时)',
+    desc: '待发货超 N 小时命中',
+    def: '48',
+  },
+  'erp.alert.refund-window-hours': {
+    label: '退款统计窗口(小时)',
+    desc: '仅统计窗口内创建的退款单',
+    def: '24',
+  },
+  'erp.alert.refund-count-threshold': {
+    label: '退款次数阈值',
+    desc: '单店铺窗口内退款单数 ≥ 此值命中',
+    def: '5',
+  },
+  'erp.alert.top-n': {
+    label: '通知明细条数上限',
+    desc: '告警通知内容明细最大条数,超出以"等"收尾',
+    def: '5',
+  },
   'erp.alert.slow-moving-days': {
     label: '滞销判定窗口(天)',
     desc: '窗口内零销量且有库存判滞销(order_sales_daily 动销口径)',
     def: '30',
   },
-  'erp.alert.overstock-days': { label: '积压阈值(天)', desc: '可用库存/日均销量 ≥ 此值判积压', def: '90' },
+  'erp.alert.overstock-days': {
+    label: '积压阈值(天)',
+    desc: '可用库存/日均销量 ≥ 此值判积压',
+    def: '90',
+  },
   // —— SALES 组:销量统计 ——
   'erp.sales.enabled': { label: '总开关', def: 'true' },
-  'erp.sales.rebuild-days': { label: '回溯重算天数', desc: '每日 upsert 近 N 天,含今日', def: '30' },
+  'erp.sales.rebuild-days': {
+    label: '回溯重算天数',
+    desc: '每日 upsert 近 N 天,含今日',
+    def: '30',
+  },
   // —— NOTIFY 组:邮件通知(#14 邮箱推送渠道)——
-  'erp.mail.enabled': { label: '总开关', desc: '开启后告警外推邮件到启用用户邮箱(外呼保护性默认关)' },
-  'erp.mail.host': { label: 'SMTP 主机', desc: '如 smtp.exmail.qq.com / smtp.163.com;留空 = 渠道未就绪不外推' },
-  'erp.mail.port': { label: 'SMTP 端口', desc: '留空按 SSL 开关取默认(SSL=465 / 非加密=25)', def: '465' },
+  'erp.mail.enabled': {
+    label: '总开关',
+    desc: '开启后告警外推邮件到启用用户邮箱(外呼保护性默认关)',
+  },
+  'erp.mail.host': {
+    label: 'SMTP 主机',
+    desc: '如 smtp.exmail.qq.com / smtp.163.com;留空 = 渠道未就绪不外推',
+  },
+  'erp.mail.port': {
+    label: 'SMTP 端口',
+    desc: '留空按 SSL 开关取默认(SSL=465 / 非加密=25)',
+    def: '465',
+  },
   'erp.mail.username': { label: 'SMTP 账号', desc: '通常即发件邮箱地址' },
   'erp.mail.password': {
     label: 'SMTP 授权码',
     desc: '邮箱服务商授权码(非登录密码);保存后回显固定 ******,原样提交 = 未改动,清空提交 = 清除',
   },
   'erp.mail.from': { label: '发件人(From)', desc: '留空回落 SMTP 账号' },
-  'erp.mail.ssl': { label: 'SSL 加密', desc: '465 端口典型开启;587 STARTTLS 场景关闭', def: 'true' },
+  'erp.mail.ssl': {
+    label: 'SSL 加密',
+    desc: '465 端口典型开启;587 STARTTLS 场景关闭',
+    def: 'true',
+  },
   // —— ORDER_REVIEW 组:订单审核风控(#29;2026-09-11 补登——后端组与词表已上线但前端 tab 漏登,同修存量缺口)——
   'erp.order.review.risk-keywords': {
     label: '风控关键词',
     desc: '买家留言命中任一关键词置待审核(英文逗号分隔);空 = 仅按地址不完整规则判定',
   },
   // —— OSS 组:对象存储(#25 RustFS)——
-  'erp.oss.enabled': { label: '总开关', desc: '关闭时对象存储调用直接报"未启用",业务方走原链路(保护性默认关)' },
-  'erp.oss.endpoint': { label: 'S3 端点', desc: '如本地 RustFS http://localhost:9000(compose --profile oss)' },
+  'erp.oss.enabled': {
+    label: '总开关',
+    desc: '关闭时对象存储调用直接报"未启用",业务方走原链路(保护性默认关)',
+  },
+  'erp.oss.endpoint': {
+    label: 'S3 端点',
+    desc: '如本地 RustFS http://localhost:9000(compose --profile oss)',
+  },
   'erp.oss.bucket': { label: '桶名', desc: '需预先创建(RustFS 控制台或 S3 SDK)' },
   'erp.oss.access-key': { label: 'AccessKey', desc: '本地 RustFS 默认 rustfsadmin' },
   'erp.oss.secret-key': {

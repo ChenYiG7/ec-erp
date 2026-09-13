@@ -2,6 +2,10 @@ package com.own.erp.platform.adapter.amazon;
 
 import cn.hutool.core.util.StrUtil;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.own.erp.platform.gateway.PlatformRateGuard;
+import com.own.erp.platform.gateway.RateLimitObserver;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
@@ -63,16 +67,18 @@ public class SpApiReportsClient {
     private final String marketplaceIds;
     private final Clock clock;
     private final Duration pollInterval;
+    private final RateLimitObserver observer;
     private final RestClient restClient;
     private final SpApiSigner signer = new SpApiSigner();
 
     public SpApiReportsClient(String baseUrl, String region, String marketplaceIds,
-                              Clock clock, Duration pollInterval) {
+                              Clock clock, Duration pollInterval, RateLimitObserver observer) {
         this.baseUri = URI.create(baseUrl);
         this.region = region;
         this.marketplaceIds = marketplaceIds;
         this.clock = clock;
         this.pollInterval = pollInterval;
+        this.observer = observer;
         this.restClient = RestClient.builder().baseUrl(baseUrl).build();
     }
 
@@ -106,7 +112,7 @@ public class SpApiReportsClient {
             }
             SpApiSigner.SignedHeaders signed = sign("GET", REPORTS_PATH, query, null, awsCredentials);
             JsonNode payload = execute("GET", REPORTS_PATH + "?" + signed.canonicalQueryString(), null, signed,
-                    lwaAccessToken, awsCredentials);
+                    lwaAccessToken, awsCredentials, "getReports");
             for (JsonNode report : payload.path("reports")) {
                 String reportId = report.path("reportId").asText(null);
                 String documentId = report.path("reportDocumentId").asText(null);
@@ -138,7 +144,7 @@ public class SpApiReportsClient {
         String body = "{\"reportType\":\"" + LISTING_REPORT_TYPE + "\",\"marketplaceIds\":[\"" + marketplaceIds + "\"]}";
         SpApiSigner.SignedHeaders signed = sign("POST", REPORTS_PATH, Map.of(), body, awsCredentials);
         JsonNode payload = execute("POST", REPORTS_PATH + "?" + signed.canonicalQueryString(), body, signed,
-                lwaAccessToken, awsCredentials);
+                lwaAccessToken, awsCredentials, "createReport");
         String reportId = payload.path("reportId").asText(null);
         if (StrUtil.isBlank(reportId)) {
             throw new IllegalStateException("createReport 响应缺 reportId");
@@ -156,7 +162,7 @@ public class SpApiReportsClient {
         for (int poll = 1; poll <= MAX_POLLS; poll++) {
             SpApiSigner.SignedHeaders signed = sign("GET", path, Map.of(), null, awsCredentials);
             JsonNode payload = execute("GET", path + "?" + signed.canonicalQueryString(), null, signed,
-                    lwaAccessToken, awsCredentials);
+                    lwaAccessToken, awsCredentials, "getReport");
             String status = payload.path("processingStatus").asText("");
             switch (status) {
                 case "DONE" -> {
@@ -199,7 +205,7 @@ public class SpApiReportsClient {
         String path = DOCUMENTS_PATH + documentId;
         SpApiSigner.SignedHeaders signed = sign("GET", path, Map.of(), null, awsCredentials);
         JsonNode payload = execute("GET", path + "?" + signed.canonicalQueryString(), null, signed,
-                lwaAccessToken, awsCredentials);
+                lwaAccessToken, awsCredentials, "getReportDocument");
         String url = payload.path("url").asText(null);
         if (StrUtil.isBlank(url)) {
             throw new IllegalStateException("getReportDocument 响应缺 url");
@@ -232,8 +238,8 @@ public class SpApiReportsClient {
 
     /** 发请求并取 payload 节点(POST 带 body;同 SpApiOrdersClient 异常与 security-token 口径) */
     private JsonNode execute(String method, String urlWithQuery, String body, SpApiSigner.SignedHeaders signed,
-                             String lwaAccessToken, SpApiSigner.AwsCredentials awsCredentials) {
-        JsonNode response;
+                             String lwaAccessToken, SpApiSigner.AwsCredentials awsCredentials, String operation) {
+        ResponseEntity<JsonNode> entity;
         try {
             RestClient.RequestHeadersSpec<?> spec;
             if (method.equals("POST")) {
@@ -250,13 +256,27 @@ public class SpApiReportsClient {
             if (StrUtil.isNotBlank(awsCredentials.sessionToken())) {
                 spec = spec.header("X-Amz-Security-Token", awsCredentials.sessionToken());
             }
-            response = spec.retrieve().body(JsonNode.class);
+            entity = spec.retrieve().toEntity(JsonNode.class);
         } catch (RestClientResponseException e) {
+            reportRateLimit(operation, e.getResponseHeaders());
             throw new IllegalStateException("SP-API Reports 调用失败:HTTP " + e.getStatusCode().value(), e);
         }
+        reportRateLimit(operation, entity.getHeaders());
+        JsonNode response = entity.getBody();
         if (response == null || response.get("payload") == null) {
             throw new IllegalStateException("SP-API Reports 响应缺 payload");
         }
         return response.get("payload");
+    }
+
+    /** 限流头上报(guard 缺位 observer=null 静默跳过;Reports 调用恒走拉取桶;S3 文档下载不走此口径) */
+    private void reportRateLimit(String operation, HttpHeaders headers) {
+        if (observer == null || headers == null) {
+            return;
+        }
+        String value = headers.getFirst(PlatformRateGuard.RATE_LIMIT_HEADER);
+        if (StrUtil.isNotBlank(value)) {
+            observer.observe(RateLimitObserver.BUCKET_PULL, operation, value);
+        }
     }
 }

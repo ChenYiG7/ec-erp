@@ -76,17 +76,18 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'finance-first-leg-index' })
-import { ref } from 'vue'
-import { CirclePlus, EditPen, Delete } from '@element-plus/icons-vue'
+
+import { CirclePlus, Delete, EditPen } from '@element-plus/icons-vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
+import { firstLegShipmentApi } from '@/api/apis/finance/firstLeg'
+import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import type { FirstLegShipmentResponse } from '@/api/interface/finance/firstLeg'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
-import { firstLegShipmentApi } from '@/api/apis/finance/firstLeg'
-import type { FirstLegShipmentResponse } from '@/api/interface/finance/firstLeg'
-import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
-import FirstLegShipmentForm from './components/FirstLegShipmentForm.vue'
 import FirstLegShipDialog from './components/FirstLegShipDialog.vue'
 import FirstLegShipmentDetail from './components/FirstLegShipmentDetail.vue'
+import FirstLegShipmentForm from './components/FirstLegShipmentForm.vue'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
@@ -104,8 +105,20 @@ fetchWarehouseOptions()
 const columns: ColumnProps<FirstLegShipmentResponse>[] = [
   { type: 'index', label: '#', width: 55 },
   { prop: 'shipmentNo', label: '头程单号', width: 170, search: { el: 'input', order: 1 } },
-  { prop: 'fromWarehouseId', label: '国内仓', width: 130, enum: warehouseEnum, search: { el: 'select', order: 2 } },
-  { prop: 'toWarehouseId', label: '目的仓', width: 130, enum: warehouseEnum, search: { el: 'select', order: 3 } },
+  {
+    prop: 'fromWarehouseId',
+    label: '国内仓',
+    width: 130,
+    enum: warehouseEnum,
+    search: { el: 'select', order: 2 },
+  },
+  {
+    prop: 'toWarehouseId',
+    label: '目的仓',
+    width: 130,
+    enum: warehouseEnum,
+    search: { el: 'select', order: 3 },
+  },
   {
     prop: 'status',
     label: '状态',
@@ -164,7 +177,9 @@ const handleDelete = async (row: FirstLegShipmentResponse) => {
 
 // 装箱完成:DRAFT→BOXED(至少 1 箱有 SKU,后端守卫;箱内容此后冻结,改单走取消重建)
 const onBox = async (row: FirstLegShipmentResponse) => {
-  await ElMessageBox.confirm(`确认 ${row.shipmentNo} 装箱完成吗?装箱后箱内容冻结不可改。`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(`确认 ${row.shipmentNo} 装箱完成吗?装箱后箱内容冻结不可改。`, '提示', {
+    type: 'warning',
+  })
   await firstLegShipmentApi.box(row.id)
   ElMessage.success('已装箱')
   refreshTable()
@@ -198,7 +213,9 @@ const onClose = async (row: FirstLegShipmentResponse) => {
 
 // 取消:仅草稿/已装箱(已发货起运费已录,后端守卫)
 const onCancel = async (row: FirstLegShipmentResponse) => {
-  await ElMessageBox.confirm(`确认取消头程单 ${row.shipmentNo} 吗?已发货起不可取消。`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(`确认取消头程单 ${row.shipmentNo} 吗?已发货起不可取消。`, '提示', {
+    type: 'warning',
+  })
   await firstLegShipmentApi.cancel(row.id)
   ElMessage.success('已取消')
   refreshTable()

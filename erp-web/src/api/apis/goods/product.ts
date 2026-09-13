@@ -1,6 +1,6 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
-import type { ProductResponse, ProductQuery } from '@/api/interface/goods/product'
+import type { ProductQuery, ProductResponse } from '@/api/interface/goods/product'
+import http from '@/utils/request'
 
 /**
  * 商品管理(/api/goods/products,由 gen:page 生成)

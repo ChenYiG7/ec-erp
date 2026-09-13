@@ -70,18 +70,19 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'fulfill-fba-shipment-index' })
-import { ref } from 'vue'
-import { CirclePlus, EditPen, Delete } from '@element-plus/icons-vue'
+
+import { CirclePlus, Delete, EditPen } from '@element-plus/icons-vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
+import { fbaShipmentApi } from '@/api/apis/fulfill/fbaShipment'
+import { shopApi } from '@/api/apis/shop/shop'
+import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import type { FbaShipmentResponse } from '@/api/interface/fulfill/fbaShipment'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
-import { fbaShipmentApi } from '@/api/apis/fulfill/fbaShipment'
-import type { FbaShipmentResponse } from '@/api/interface/fulfill/fbaShipment'
-import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
-import { shopApi } from '@/api/apis/shop/shop'
-import FbaShipmentForm from './components/FbaShipmentForm.vue'
 import FbaReceiveDialog from './components/FbaReceiveDialog.vue'
 import FbaShipmentDetail from './components/FbaShipmentDetail.vue'
+import FbaShipmentForm from './components/FbaShipmentForm.vue'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
@@ -106,7 +107,13 @@ const columns: ColumnProps<FbaShipmentResponse>[] = [
   { prop: 'shipmentNo', label: 'FBA单号', width: 160, search: { el: 'input', order: 1 } },
   { prop: 'shopId', label: '店铺', width: 150, enum: shopEnum, search: { el: 'select', order: 2 } },
   { prop: 'marketplace', label: '站点', width: 80, search: { el: 'input', order: 3 } },
-  { prop: 'warehouseId', label: '发货仓', width: 130, enum: warehouseEnum, search: { el: 'select', order: 4 } },
+  {
+    prop: 'warehouseId',
+    label: '发货仓',
+    width: 130,
+    enum: warehouseEnum,
+    search: { el: 'select', order: 4 },
+  },
   { prop: 'platformShipmentId', label: '平台ShipmentId', width: 180, showOverflowTooltip: true },
   {
     prop: 'status',
@@ -184,7 +191,9 @@ const onClose = async (row: FbaShipmentResponse) => {
 
 // 取消:仅草稿/已装箱(已发出起库存已动账禁取消,后端守卫)
 const onCancel = async (row: FbaShipmentResponse) => {
-  await ElMessageBox.confirm(`确认取消 FBA 单 ${row.shipmentNo} 吗?已发出后不可取消。`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(`确认取消 FBA 单 ${row.shipmentNo} 吗?已发出后不可取消。`, '提示', {
+    type: 'warning',
+  })
   await fbaShipmentApi.cancel(row.id)
   ElMessage.success('已取消')
   refreshTable()

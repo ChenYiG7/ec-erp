@@ -60,7 +60,7 @@ class SpApiReportsClientTest {
         server.start();
         String base = "http://127.0.0.1:" + server.getAddress().getPort();
         client = new SpApiReportsClient(base, "us-east-1", "ATVPDKIKX0DER",
-                Clock.fixed(NOW, ZoneId.of("Asia/Shanghai")), Duration.ZERO);
+                Clock.fixed(NOW, ZoneId.of("Asia/Shanghai")), Duration.ZERO, null);
         documentUrl = base + "/listing-report?X-Amz-Signature=presigned";
     }
 
@@ -170,7 +170,7 @@ class SpApiReportsClientTest {
     void rejectsBlankMarketplaceBeforeCallingPlatform() {
         SpApiReportsClient unconfigured = new SpApiReportsClient(
                 "http://127.0.0.1:" + server.getAddress().getPort(), "us-east-1", "",
-                Clock.fixed(NOW, ZoneId.of("Asia/Shanghai")), Duration.ZERO);
+                Clock.fixed(NOW, ZoneId.of("Asia/Shanghai")), Duration.ZERO, null);
 
         IllegalStateException exception = assertThrows(IllegalStateException.class,
                 () -> unconfigured.requestListingReport("Atoken-LWA", AWS));

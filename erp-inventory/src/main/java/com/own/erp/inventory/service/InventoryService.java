@@ -224,8 +224,9 @@ public class InventoryService {
      * 本模块已依赖 erp-contract,契约常量为词表正本,本枚举仅承载列语义实现):
      * <pre>
      * 类型           列变化(Δ=quantity,正负随调用方)                守卫
-     * IN_TRANSIT    在途±Δ(采购审核占/关闭释放,仅 qty_transit)      无(释放量调用方按未到货给值)
+     * IN_TRANSIT    在途±Δ(采购审核占/关闭释放/调拨确认占,仅 qty_transit) 无(释放量调用方按未到货给值)
      * IN_PURCHASE   在途-Δ 在库+Δ 可用+Δ(入库核销)                  在途 >= Δ
+     * IN_TRANSFER   在途-Δ 在库+Δ 可用+Δ(调拨到货核销,#30 余量①)    在途 >= Δ
      * IN_RETURN     在库+Δ 可用+Δ(售后退货入库)                     可用+Δ >= 0
      * ADJUST        在库+Δ 可用+Δ(人工调整,可正可负)               可用+Δ >= 0
      * TRANSFER_OUT  在库+Δ 可用+Δ(Δ<0,transfer 源腿)               可用+Δ >= 0
@@ -286,6 +287,28 @@ public class InventoryService {
             @Override
             Inventory newRow(InventoryFlow flow) {
                 return null; // 核销在途需既有存量行(审核占在途时已建)
+            }
+        },
+        IN_TRANSFER {
+            @Override
+            int update(InventoryMapper mapper, InventoryFlow flow) {
+                // 列语义同 IN_PURCHASE(在途-Δ/在库+Δ/可用+Δ),词表区分单据域(biz_type=TRANSFER_ORDER)
+                return mapper.receiveInbound(flow.getSkuId(), flow.getWarehouseId(), flow.getQuantity());
+            }
+
+            @Override
+            boolean sufficient(Inventory row, int quantity) {
+                return nvl(row.getQtyTransit()) >= quantity;
+            }
+
+            @Override
+            String insufficientMsg(Inventory row, int quantity) {
+                return "调拨在途不足(未确认发出或已核销):当前" + nvl(row.getQtyTransit()) + ",变动" + quantity;
+            }
+
+            @Override
+            Inventory newRow(InventoryFlow flow) {
+                return null; // 到货核销需既有存量行(确认占在途时已建)
             }
         },
         IN_RETURN {

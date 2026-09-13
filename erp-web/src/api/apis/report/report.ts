@@ -1,4 +1,3 @@
-import http from '@/utils/request'
 import type {
   InventorySnapshotRow,
   ReportDigest,
@@ -9,6 +8,7 @@ import type {
   SkuOptionRow,
   SkuTrendResponse,
 } from '@/api/interface/report/report'
+import http from '@/utils/request'
 
 /**
  * 报表中心(/api/report,#20 报表域 V1 + #22 商品分析)

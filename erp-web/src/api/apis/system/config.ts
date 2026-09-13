@@ -1,5 +1,5 @@
-import http from '@/utils/request'
 import type { SysConfig } from '@/api/interface'
+import http from '@/utils/request'
 
 /**
  * 系统参数(/api/system/configs,#18 系统设置):

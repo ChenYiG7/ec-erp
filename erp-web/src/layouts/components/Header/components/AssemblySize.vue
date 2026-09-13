@@ -20,10 +20,11 @@
 defineOptions({
   name: 'AssemblySize',
 })
+
 import { ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus'
 import { computed } from 'vue'
-import { useGlobalStore } from '@/stores/modules/global'
 import type { AssemblySizeType } from '@/stores/interface/store'
+import { useGlobalStore } from '@/stores/modules/global'
 import TablerLayout from '~icons/tabler/layout?width=20px&height=20px'
 
 const globalStore = useGlobalStore()

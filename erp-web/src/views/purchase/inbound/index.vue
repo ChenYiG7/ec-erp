@@ -49,16 +49,17 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'purchase-inbound-index' })
-import { ref } from 'vue'
-import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+
 import { CirclePlus } from '@element-plus/icons-vue'
+import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
+import { purchaseInboundApi } from '@/api/apis/purchase/inbound'
+import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import type { PurchaseInboundResponse } from '@/api/interface/purchase/inbound'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
-import { purchaseInboundApi } from '@/api/apis/purchase/inbound'
-import type { PurchaseInboundResponse } from '@/api/interface/purchase/inbound'
-import InboundItems from './components/InboundItems.vue'
 import InboundCreateForm from './components/InboundCreateForm.vue'
-import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import InboundItems from './components/InboundItems.vue'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()

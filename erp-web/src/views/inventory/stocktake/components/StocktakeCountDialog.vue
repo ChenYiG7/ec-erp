@@ -52,23 +52,26 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { computed, ref } from 'vue'
 import {
   ElButton,
-  ElDialog,
   ElDescriptions,
   ElDescriptionsItem,
+  ElDialog,
   ElInputNumber,
   ElMessage,
   ElTable,
   ElTableColumn,
   ElTag,
 } from 'element-plus'
-import { stocktakeOrderApi } from '@/api/apis/inventory/stocktake'
-import type { StocktakeItemResponse, StocktakeOrderResponse } from '@/api/interface/inventory/stocktake'
+import { computed, ref } from 'vue'
 import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
+import { stocktakeOrderApi } from '@/api/apis/inventory/stocktake'
 import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
-import type { StocktakeOrderCountsRequest } from '@/api/interface/inventory/stocktake'
+import type {
+  StocktakeItemResponse,
+  StocktakeOrderCountsRequest,
+  StocktakeOrderResponse,
+} from '@/api/interface/inventory/stocktake'
 
 defineOptions({ name: 'StocktakeCountDialog' })
 

@@ -29,6 +29,9 @@ public record ProfitDailyTrendRow(
         BigDecimal commissionCny,
 
         /** 利润合计(CNY,Σ 行级非空 profitCny) */
-        BigDecimal profitCny
+        BigDecimal profitCny,
+
+        /** 毛利率(%,profit/sales×100 保留 1 位小数,HALF_UP;sales≤0 时 NULL 禁猜,#21 拍板改后端下发) */
+        BigDecimal grossMarginRate
 ) {
 }

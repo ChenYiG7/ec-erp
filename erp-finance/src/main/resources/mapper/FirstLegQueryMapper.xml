@@ -3,7 +3,9 @@
 <mapper namespace="com.own.erp.finance.mapper.FirstLegQueryMapper">
 
     <!-- 头程发货单分页(#33):主单为正本,双仓名两次 LEFT JOIN warehouse(跨域只读 join,同 PaymentQueryMapper 先例;
-         按 docs/07 §6.4 拍板 join 不滤已删——仓库删后历史单据仍显名);CANCELED 不默认排除(单据状态非作废制,列表照常显) -->
+         按 docs/07 §6.4 拍板 join 不滤已删——仓库删后历史单据仍显名);CANCELED 不默认排除(单据状态非作废制,列表照常显);
+         尾部 2 个 NULL 占位列(#26 七轮 2026-09-13):列表行不装箱/分摊明细,凑齐 record 26 参构造自动映射
+         (缺列=有行即 500,FbaQueryMapper.pageRows 同日实锚;明细 List 走详情接口装配) -->
     <select id="pageRows" resultType="com.own.erp.finance.response.FirstLegShipmentResponse">
         SELECT fl.id,
                fl.shipment_no        AS shipmentNo,
@@ -27,7 +29,9 @@
                fl.remark,
                fl.created_by         AS createdBy,
                fl.created_at         AS createdAt,
-               fl.updated_at         AS updatedAt
+               fl.updated_at         AS updatedAt,
+               NULL                  AS boxes,
+               NULL                  AS allocs
         FROM first_leg_shipment fl
                  LEFT JOIN warehouse wf ON fl.from_warehouse_id = wf.id
                  LEFT JOIN warehouse wt ON fl.to_warehouse_id = wt.id
@@ -61,5 +65,23 @@
         </where>
         GROUP BY a.sku_id, ps.sku_code
         ORDER BY allocAmountCny DESC, a.sku_id ASC
+    </select>
+
+    <!-- SKU 集合批量头程分摊合计(#33 利润第三层 enrichment,2026-09-12 方案 B 整窗摊入):
+         口径与 listSkuAllocSummary 同源(只计 ALLOCATED/CLOSED 主单;时间锚点 = shipped_at 发货时点);
+         无分摊 SKU 不在返回中,调用方按 0 兜底;skuIds 空由调用方短路不触库 -->
+    <select id="sumAllocBySkuIds" resultType="com.own.erp.finance.response.FirstLegSkuAllocSumRow">
+        SELECT a.sku_id            AS skuId,
+               SUM(a.alloc_amount) AS allocAmountCny
+        FROM first_leg_alloc a
+                 JOIN first_leg_shipment fl ON a.shipment_id = fl.id
+                     AND fl.status IN ('ALLOCATED', 'CLOSED')
+        WHERE a.sku_id IN
+        <foreach collection="skuIds" item="skuId" open="(" separator="," close=")">
+            #{skuId}
+        </foreach>
+        <if test="shippedFrom != null">AND fl.shipped_at &gt;= #{shippedFrom}</if>
+        <if test="shippedTo != null">AND fl.shipped_at &lt;= #{shippedTo}</if>
+        GROUP BY a.sku_id
     </select>
 </mapper>

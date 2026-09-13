@@ -1,5 +1,5 @@
-import http from '@/utils/request'
 import type { LoginResponse } from '@/api/interface'
+import http from '@/utils/request'
 
 /** 登录入参(后端校验明文密码 + BCrypt,前端禁再做摘要/加盐) */
 export interface ReqLoginForm {

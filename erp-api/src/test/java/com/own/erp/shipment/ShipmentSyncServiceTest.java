@@ -19,6 +19,7 @@ import com.own.erp.system.service.SysNotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.MDC;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Clock;
@@ -26,9 +27,16 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -49,7 +57,9 @@ import static org.mockito.Mockito.when;
  *     跳过(开关/adapter 未接入/非自履约/无运单号/非已发货)不产生 pull_log 噪音;
  *     失败(会话装配/缺平台单号/缺平台行号/平台调用异常)必记 pull_log SHIPMENT;
  *     成功回传命令逐字段核对(行级 platformOrderItemId + quantity 翻译,shipTime 时区正确);
- *     事件入口吞异常不影响已提交事务。
+ *     事件入口吞异常不影响已提交事务;
+ *     异步通道(#11 预做):开开关走 executor 提交(traceId 透传/收尾清)、提交被拒吞掉不炸 ship 链路;
+ *     状态回写(#11 激活期余量):成功翻 SUCCESS/失败记 FAILED+原因,跳过路径不回写(停留待回传)
  */
 class ShipmentSyncServiceTest {
 
@@ -132,6 +142,9 @@ class ShipmentSyncServiceTest {
 
         verify(client, never()).uploadTracking(any(), any());
         verifyNoInteractions(pullLogService);
+        // 跳过不回写状态:停留 PENDING"待回传"语义正确,补偿扫持续兜底(要素补齐/adapter 后接入时自动追)
+        verify(deliveryOrderService, never()).markSyncSuccess(anyLong());
+        verify(deliveryOrderService, never()).markSyncFailed(anyLong(), anyString());
     }
 
     @Test
@@ -171,6 +184,8 @@ class ShipmentSyncServiceTest {
         assertEquals(4, shipment.items().get(1).quantity());
         verify(pullLogService).recordSuccess(eq(SHOP_ID), eq(PullConsts.DATA_TYPE_SHIPMENT),
                 eq(NOW), eq(NOW), eq(1), anyLong(), eq(PullConsts.PULL_WAY_EVENT));
+        // 状态回写(#11 激活期余量):成功翻 SUCCESS,补偿扫与前端可视化据此收敛
+        verify(deliveryOrderService).markSyncSuccess(1L);
     }
 
     // ---------- 失败:必记 pull_log ----------
@@ -241,6 +256,8 @@ class ShipmentSyncServiceTest {
                 eq("IllegalStateException: HTTP 429"), anyLong(), eq(PullConsts.PULL_WAY_EVENT));
         verify(notificationService).pushAllUsers(eq(SysNotificationService.TYPE_PULL_FAIL), anyString(),
                 anyString(), eq(SysNotificationService.BIZ_TYPE_SHOP), eq(SHOP_ID));
+        // 状态回写(#11 激活期余量):失败记 FAILED + 原因(补偿扫据此计数退避重试)
+        verify(deliveryOrderService).markSyncFailed(1L, "HTTP 429");
     }
 
     @Test
@@ -276,7 +293,66 @@ class ShipmentSyncServiceTest {
         verifyNoInteractions(deliveryOrderService, shopService, pullLogService);
     }
 
+    // ---------- 异步通道(#11 预做:sync-async 默认关,翻开关零代码改动) ----------
+
+    @Test
+    void onDeliveryShippedRunsViaExecutorWhenAsyncEnabled() {
+        stubDelivery("SHIPPED", "SF1234567890", "顺丰");
+        when(shopOrderApi.findDeliveryView(ORDER_ID)).thenReturn(view("SELF_FULFILL", "AMZ-001",
+                item(11L, "AMZ-ITEM-1"), item(12L, "AMZ-ITEM-2")));
+        ReflectionTestUtils.setField(service, "syncAsync", true);
+        // 同线程直执 executor,顺带捕获任务执行时的 MDC(验 traceId 快照透传)
+        AtomicReference<String> traceIdAtRun = new AtomicReference<>();
+        ReflectionTestUtils.setField(service, "syncExecutor", inlineExecutor(traceIdAtRun));
+
+        MDC.put("traceId", "t-async-001");
+        try {
+            service.onDeliveryShipped(new DeliveryShippedEvent(1L, ORDER_ID, SHOP_ID));
+        } finally {
+            MDC.remove("traceId");
+        }
+
+        // traceId 随任务透传续排障链,任务收尾强制清防串线程污染
+        assertEquals("t-async-001", traceIdAtRun.get());
+        assertNull(MDC.get("traceId"));
+        verify(client).uploadTracking(any(), any());
+        verify(pullLogService).recordSuccess(eq(SHOP_ID), eq(PullConsts.DATA_TYPE_SHIPMENT),
+                any(), any(), eq(1), anyLong(), eq(PullConsts.PULL_WAY_EVENT));
+    }
+
+    @Test
+    void onDeliveryShippedSwallowsRejectionWhenExecutorDown() {
+        // 应用停机期提交被拒:不抛不炸已提交的 ship 链路,error 留痕由日志对账
+        ReflectionTestUtils.setField(service, "syncAsync", true);
+        ReflectionTestUtils.setField(service, "syncExecutor", rejectingExecutor());
+
+        assertDoesNotThrow(() -> service.onDeliveryShipped(new DeliveryShippedEvent(1L, ORDER_ID, SHOP_ID)));
+
+        verifyNoInteractions(deliveryOrderService, shopService, pullLogService);
+    }
+
     // ---------- 造数 ----------
+
+    /** 同线程直执 executor:免真开线程(ExecutorService 非函数式接口,匿名覆写 execute),顺带捕获执行瞬间 MDC */
+    private ExecutorService inlineExecutor(AtomicReference<String> traceIdAtRun) {
+        return new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>()) {
+            @Override
+            public void execute(Runnable command) {
+                traceIdAtRun.set(MDC.get("traceId"));
+                command.run();
+            }
+        };
+    }
+
+    /** 提交即拒 executor:模拟应用停机期 executor 不可用 */
+    private ExecutorService rejectingExecutor() {
+        return new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>()) {
+            @Override
+            public void execute(Runnable command) {
+                throw new RejectedExecutionException("executor stopped");
+            }
+        };
+    }
 
     private ShopSession session() {
         AuthToken token = new AuthToken();

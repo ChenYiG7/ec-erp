@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.own.erp.common.exception.BusinessException;
 import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.GoodsSkuApi;
+import com.own.erp.contract.InventoryConsts;
 import com.own.erp.contract.WarehouseApi;
 import com.own.erp.inventory.constant.TransferConsts;
+import com.own.erp.inventory.entity.InventoryFlow;
 import com.own.erp.inventory.entity.TransferOrder;
 import com.own.erp.inventory.entity.TransferOrderItem;
 import com.own.erp.inventory.mapper.TransferOrderItemMapper;
@@ -208,6 +210,71 @@ class TransferOrderServiceTest {
                 .getMessage().contains("取消失败"));
         assertTrue(assertThrows(BusinessException.class, () -> transferOrderService.delete(1L))
                 .getMessage().contains("禁止删除"));
+    }
+
+    @Test
+    void inTransitConfirmPostsOutAndTransitPerLine() {
+        // #30 余量① 在途模式:confirm = 调出仓 TRANSFER_OUT(负)+ 调入仓 IN_TRANSIT 占在途,逐行两笔
+        TransferOrder order = order(1L, TransferConsts.STATUS_DRAFT);
+        order.setTransitMode(TransferConsts.MODE_IN_TRANSIT);
+        when(transferOrderMapper.casStatus(1L, TransferConsts.STATUS_DRAFT, TransferConsts.STATUS_IN_TRANSIT))
+                .thenReturn(1);
+        when(transferOrderMapper.selectById(1L)).thenReturn(order);
+        when(transferOrderItemMapper.selectList(any())).thenReturn(List.of(
+                TransferOrderItem.builder().id(100L).transferId(1L).skuId(11L).quantity(5).build()));
+
+        transferOrderService.confirm(1L);
+
+        ArgumentCaptor<InventoryFlow> captor = ArgumentCaptor.forClass(InventoryFlow.class);
+        verify(inventoryService, times(2)).change(captor.capture());
+        InventoryFlow out = captor.getAllValues().get(0);
+        assertEquals(11L, out.getSkuId());
+        assertEquals(2L, out.getWarehouseId());
+        assertEquals(-5, out.getQuantity());
+        assertEquals(InventoryConsts.FLOW_TYPE_TRANSFER_OUT, out.getFlowType());
+        assertEquals(InventoryConsts.BIZ_TYPE_TRANSFER_ORDER, out.getBizType());
+        assertEquals(1L, out.getBizId());
+        InventoryFlow transit = captor.getAllValues().get(1);
+        assertEquals(11L, transit.getSkuId());
+        assertEquals(3L, transit.getWarehouseId());
+        assertEquals(5, transit.getQuantity());
+        assertEquals(InventoryConsts.FLOW_TYPE_IN_TRANSIT, transit.getFlowType());
+        verify(inventoryService, never()).transfer(any(), any(), any(), anyInt(), any(), any(), any());
+    }
+
+    @Test
+    void receiveWritesInTransferPerLineAndGuardsStatus() {
+        // #30 余量① 到货确认:IN_TRANSIT→CONFIRMED + 逐行 IN_TRANSFER 核销(在途转在库)
+        when(transferOrderMapper.casStatus(1L, TransferConsts.STATUS_IN_TRANSIT, TransferConsts.STATUS_CONFIRMED))
+                .thenReturn(1);
+        when(transferOrderMapper.selectById(1L)).thenReturn(order(1L, TransferConsts.STATUS_IN_TRANSIT));
+        when(transferOrderItemMapper.selectList(any())).thenReturn(List.of(
+                TransferOrderItem.builder().id(100L).transferId(1L).skuId(11L).quantity(5).build()));
+
+        transferOrderService.receive(1L);
+
+        ArgumentCaptor<InventoryFlow> captor = ArgumentCaptor.forClass(InventoryFlow.class);
+        verify(inventoryService).change(captor.capture());
+        assertEquals(11L, captor.getValue().getSkuId());
+        assertEquals(3L, captor.getValue().getWarehouseId());
+        assertEquals(5, captor.getValue().getQuantity());
+        assertEquals(InventoryConsts.FLOW_TYPE_IN_TRANSFER, captor.getValue().getFlowType());
+        assertEquals(InventoryConsts.BIZ_TYPE_TRANSFER_ORDER, captor.getValue().getBizType());
+
+        // 非在途态 cas miss 拒绝
+        when(transferOrderMapper.casStatus(2L, TransferConsts.STATUS_IN_TRANSIT, TransferConsts.STATUS_CONFIRMED))
+                .thenReturn(0);
+        assertTrue(assertThrows(BusinessException.class, () -> transferOrderService.receive(2L))
+                .getMessage().contains("到货确认失败"));
+        verify(transferOrderMapper, never()).selectById(2L);
+    }
+
+    @Test
+    void deleteRejectsInTransitOrder() {
+        when(transferOrderMapper.selectById(1L)).thenReturn(order(1L, TransferConsts.STATUS_IN_TRANSIT));
+        assertTrue(assertThrows(BusinessException.class, () -> transferOrderService.delete(1L))
+                .getMessage().contains("禁止删除"));
+        verify(transferOrderMapper, never()).deleteById(1L);
     }
 
     @Test

@@ -23,12 +23,12 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import { ElAlert, ElButton, ElCheckbox, ElCheckboxGroup, ElDialog, ElEmpty, ElMessage } from 'element-plus'
 import { ref } from 'vue'
-import { ElButton, ElCheckbox, ElCheckboxGroup, ElDialog, ElEmpty, ElMessage, ElAlert } from 'element-plus'
-import { sysUserApi } from '@/api/apis/system/user'
 import { shopApi } from '@/api/apis/shop/shop'
-import type { SysUserResponse } from '@/api/interface/system/user'
+import { sysUserApi } from '@/api/apis/system/user'
 import type { ShopResponse } from '@/api/interface/shop/shop'
+import type { SysUserResponse } from '@/api/interface/system/user'
 
 defineOptions({ name: 'UserShopDialog' })
 

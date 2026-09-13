@@ -784,6 +784,7 @@ CREATE TABLE IF NOT EXISTS purchase_order (
     supplier_id  BIGINT NOT NULL COMMENT '供应商ID(supplier.id)',
     warehouse_id BIGINT NOT NULL COMMENT '收货仓ID(warehouse.id)',
     status       VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT草稿/AUDITED已审核/PARTIAL_RECEIVED部分入库/RECEIVED已入库/CLOSED已关闭(状态机草案,业务确认后调整)',
+    audit_time   DATETIME NULL COMMENT '审核时间(audit 动作落,#31 账期起算锚点;2026-09-12 加列,已建库跑 replay_schema_migration.py 补齐)',
     total_amount DECIMAL(12,4) NOT NULL DEFAULT 0 COMMENT '采购总金额(本位币)',
     remark       VARCHAR(255) NULL COMMENT '备注',
     created_by   BIGINT NULL COMMENT '创建人(sys_user.id)',
@@ -844,6 +845,10 @@ CREATE TABLE IF NOT EXISTS delivery_order (
     tracking_no       VARCHAR(64) NULL COMMENT '运单号',
     waybill_url       VARCHAR(512) NULL COMMENT '电子面单文件地址',
     shipped_at        DATETIME NULL COMMENT '发货时间(ship 确认时回写)',
+    sync_status       VARCHAR(32) NULL COMMENT '平台回传状态(#11 激活期余量 2026-09-12):NULL未发货无关(存量已发货单不回溯)/PENDING待回传/SUCCESS回传成功/FAILED回传失败',
+    sync_retry_count  INT NOT NULL DEFAULT 0 COMMENT '回传补偿重试次数(失败路径+1,达上限停扫待人工;#11 激活期余量 2026-09-12)',
+    sync_fail_reason  VARCHAR(500) NULL COMMENT '最近一次回传失败原因(成功即清空;#11 激活期余量 2026-09-12)',
+    sync_time         DATETIME NULL COMMENT '最近一次回传尝试时间(补偿扫退避基准:下次重试需距此 N×backoff 分钟;#11 激活期余量 2026-09-12)',
     created_by        BIGINT NULL COMMENT '创建人(sys_user.id,接 SecurityContext 随前端工程;#11 激活加列 2026-09-04)',
     created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -851,7 +856,8 @@ CREATE TABLE IF NOT EXISTS delivery_order (
     UNIQUE KEY uk_tracking_no (tracking_no),
     KEY idx_order (order_id),
     KEY idx_shop (shop_id),
-    KEY idx_warehouse (warehouse_id)
+    KEY idx_warehouse (warehouse_id),
+    KEY idx_sync (sync_status, status)
 ) COMMENT '发货单(tracking_no 可多条 NULL,MySQL UNIQUE 不约束 NULL;FBA/海外仓履约订单不产生系统内发货单)';
 
 CREATE TABLE IF NOT EXISTS delivery_order_item (
@@ -929,7 +935,7 @@ CREATE TABLE IF NOT EXISTS inventory_flow (
     id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
     sku_id       BIGINT      NOT NULL COMMENT 'SKU ID(product_sku.id)',
     warehouse_id BIGINT      NOT NULL COMMENT '仓库ID(warehouse.id)',
-    flow_type    VARCHAR(32) NOT NULL COMMENT 'IN_PURCHASE采购入库(核销在途)/OUT_SHIP销售出库(核销占用)/IN_RETURN售后退货入库/ADJUST人工调整/TRANSFER_OUT调拨出库/TRANSFER_IN调拨入库/IN_TRANSIT采购在途(审核占/关闭释放)/LOCK_SHIP发货单占用(建单占/取消释放)(#7 2026-09-06 八值)',
+    flow_type    VARCHAR(32) NOT NULL COMMENT 'IN_PURCHASE采购入库(核销在途)/OUT_SHIP销售出库(核销占用)/IN_RETURN售后退货入库/ADJUST人工调整/TRANSFER_OUT调拨出库/TRANSFER_IN调拨入库/IN_TRANSIT在途占(采购审核占/关闭释放/调拨确认占)/LOCK_SHIP发货单占用(建单占/取消释放)/IN_TRANSFER调拨到货核销(#30 余量① 2026-09-12 九值)',
     quantity     INT         NOT NULL COMMENT '正负数',
     before_qty   INT         NOT NULL COMMENT '变更前可用库存',
     after_qty    INT         NOT NULL COMMENT '变更后可用库存',
@@ -1015,15 +1021,18 @@ CREATE TABLE IF NOT EXISTS stocktake_item (
     UNIQUE KEY uk_stocktake_sku (stocktake_id, sku_id)
 ) COMMENT '盘点单明细(建单快照+实盘+差异;差异 ADJUST 动账凭证)';
 
--- 调拨单(V1=确认即达,无在途账;在途模式留 TODO#30 拍板):
---   CONFIRM 复合事务逐行调 InventoryService.transfer() 原语(TRANSFER_OUT+TRANSFER_IN 同事务两腿),
---   biz_type=TRANSFER_ORDER 收口(不再用 INVENTORY_TRANSFER 字面量,历史流水不改写);单据域=硬删,不带 deleted
+-- 调拨单(DIRECT=确认即达,无在途账;IN_TRANSIT 在途模式 2026-09-12 #30 余量① 接入):
+--   DIRECT:CONFIRM 复合事务逐行调 InventoryService.transfer() 原语(TRANSFER_OUT+TRANSFER_IN 同事务两腿);
+--   IN_TRANSIT:confirm 调出仓 TRANSFER_OUT + 调入仓 IN_TRANSIT 占在途,receive 调入仓 IN_TRANSFER 到货核销
+--   (在途-Δ/在库+Δ/可用+Δ,守卫=在途充足);biz_type=TRANSFER_ORDER 收口(不再用 INVENTORY_TRANSFER 字面量,
+--   历史流水不改写);单据域=硬删,不带 deleted
 CREATE TABLE IF NOT EXISTS transfer_order (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
     transfer_no       VARCHAR(32) NOT NULL COMMENT '调拨单号 TR+yyyyMMdd+seq,唯一',
     from_warehouse_id BIGINT NOT NULL COMMENT '调出仓ID(warehouse.id)',
     to_warehouse_id   BIGINT NOT NULL COMMENT '调入仓ID(warehouse.id)',
-    status            VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT草稿/CONFIRMED已确认(调拨已达)/CANCELED已取消',
+    status            VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT草稿/IN_TRANSIT在途(已发未达)/CONFIRMED已确认(调拨已达)/CANCELED已取消',
+    transit_mode      VARCHAR(16) NOT NULL DEFAULT 'DIRECT' COMMENT '动账模式(#30 余量①):DIRECT确认即达(V1默认)/IN_TRANSIT在途(OUT→到货IN);2026-09-12 加列,已建库跑 replay_schema_migration.py 补齐',
     remark            VARCHAR(255) NULL COMMENT '备注',
     created_by        BIGINT NULL COMMENT '创建人(sys_user.id)',
     created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -1031,7 +1040,7 @@ CREATE TABLE IF NOT EXISTS transfer_order (
     UNIQUE KEY uk_transfer_no (transfer_no),
     KEY idx_from (from_warehouse_id),
     KEY idx_to (to_warehouse_id)
-) COMMENT '调拨单(仓内作业,V1 确认即达;两腿经 InventoryService.transfer 同事务写 flow)';
+) COMMENT '调拨单(仓内作业,DIRECT 确认即达两腿经 InventoryService.transfer 同事务写 flow;IN_TRANSIT 在途模式 2026-09-12 #30 余量① 接入)';
 
 CREATE TABLE IF NOT EXISTS transfer_order_item (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',

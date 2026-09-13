@@ -19,11 +19,12 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'system-oper-log-index' })
+
 import { ref } from 'vue'
-import ProTable from '@/components/ProTable/index.vue'
-import type { ColumnProps } from '@/components/ProTable/interface'
 import { sysOperLogApi } from '@/api/apis/system/oper-log'
 import type { SysOperLogQuery, SysOperLogResponse } from '@/api/interface/system/oper-log'
+import ProTable from '@/components/ProTable/index.vue'
+import type { ColumnProps } from '@/components/ProTable/interface'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
@@ -81,7 +82,11 @@ const columns: ColumnProps<SysOperLogResponse>[] = [
 
 /** ProTable 数据源:拆时间范围虚拟字段 → beginTime/endTime(后端时间窗闭区间) */
 const loadOperLogs = async (
-  params: SysOperLogQuery & { timeRange?: [string, string] | null; pageNo?: number; pageSize?: number }
+  params: SysOperLogQuery & {
+    timeRange?: [string, string] | null
+    pageNo?: number
+    pageSize?: number
+  }
 ) => {
   const { timeRange, ...rest } = params
   return sysOperLogApi.page({

@@ -1,7 +1,7 @@
-import { defineStore } from 'pinia'
-import type { UserInfo } from '@/stores/interface/store'
-import piniaPersistConfig from '@/stores/helper/persist'
 import { useStorage } from '@vueuse/core'
+import { defineStore } from 'pinia'
+import piniaPersistConfig from '@/stores/helper/persist'
+import type { UserInfo } from '@/stores/interface/store'
 
 const STORE_NAME = 'erp-user'
 export const useUserStore = defineStore(

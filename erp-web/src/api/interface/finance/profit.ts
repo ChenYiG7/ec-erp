@@ -54,6 +54,8 @@ export interface OrderProfitSummary {
   costMissingCount: number
   /** 待结算行数 */
   commissionMissingCount: number
+  /** 毛利率(% profit/sales×100 保留 1 位小数;sales≤0 null 禁猜,#21 后端统一下发) */
+  grossMarginRate: number | null
 }
 
 /** 利润查询入参(不含分页;后端 OrderProfitPageQuery) */
@@ -76,6 +78,8 @@ export interface ProfitDailyTrendRow {
   costCny: string
   commissionCny: string
   profitCny: string
+  /** 毛利率(% profit/sales×100 保留 1 位小数;sales≤0 null 禁猜,#21 后端统一下发) */
+  grossMarginRate: number | null
 }
 
 /** SKU 利润排行行(GET /api/finance/profit/sku-rank;仅已绑定行,利润降序) */
@@ -88,4 +92,10 @@ export interface ProfitSkuRankRow {
   costCny: string
   commissionCny: string
   profitCny: string
+  /** 毛利率(% profit/sales×100 保留 1 位小数;sales≤0 null 禁猜,#21 后端统一下发) */
+  grossMarginRate: number | null
+  /** 头程运费分摊合计(CNY,#33 第三层方案 B:统计窗内 shipped_at 锚点整窗摊入;无分摊=0) */
+  firstLegCny: string
+  /** 含头程利润(CNY,= profitCny − firstLegCny,#33 第三层净利口径,后端单点计算) */
+  netProfitCny: string
 }

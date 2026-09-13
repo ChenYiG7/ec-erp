@@ -7,6 +7,7 @@ import com.own.erp.ai.config.ErpAlertProperties;
 import com.own.erp.contract.AftersaleQueryApi;
 import com.own.erp.contract.InventoryQueryApi;
 import com.own.erp.contract.OrderQueryApi;
+import com.own.erp.contract.PurchaseQueryApi;
 import com.own.erp.contract.QueryPage;
 import com.own.erp.contract.SalesQueryApi;
 import lombok.RequiredArgsConstructor;
@@ -28,9 +29,10 @@ import java.util.stream.Collectors;
 /**
  * @author : chenyi
  * @Date : 2026/9/6
- * @Description : 库存预警规则引擎(#6,OmniTrade 落位表"三期最先"):V1 五规则——
+ * @Description : 库存预警规则引擎(#6,OmniTrade 落位表"三期最先"):V1 六规则——
  *     低库存(可用≤阈值)/ 发货超时(WAIT_SHIP 超 N 小时)/ 退款异常(店铺窗口内退款单数达阈值)/
- *     滞销(有库存但动销窗口内零销量)/ 积压(可用库存/日均销量 ≥ 覆盖阈值);
+ *     滞销(有库存但动销窗口内零销量)/ 积压(可用库存/日均销量 ≥ 覆盖阈值)/
+ *     采购账期超期(audit_time+settle_days<今日 且未付清,#31 2026-09-12 接入);
  *     滞销/积压 2026-09-07 随销量数据面(order_sales_daily)落地接入,读侧走 SalesQueryApi 只读契约(铁律 2)。
  *     取数只走 erp-contract 只读查询契约(铁律 2/7,禁横向依赖);分页扫全量,scanPageSize/scanMaxRows
  *     钳制防大表拖死;单规则失败只记日志不殃及本轮其余规则;出口仅产 AlertEvent,推送/静默去重收口
@@ -50,6 +52,7 @@ public class AlertEngine {
     private final @Lazy OrderQueryApi orderQueryApi;
     private final @Lazy AftersaleQueryApi aftersaleQueryApi;
     private final @Lazy SalesQueryApi salesQueryApi;
+    private final @Lazy PurchaseQueryApi purchaseQueryApi;
     private final AiRuntimeProperties runtime;
     private final ErpAlertProperties props;
     private final Clock pullClock;
@@ -63,6 +66,7 @@ public class AlertEngine {
         runRule(events, "退款异常", () -> refundRule(now));
         runRule(events, "滞销", () -> slowMovingRule());
         runRule(events, "积压", () -> overstockRule());
+        runRule(events, "采购账期超期", () -> payableOverdueRule(now));
         return events;
     }
 
@@ -216,6 +220,26 @@ public class AlertEngine {
                 .title("积压预警")
                 .content(StrUtil.format("库存可支撑 ≥{} 天的 SKU 共 {} 条,明细: {}{}",
                         overstockDays, total, String.join("; ", hits), suffix))
+                .build();
+    }
+
+    /** 采购账期超期(#31 账期到期提醒,2026-09-12 接入):audit_time+settle_days<今日 且未付清命中,聚一条通知 */
+    private AlertEvent payableOverdueRule(LocalDateTime now) {
+        int topN = runtime.alertTopN();
+        List<PurchaseQueryApi.PurchaseOverdueView> hits =
+                purchaseQueryApi.listOverduePayables(now.toLocalDate());
+        if (hits.isEmpty()) {
+            return null;
+        }
+        List<String> details = hits.stream().limit(topN)
+                .map(row -> StrUtil.format("单 {}({})审核于 {},账期 {} 天,未付 {}",
+                        row.poNo(), row.supplierName(), row.auditTime() == null ? "-" : row.auditTime().toLocalDate(),
+                        row.settleDays(), row.unpaidAmount()))
+                .toList();
+        return AlertEvent.builder()
+                .notifyType(AlertEvent.TYPE_PAYABLE_OVERDUE)
+                .title("采购账期超期预警")
+                .content(detailContent(StrUtil.format("超期未付清采购单共 {} 张", hits.size()), details, hits.size()))
                 .build();
     }
 

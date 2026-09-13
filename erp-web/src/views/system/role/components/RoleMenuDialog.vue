@@ -18,10 +18,10 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
 import { ElButton, ElDialog, ElMessage, ElTree } from 'element-plus'
+import { nextTick, ref } from 'vue'
 import { sysMenuApi } from '@/api/apis/system/menu'
-import type { SysMenuResponse, RoleMenuAssignRequest } from '@/api/interface/system/menu'
+import type { RoleMenuAssignRequest, SysMenuResponse } from '@/api/interface/system/menu'
 import type { SysRoleResponse } from '@/api/interface/system/role'
 
 defineOptions({ name: 'RoleMenuDialog' })

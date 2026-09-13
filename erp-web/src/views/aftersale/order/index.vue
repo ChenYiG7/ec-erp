@@ -67,13 +67,14 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'aftersale-order-index' })
-import { ref } from 'vue'
+
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
-import ProTable from '@/components/ProTable/index.vue'
-import type { ColumnProps } from '@/components/ProTable/interface'
+import { ref } from 'vue'
 import { aftersaleOrderApi } from '@/api/apis/aftersale/order'
 import { fetchShopOptions } from '@/api/apis/shop/options'
 import type { AftersaleOrderResponse } from '@/api/interface/aftersale/order'
+import ProTable from '@/components/ProTable/index.vue'
+import type { ColumnProps } from '@/components/ProTable/interface'
 import AftersaleReturnItems from './components/AftersaleReturnItems.vue'
 import ReceiveReturnForm from './components/ReceiveReturnForm.vue'
 
@@ -156,7 +157,9 @@ const onRefund = async (row: AftersaleOrderResponse) => {
 
 // 完成:REFUNDED→COMPLETED 终态收尾
 const onComplete = async (row: AftersaleOrderResponse) => {
-  await ElMessageBox.confirm(`确认售后单 ${row.aftersaleNo} 处理完成吗?`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(`确认售后单 ${row.aftersaleNo} 处理完成吗?`, '提示', {
+    type: 'warning',
+  })
   await aftersaleOrderApi.complete(row.id, {})
   ElMessage.success('已完成')
   refreshTable()

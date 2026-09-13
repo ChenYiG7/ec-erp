@@ -1,11 +1,11 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type {
-  FbaShipmentResponse,
-  FbaShipmentSaveRequest,
   FbaShipmentQuery,
   FbaShipmentReceiveRequest,
+  FbaShipmentResponse,
+  FbaShipmentSaveRequest,
 } from '@/api/interface/fulfill/fbaShipment'
+import http from '@/utils/request'
 
 /**
  * FBA发货单(/api/fulfill/fba-shipments,由 gen:page 生成)

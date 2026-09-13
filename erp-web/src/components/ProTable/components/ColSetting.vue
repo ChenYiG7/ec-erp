@@ -49,7 +49,8 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'ProTableColSetting' })
-import { computed, nextTick, ref, unref, watch } from 'vue'
+
+import type { TableInstance } from 'element-plus'
 import {
   ElButton,
   ElDrawer,
@@ -63,9 +64,9 @@ import {
   ElTableColumn,
   ElTag,
 } from 'element-plus'
-import { ColumnTypes, type ColumnProps } from '@/components/ProTable/interface'
 import Sortable from 'sortablejs'
-import type { TableInstance } from 'element-plus'
+import { computed, nextTick, ref, unref, watch } from 'vue'
+import { type ColumnProps, ColumnTypes } from '@/components/ProTable/interface'
 import { COL_SETTINGS_CACHE_KEY } from '@/constants/proTable'
 
 import { generateColumnSettingCache, type IColumnSettingCache } from '@/utils/proTable'

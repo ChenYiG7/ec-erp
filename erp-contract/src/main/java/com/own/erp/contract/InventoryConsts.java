@@ -29,6 +29,9 @@ public final class InventoryConsts {
     public static final String FLOW_TYPE_IN_TRANSIT = "IN_TRANSIT";
     /** inventory_flow.flow_type:发货单占用(建单 +q:占用+q/可用-q;取消·删除·改单释放 -q;#11,#7 2026-09-06) */
     public static final String FLOW_TYPE_LOCK_SHIP = "LOCK_SHIP";
+    /** inventory_flow.flow_type:调拨到货核销(在途-q、在库+q、可用+q,守卫=在途充足;
+     *  #30 余量① 在途调拨 2026-09-12:列语义同 IN_PURCHASE,单据域区分 biz_type=TRANSFER_ORDER) */
+    public static final String FLOW_TYPE_IN_TRANSFER = "IN_TRANSFER";
 
     /** inventory_flow.biz_type:盘点单(差异 ADJUST 动账,关联单据 = stocktake_order.id;2026-09-11 仓内作业) */
     public static final String BIZ_TYPE_STOCKTAKE = "STOCKTAKE";

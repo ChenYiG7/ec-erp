@@ -1,14 +1,14 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type {
-  AftersaleOrderResponse,
-  AftersaleOrderQuery,
-  AftersaleOrderRejectRequest,
-  AftersaleOrderRefundRequest,
-  AftersaleOrderReceiveReturnRequest,
-  AftersaleOrderCompleteRequest,
   AftersaleOrderAgreeRequest,
+  AftersaleOrderCompleteRequest,
+  AftersaleOrderQuery,
+  AftersaleOrderReceiveReturnRequest,
+  AftersaleOrderRefundRequest,
+  AftersaleOrderRejectRequest,
+  AftersaleOrderResponse,
 } from '@/api/interface/aftersale/order'
+import http from '@/utils/request'
 
 /**
  * 售后单(/api/aftersale/orders,由 gen:page 生成)

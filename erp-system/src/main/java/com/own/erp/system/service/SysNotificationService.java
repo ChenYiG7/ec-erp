@@ -79,6 +79,13 @@ public class SysNotificationService {
                 .gt(SysNotification::getCreatedAt, since)) > 0;
     }
 
+    /** 窗口内同类型告警条数(#6 HIGH 风险订单单日推送上限护栏,2026-09-12):仅查系统侧扇出行,不限用户 */
+    public long countSince(String notifyType, LocalDateTime since) {
+        return sysNotificationMapper.selectCount(new LambdaQueryWrapper<SysNotification>()
+                .eq(SysNotification::getNotifyType, notifyType)
+                .gt(SysNotification::getCreatedAt, since));
+    }
+
     /** 我的通知分页(归属固定当前用户;过滤:已读状态/通知类型) */
     public Page<SysNotificationResponse> page(Long userId, SysNotificationQuery query) {
         Page<SysNotification> result = sysNotificationMapper.selectPage(

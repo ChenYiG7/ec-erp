@@ -40,15 +40,16 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'system-role-index' })
-import { ref } from 'vue'
-import { CirclePlus, EditPen, Delete, Menu } from '@element-plus/icons-vue'
+
+import { CirclePlus, Delete, EditPen, Menu } from '@element-plus/icons-vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
-import ProTable from '@/components/ProTable/index.vue'
-import type { ColumnProps } from '@/components/ProTable/interface'
+import { ref } from 'vue'
 import { sysRoleApi } from '@/api/apis/system/role'
 import type { SysRoleResponse } from '@/api/interface/system/role'
-import SysRoleForm from './components/SysRoleForm.vue'
+import ProTable from '@/components/ProTable/index.vue'
+import type { ColumnProps } from '@/components/ProTable/interface'
 import RoleMenuDialog from './components/RoleMenuDialog.vue'
+import SysRoleForm from './components/SysRoleForm.vue'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()

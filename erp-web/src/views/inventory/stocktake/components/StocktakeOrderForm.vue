@@ -44,7 +44,8 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import { CirclePlus, Delete } from '@element-plus/icons-vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   ElButton,
   ElDialog,
@@ -57,12 +58,11 @@ import {
   ElRadioGroup,
   ElSelect,
 } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import { CirclePlus, Delete } from '@element-plus/icons-vue'
+import { ref } from 'vue'
 import { stocktakeOrderApi } from '@/api/apis/inventory/stocktake'
 import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import type { StocktakeOrderResponse, StocktakeOrderSaveRequest } from '@/api/interface/inventory/stocktake'
 import SkuSelector from '@/components/SkuSelector/index.vue'
-import type { StocktakeOrderSaveRequest, StocktakeOrderResponse } from '@/api/interface/inventory/stocktake'
 
 defineOptions({ name: 'StocktakeOrderForm' })
 

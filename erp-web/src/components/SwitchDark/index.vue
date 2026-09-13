@@ -12,10 +12,11 @@
 defineOptions({
   name: 'SwitchDark',
 })
+
+import { Moon, Sunny } from '@element-plus/icons-vue'
 import { ElSwitch } from 'element-plus'
 import { useTheme } from '@/hooks/useTheme'
 import { useGlobalStore } from '@/stores/modules/global'
-import { Sunny, Moon } from '@element-plus/icons-vue'
 
 const { switchDark } = useTheme()
 const globalStore = useGlobalStore()

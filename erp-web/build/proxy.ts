@@ -1,10 +1,10 @@
-import type { ProxyOptions } from 'vite'
+import type { ProxyOptions } from 'vite';
 
-type ProxyItem = [string, string]
+type ProxyItem = [string, string];
 
-type ProxyList = ProxyItem[]
+type ProxyList = ProxyItem[];
 
-type ProxyTargetList = Record<string, ProxyOptions>
+type ProxyTargetList = Record<string, ProxyOptions>;
 
 /**
  * 创建代理，用于解析 .env.development 代理配置
@@ -14,9 +14,9 @@ type ProxyTargetList = Record<string, ProxyOptions>
  * @param list
  */
 export function createProxy(list: ProxyList = []) {
-  const ret: ProxyTargetList = {}
+  const ret: ProxyTargetList = {};
   for (const [prefix, target] of list) {
-    const isHttps = target.startsWith('https://')
+    const isHttps = target.startsWith('https://');
 
     // https://github.com/http-party/node-http-proxy#options
     ret[prefix] = {
@@ -24,10 +24,10 @@ export function createProxy(list: ProxyList = []) {
       changeOrigin: true,
       ws: true,
       // 禁 rewrite:后端真实路径含 /api 前缀,原样透传
-      rewrite: path => path,
+      rewrite: (path) => path,
       // https is require secure=false
       ...(isHttps ? { secure: false } : {}),
-    }
+    };
   }
-  return ret
+  return ret;
 }

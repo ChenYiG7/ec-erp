@@ -1,10 +1,10 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type {
   ExchangeRateQuery,
   ExchangeRateResponse,
   ExchangeRateSaveRequest,
 } from '@/api/interface/finance/exchange-rate'
+import http from '@/utils/request'
 
 /** 汇率快照(/api/finance/exchange-rates,#19③;写侧 admin 双闸) */
 export const exchangeRateApi = {

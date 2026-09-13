@@ -78,13 +78,14 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'ai-ai-suggestion-index' })
-import { computed, ref } from 'vue'
-import { ElButton, ElDescriptions, ElDescriptionsItem, ElDrawer, ElMessage, ElMessageBox } from 'element-plus'
+
 import { View } from '@element-plus/icons-vue'
-import ProTable from '@/components/ProTable/index.vue'
-import type { ColumnProps } from '@/components/ProTable/interface'
+import { ElButton, ElDescriptions, ElDescriptionsItem, ElDrawer, ElMessage, ElMessageBox } from 'element-plus'
+import { computed, ref } from 'vue'
 import { aiSuggestionApi } from '@/api/apis/ai/ai-suggestion'
 import type { AiSuggestionResponse } from '@/api/interface/ai/ai-suggestion'
+import ProTable from '@/components/ProTable/index.vue'
+import type { ColumnProps } from '@/components/ProTable/interface'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
@@ -103,6 +104,7 @@ const columns: ColumnProps<AiSuggestionResponse>[] = [
       { label: '文案', value: 'COPYWRITING', tagType: 'info' },
       { label: '采购', value: 'PURCHASE', tagType: 'success' },
       { label: '选品', value: 'SELECTION', tagType: 'primary' },
+      { label: '拆单', value: 'SPLIT_ADVICE', tagType: 'warning' },
     ],
   },
   {

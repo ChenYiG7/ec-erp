@@ -14,12 +14,12 @@
 
 <script setup lang="ts">
 import AssemblySize from './components/AssemblySize.vue'
+import Avatar from './components/Avatar.vue'
+import Fullscreen from './components/Fullscreen.vue'
 import Language from './components/Language.vue'
+import Message from './components/Message.vue'
 import SearchMenu from './components/SearchMenu.vue'
 import ThemeSetting from './components/ThemeSetting.vue'
-import Message from './components/Message.vue'
-import Fullscreen from './components/Fullscreen.vue'
-import Avatar from './components/Avatar.vue'
 </script>
 
 <style scoped lang="scss">

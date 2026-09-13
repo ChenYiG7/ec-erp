@@ -63,7 +63,7 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'purchase-inbound-create-form' })
-import { ref } from 'vue'
+
 import {
   ElButton,
   ElDialog,
@@ -77,9 +77,10 @@ import {
   ElTable,
   ElTableColumn,
 } from 'element-plus'
+import { ref } from 'vue'
+import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
 import { purchaseInboundApi } from '@/api/apis/purchase/inbound'
 import { purchaseOrderApi } from '@/api/apis/purchase/order'
-import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
 import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
 import type { PurchaseOrderResponse } from '@/api/interface/purchase/order'
 

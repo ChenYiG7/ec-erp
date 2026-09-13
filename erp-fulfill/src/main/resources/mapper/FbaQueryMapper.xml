@@ -4,7 +4,9 @@
 
     <!-- FBA 发货单分页(fba-shipment 2026-09-12):主单为正本,LEFT JOIN warehouse/shop 取仓名/店名
          (跨域只读 join,同 FirstLegQueryMapper 先例;按 docs/07 §6.4 拍板 join 不滤已删——
-         仓/店删后历史单据仍显名);CANCELED 不默认排除(单据状态非作废制,列表照常显) -->
+         仓/店删后历史单据仍显名);CANCELED 不默认排除(单据状态非作废制,列表照常显);
+         尾部 3 个 NULL 占位列(#26 七轮 2026-09-13):列表行不装明细,凑齐 record 18 参构造自动映射
+         (缺列=有行即 500,goodsTrend 同款坑;明细 List 仍走 getById withDetail 装配) -->
     <select id="pageRows" resultType="com.own.erp.fulfill.response.FbaShipmentResponse">
         SELECT fb.id,
                fb.shipment_no         AS shipmentNo,
@@ -20,7 +22,10 @@
                fb.remark,
                fb.created_by          AS createdBy,
                fb.created_at          AS createdAt,
-               fb.updated_at          AS updatedAt
+               fb.updated_at          AS updatedAt,
+               NULL                   AS planItems,
+               NULL                   AS boxes,
+               NULL                   AS diffs
         FROM fba_shipment fb
                  LEFT JOIN shop s ON fb.shop_id = s.id
                  LEFT JOIN warehouse w ON fb.warehouse_id = w.id

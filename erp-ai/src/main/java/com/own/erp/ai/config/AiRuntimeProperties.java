@@ -351,6 +351,18 @@ public class AiRuntimeProperties {
                 alertProps.getOverstockDays(), 1);
     }
 
+    /** HIGH 风险订单单日推送上限(int,≥0,0=不限;#6 HIGH 推通知护栏 2026-09-12) */
+    public int alertHighDailyLimit() {
+        return intOf(com.own.erp.common.constant.ConfigConsts.KEY_ALERT_HIGH_DAILY_LIMIT,
+                alertProps.getHighDailyLimit(), 0);
+    }
+
+    /** HIGH 风险订单推送静默期(小时,long,≥0;#6 HIGH 推通知护栏 2026-09-12) */
+    public long alertHighQuietHours() {
+        return longOf(com.own.erp.common.constant.ConfigConsts.KEY_ALERT_HIGH_QUIET_HOURS,
+                alertProps.getHighQuietHours(), 0);
+    }
+
     /**
      * 销量统计总开关:ErpSalesProperties 在 erp-api(erp-ai 禁反向依赖,铁律 2),
      * 此处无法引用其默认值——DB 无行返回 empty,由 SalesSnapshotJob(erp-api)自行回落 yml 默认

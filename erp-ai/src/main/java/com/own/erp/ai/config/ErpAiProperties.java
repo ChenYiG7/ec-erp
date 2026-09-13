@@ -41,16 +41,16 @@ public class ErpAiProperties {
 
     /** 采购建议工作流参数组(#17 三期候选落地,2026-09-08):输入复用补货计算口径
      *  (低库存阈值/覆盖天数/动销窗口/最小建议量四参数走 replenish 同源键,语义=同一"低库存"定义),
-     *  仅扫描护栏与摘要配置独立;V1 仅手动触发(采购是人类决策节奏),定时接线待拍板 */
+     *  仅扫描护栏与摘要配置独立;2026-09-12 #6 拍板接定时(erp-api PurchaseJob,建议仍人工确认后执行) */
     private Purchase purchase = new Purchase();
 
     /** 文案生成工作流参数组(#17 三期候选「产品描述生成」落地,2026-09-08):
-     *  扫描护栏独立;LLM 上限与 prompt 入 sys_config(#18 热更);V1 仅手动触发不接定时 */
+     *  扫描护栏独立;LLM 上限与 prompt 入 sys_config(#18 热更);2026-09-12 #6 拍板接定时(erp-api CopywritingJob) */
     private Copy copy = new Copy();
 
     /** 智能选品工作流参数组(#17 落位表「智能选品」三期提前,2026-09-08):
      *  三维加权评分(纯程序确定性)+ LLM 推荐理由(可降级);扫描/落库护栏独立,
-     *  评分权重与 LLM 上限/prompt 入 sys_config(#18 热更);V1 仅手动触发不接定时 */
+     *  评分权重与 LLM 上限/prompt 入 sys_config(#18 热更);2026-09-12 #6 拍板接定时(erp-api SelectionJob) */
     private Selection selection = new Selection();
 
     /** Agent 参数组(四期 agent/):角色 system prompt 收口本类(docs/07 §9),yml `erp.ai.agent.*` 可覆盖 */
@@ -204,6 +204,9 @@ public class ErpAiProperties {
     @Setter
     public static class Purchase {
 
+        /** 定时开关(erp-api PurchaseJob;cron 走 erp.ai.purchase.cron 占位符,不在此重复建键) */
+        private boolean enabled = true;
+
         /** 单页扫描量(契约钳制 ≤100) */
         private int scanPageSize = 100;
 
@@ -227,6 +230,9 @@ public class ErpAiProperties {
     @Getter
     @Setter
     public static class Copy {
+
+        /** 定时开关(erp-api CopywritingJob;cron 走 erp.ai.copy.cron 占位符,不在此重复建键) */
+        private boolean enabled = true;
 
         /** 单页扫描量(契约钳制 ≤100) */
         private int scanPageSize = 100;
@@ -254,6 +260,9 @@ public class ErpAiProperties {
     @Getter
     @Setter
     public static class Selection {
+
+        /** 定时开关(erp-api SelectionJob;cron 走 erp.ai.selection.cron 占位符,不在此重复建键) */
+        private boolean enabled = true;
 
         /** 单页扫描量(契约钳制 ≤100;真键保留防 Boot 4 空 mapping 启动炸,同 purchase 段口径) */
         private int scanPageSize = 100;

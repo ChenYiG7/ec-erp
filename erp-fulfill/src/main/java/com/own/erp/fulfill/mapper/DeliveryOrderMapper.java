@@ -6,6 +6,9 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 /**
  * @author : chenyi
  * @Date : 2026/9/3
@@ -30,4 +33,36 @@ public interface DeliveryOrderMapper extends BaseMapper<DeliveryOrder> {
      */
     @Select("SELECT * FROM delivery_order WHERE id = #{id} FOR UPDATE")
     DeliveryOrder selectByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * 回传成功落状态(#11 激活期余量):条件更新守卫(仅 PENDING/FAILED 可翻 SUCCESS,docs/07 §6.3),
+     * 幂等——重复成功事件/补偿扫并发同单 affected=0 静默;失败原因成功即清
+     */
+    @Update("UPDATE delivery_order SET sync_status = 'SUCCESS', sync_fail_reason = NULL, sync_time = #{now} "
+            + "WHERE id = #{id} AND sync_status IN ('PENDING', 'FAILED')")
+    int markSyncSuccess(@Param("id") Long id, @Param("now") LocalDateTime now);
+
+    /**
+     * 回传失败落状态(#11 激活期余量):FAILED + 失败原因 + 重试计数+1 + 尝试时间(补偿扫退避基准);
+     * 计数在 SQL 内自增防并发丢更新,不收客户端值
+     */
+    @Update("UPDATE delivery_order SET sync_status = 'FAILED', sync_fail_reason = #{reason}, "
+            + "sync_retry_count = sync_retry_count + 1, sync_time = #{now} WHERE id = #{id}")
+    int markSyncFailed(@Param("id") Long id, @Param("reason") String reason, @Param("now") LocalDateTime now);
+
+    /**
+     * 补偿扫候选单(#11 激活期余量):已发货/已签收 且 待回传或失败,退避未到期(距上次尝试不足
+     * retry_count×backoff 分钟)不选、重试达上限不选(保持 FAILED 待人工)、无运单号不选
+     * (要素未齐回传无意义,且防无进度单长期占用批次);sync_time 为空(从未尝试,如事件丢失)= 立即到期。
+     * 存量 sync_status NULL(迁移前已发货)不回溯。仅取 ID,编排细节在 ShipmentSyncService
+     */
+    @Select("SELECT id FROM delivery_order WHERE status IN ('SHIPPED', 'DELIVERED') "
+            + "AND sync_status IN ('PENDING', 'FAILED') AND sync_retry_count < #{maxRetries} "
+            + "AND tracking_no IS NOT NULL AND tracking_no != '' "
+            + "AND (sync_time IS NULL OR TIMESTAMPDIFF(MINUTE, sync_time, #{now}) >= sync_retry_count * #{backoffMinutes}) "
+            + "ORDER BY id LIMIT #{limit}")
+    List<Long> selectSyncRetryCandidateIds(@Param("maxRetries") int maxRetries,
+                                           @Param("backoffMinutes") int backoffMinutes,
+                                           @Param("now") LocalDateTime now,
+                                           @Param("limit") int limit);
 }

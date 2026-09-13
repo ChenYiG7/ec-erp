@@ -33,6 +33,9 @@ public record OrderProfitSummary(
         long costMissingCount,
 
         /** 缺实际佣金行数(无结算归集;费率估算命中的行仍计本数,2026-09-11 #19 预估模型) */
-        long commissionMissingCount
+        long commissionMissingCount,
+
+        /** 毛利率(%,profit/sales×100 保留 1 位小数,HALF_UP;sales≤0 时 NULL 禁猜,#21 拍板改后端下发) */
+        BigDecimal grossMarginRate
 ) {
 }

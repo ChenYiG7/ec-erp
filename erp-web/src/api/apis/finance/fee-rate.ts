@@ -1,10 +1,10 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
 import type {
+  PlatformFeeRateQuery,
   PlatformFeeRateResponse,
   PlatformFeeRateSaveRequest,
-  PlatformFeeRateQuery,
 } from '@/api/interface/finance/fee-rate'
+import http from '@/utils/request'
 
 /**
  * 平台费率(/api/finance/fee-rates,由 gen:page 生成)

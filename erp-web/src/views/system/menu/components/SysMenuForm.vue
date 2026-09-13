@@ -60,7 +60,7 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   ElButton,
   ElDialog,
@@ -74,10 +74,10 @@ import {
   ElRadioGroup,
   ElTreeSelect,
 } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import SelectIcon from '@/components/SelectIcon/index.vue'
+import { computed, ref } from 'vue'
 import { sysMenuApi } from '@/api/apis/system/menu'
 import type { SysMenuResponse, SysMenuSaveRequest } from '@/api/interface/system/menu'
+import SelectIcon from '@/components/SelectIcon/index.vue'
 
 defineOptions({ name: 'SysMenuForm' })
 
@@ -146,7 +146,13 @@ const open = async (m: 'add' | 'edit', row?: SysMenuResponse, parentId?: number)
   mode.value = m
   editId.value = row?.id
   treeData.value = await sysMenuApi.tree()
-  formData.value = { menuType: 2, parentId: 0, sort: 0, visible: 1, status: 1 } as SysMenuSaveRequest
+  formData.value = {
+    menuType: 2,
+    parentId: 0,
+    sort: 0,
+    visible: 1,
+    status: 1,
+  } as SysMenuSaveRequest
   if (m === 'edit' && row) {
     Object.assign(formData.value, row)
   } else if (parentId !== undefined) {

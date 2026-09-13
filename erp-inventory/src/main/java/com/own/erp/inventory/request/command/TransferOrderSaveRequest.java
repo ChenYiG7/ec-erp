@@ -24,6 +24,9 @@ public record TransferOrderSaveRequest(
         /** 调入仓ID(warehouse.id) */
         Long toWarehouseId,
 
+        /** 动账模式(#30 余量①):DIRECT确认即达(默认)/IN_TRANSIT在途(OUT→到货IN);非法值服务端拒 */
+        String transitMode,
+
         /** 备注 */
         String remark,
 
@@ -38,6 +41,7 @@ public record TransferOrderSaveRequest(
                 .transferNo(transferNo)
                 .fromWarehouseId(fromWarehouseId)
                 .toWarehouseId(toWarehouseId)
+                .transitMode(transitMode)
                 .remark(remark)
                 .build();
     }

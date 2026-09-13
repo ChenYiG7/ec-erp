@@ -1,13 +1,17 @@
 package com.own.erp.platform.adapter.amazon;
 
 import com.own.erp.platform.AuthToken;
+import com.own.erp.platform.PlatformAddress;
+import com.own.erp.platform.PlatformInboundPlanRequest;
 import com.own.erp.platform.PlatformShipment;
+import com.own.erp.platform.PlatformTransportContent;
 import com.own.erp.platform.PlatformType;
 import com.own.erp.platform.ShopSession;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -33,10 +37,11 @@ class AmazonClientTest {
         Clock clock = Clock.fixed(Instant.EPOCH, ZoneId.of("Asia/Shanghai"));
         client = new AmazonClient(
                 new LwaTokenClient("http://127.0.0.1:1", clock),
-                new SpApiOrdersClient("http://127.0.0.1:1", "us-east-1", "ATVPDKIKX0DER", clock),
-                new SpApiFinancesClient("http://127.0.0.1:1", "us-east-1", clock),
+                new SpApiOrdersClient("http://127.0.0.1:1", "us-east-1", "ATVPDKIKX0DER", clock, null),
+                new SpApiFinancesClient("http://127.0.0.1:1", "us-east-1", clock, null),
                 new SpApiReportsClient("http://127.0.0.1:1", "us-east-1", "ATVPDKIKX0DER", clock,
-                        java.time.Duration.ZERO),
+                        java.time.Duration.ZERO, null),
+                new SpApiInboundClient("http://127.0.0.1:1", "us-east-1", "ATVPDKIKX0DER", clock, null),
                 new StsTokenClient("http://127.0.0.1:1", clock),
                 clock);
         ReflectionTestUtils.setField(client, "appId", "amzn1.application-oa2-client.abc");
@@ -97,10 +102,11 @@ class AmazonClientTest {
         Clock clock = Clock.fixed(Instant.EPOCH, ZoneId.of("Asia/Shanghai"));
         AmazonClient unknownSite = new AmazonClient(
                 new LwaTokenClient("http://127.0.0.1:1", clock),
-                new SpApiOrdersClient("http://127.0.0.1:1", "us-east-1", "ATVPDKIKX0DER", clock),
-                new SpApiFinancesClient("http://127.0.0.1:1", "us-east-1", clock),
+                new SpApiOrdersClient("http://127.0.0.1:1", "us-east-1", "ATVPDKIKX0DER", clock, null),
+                new SpApiFinancesClient("http://127.0.0.1:1", "us-east-1", clock, null),
                 new SpApiReportsClient("http://127.0.0.1:1", "us-east-1", "A0NOTREAL0XX", clock,
-                        java.time.Duration.ZERO),
+                        java.time.Duration.ZERO, null),
+                new SpApiInboundClient("http://127.0.0.1:1", "us-east-1", "ATVPDKIKX0DER", clock, null),
                 new StsTokenClient("http://127.0.0.1:1", clock),
                 clock);
         AuthToken token = new AuthToken();
@@ -185,6 +191,39 @@ class AmazonClientTest {
         assertTrue(exception.getMessage().contains("AWS 密钥"), exception.getMessage());
     }
 
+    @Test
+    void inboundPlanAndTransportAndPullShareSessionGuard() {
+        // FBA 入库三方法(#35)入口守卫同拉单口径:LWA token 缺失友好报错
+        ShopSession session = new ShopSession(1L, PlatformType.AMAZON, new AuthToken());
+
+        IllegalStateException plan = assertThrows(IllegalStateException.class,
+                () -> client.createInboundShipmentPlan(session, samplePlanRequest()));
+        assertTrue(plan.getMessage().contains("accessToken"), plan.getMessage());
+        IllegalStateException transport = assertThrows(IllegalStateException.class,
+                () -> client.putTransportContent(session, "FBA123", sampleTransportContent()));
+        assertTrue(transport.getMessage().contains("accessToken"), transport.getMessage());
+        IllegalStateException pull = assertThrows(IllegalStateException.class,
+                () -> client.pullInboundShipments(session, List.of("FBA123")));
+        assertTrue(pull.getMessage().contains("accessToken"), pull.getMessage());
+    }
+
+    @Test
+    void inboundMethodsRejectWithoutAwsCredentialsConfigured() {
+        AuthToken token = new AuthToken();
+        token.setAccessToken("Atoken");
+        ShopSession session = new ShopSession(1L, PlatformType.AMAZON, token);
+
+        IllegalStateException plan = assertThrows(IllegalStateException.class,
+                () -> client.createInboundShipmentPlan(session, samplePlanRequest()));
+        assertTrue(plan.getMessage().contains("AWS 密钥"), plan.getMessage());
+        IllegalStateException transport = assertThrows(IllegalStateException.class,
+                () -> client.putTransportContent(session, "FBA123", sampleTransportContent()));
+        assertTrue(transport.getMessage().contains("AWS 密钥"), transport.getMessage());
+        IllegalStateException pull = assertThrows(IllegalStateException.class,
+                () -> client.pullInboundShipments(session, List.of("FBA123")));
+        assertTrue(pull.getMessage().contains("AWS 密钥"), pull.getMessage());
+    }
+
     /** 回传命令样板(请求形态细节在 SpApiOrdersClientTest 覆盖,此处不重复) */
     private static PlatformShipment sampleShipment() {
         return PlatformShipment.builder()
@@ -194,6 +233,31 @@ class AmazonClientTest {
                 .shipTime(Instant.EPOCH)
                 .items(List.of(PlatformShipment.Item.builder()
                         .platformOrderItemId("02553626332530-1").quantity(1).build()))
+                .build();
+    }
+
+    /** 入库计划命令样板(请求形态细节在 SpApiInboundClientTest 覆盖,此处不重复) */
+    private static PlatformInboundPlanRequest samplePlanRequest() {
+        return PlatformInboundPlanRequest.builder()
+                .shipToCountryCode("US")
+                .labelPrepPreference("SELLER_LABEL")
+                .shipFromAddress(PlatformAddress.builder()
+                        .name("ERP 仓").addressLine1("No.1 Example Rd").city("Shenzhen")
+                        .countryCode("CN").build())
+                .items(List.of(PlatformInboundPlanRequest.Item.builder()
+                        .sellerSku("ERP-SKU-001").quantity(10).build()))
+                .build();
+    }
+
+    /** 板箱回传命令样板 */
+    private static PlatformTransportContent sampleTransportContent() {
+        return PlatformTransportContent.builder()
+                .partnered(true)
+                .contactName("chenyi").contactPhone("13800000000")
+                .boxes(List.of(PlatformTransportContent.Box.builder()
+                        .length(new BigDecimal("60")).width(new BigDecimal("40"))
+                        .height(new BigDecimal("40")).dimensionUnit("cm")
+                        .weight(new BigDecimal("10")).weightUnit("kg").build()))
                 .build();
     }
 }

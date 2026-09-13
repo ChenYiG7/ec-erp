@@ -1,7 +1,7 @@
-import { defineConfig, mergeConfig, configDefaults } from 'vitest/config'
-import viteConfig from './vite.config'
+import { configDefaults, defineConfig, mergeConfig } from 'vitest/config';
+import viteConfig from './vite.config';
 
-export default defineConfig(configEnv =>
+export default defineConfig((configEnv) =>
   mergeConfig(viteConfig(configEnv), {
     test: {
       exclude: [...configDefaults.exclude, '**/e2e/**'],
@@ -19,7 +19,12 @@ export default defineConfig(configEnv =>
         {
           name: 'unit',
           environment: 'node',
-          include: ['src/utils/**/*.test.ts', 'src/api/**/*.test.ts', 'src/stores/**/*.test.ts', 'src/**/*.test.ts'],
+          include: [
+            'src/utils/**/*.test.ts',
+            'src/api/**/*.test.ts',
+            'src/stores/**/*.test.ts',
+            'src/**/*.test.ts',
+          ],
         },
         {
           name: 'dom',
@@ -37,5 +42,5 @@ export default defineConfig(configEnv =>
         },
       ],
     },
-  })
-)
+  }),
+);

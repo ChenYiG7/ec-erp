@@ -66,7 +66,8 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import { CirclePlus, Delete } from '@element-plus/icons-vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   ElButton,
   ElDialog,
@@ -80,12 +81,11 @@ import {
   ElRadioGroup,
   ElSelect,
 } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import { CirclePlus, Delete } from '@element-plus/icons-vue'
+import { ref } from 'vue'
 import { firstLegShipmentApi } from '@/api/apis/finance/firstLeg'
 import { warehouseApi } from '@/api/apis/warehouse/warehouse'
+import type { FirstLegShipmentResponse, FirstLegShipmentSaveRequest } from '@/api/interface/finance/firstLeg'
 import SkuSelector from '@/components/SkuSelector/index.vue'
-import type { FirstLegShipmentSaveRequest, FirstLegShipmentResponse } from '@/api/interface/finance/firstLeg'
 
 defineOptions({ name: 'FirstLegShipmentForm' })
 

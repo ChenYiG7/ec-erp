@@ -74,7 +74,8 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'ai-kb-index' })
-import { ref } from 'vue'
+
+import { Delete, DocumentAdd, RefreshRight, Upload, View } from '@element-plus/icons-vue'
 import {
   ElButton,
   ElDescriptions,
@@ -88,11 +89,11 @@ import {
   ElMessage,
   ElMessageBox,
 } from 'element-plus'
-import { Delete, DocumentAdd, RefreshRight, Upload, View } from '@element-plus/icons-vue'
+import { ref } from 'vue'
+import { aiKbApi } from '@/api/apis/ai/kb'
+import type { AiKbChunkResponse, AiKbDocumentResponse } from '@/api/interface/ai/kb'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
-import { aiKbApi } from '@/api/apis/ai/kb'
-import type { AiKbDocumentResponse, AiKbChunkResponse } from '@/api/interface/ai/kb'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
@@ -181,7 +182,10 @@ const confirmPaste = async () => {
   }
   uploading.value = true
   try {
-    const doc = await aiKbApi.uploadText({ title: pasteTitle.value.trim() || undefined, content: pasteContent.value })
+    const doc = await aiKbApi.uploadText({
+      title: pasteTitle.value.trim() || undefined,
+      content: pasteContent.value,
+    })
     notifyIngestResult(doc)
     pasteVisible.value = false
     refreshTable()

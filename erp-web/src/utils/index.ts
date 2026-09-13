@@ -1,9 +1,9 @@
-import { isArray } from '@/utils/is'
-import type { FieldNamesProps } from '@/components/ProTable/interface'
-import type { MenuOptions } from '@/api/interface'
 import type { LocationQuery, RouteLocationNormalized } from 'vue-router'
-import router from '@/routers'
+import type { MenuOptions } from '@/api/interface'
+import type { FieldNamesProps } from '@/components/ProTable/interface'
 import { HOME_URL, LOGIN_URL } from '@/config'
+import router from '@/routers'
+import { isArray } from '@/utils/is'
 
 const mode = import.meta.env.VITE_ROUTER_MODE
 

@@ -39,7 +39,7 @@ import java.util.Set;
  * @Description : 售后单服务:aftersale_order(+aftersale_return_item 子表)域整域收口,Controller 不直连 Mapper(docs/07 §2.1)
  *     系统写入表:数据由平台同步 upsert 落库,不开放人工 CRUD 写接口;人工侧仅状态机处理动作(docs/07 §1,entity 不出本层)
  *     同步落库唯一入口 saveUnifiedRefund(#12,2026-09-05 槽位收口):幂等靠表唯一键 uk_shop_platform_refund,禁旁路 insert;
- *     调用方 = 售后拉单 Job(随 #3 真凭证接线,AmazonClient.pullRefunds 现为占位)
+ *     调用方 = AftersaleRefundPullJob(2026-09-12 接线,总开关 erp.adapter.refund-pull.enabled 默认关防假报文噪音)
  *     状态机(#12,2026-09-04 拍板,词表见 AftersaleConsts):条件更新即守卫(docs/07 §6.3,WHERE 即前置态校验),
  *     同一 UPDATE 原子回填处理结果 result;单步流转不加事务(#10 audit 先例)。
  *     收退件升级复合事务动作(2026-09-04 拍板,同 #10 confirm/#11 ship 先例):RETURNING → RETURN_RECEIVED

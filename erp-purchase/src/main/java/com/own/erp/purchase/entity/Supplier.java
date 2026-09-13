@@ -39,7 +39,7 @@ public class Supplier {
     /** 结算方式,走 sys_dict(预付/月结等) */
     private String settleType;
 
-    /** 账期天数(V1仅展示,到期提醒随预警引擎评估,TODO#31) */
+    /** 账期天数(审核日起算,#31 账期到期提醒 2026-09-12 接入:audit_time+settle_days<今日 且未付清命中) */
     private Integer settleDays;
 
     /** 备注 */

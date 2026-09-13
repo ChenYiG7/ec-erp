@@ -64,7 +64,7 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   ElButton,
   ElDatePicker,
@@ -76,7 +76,7 @@ import {
   ElOption,
   ElSelect,
 } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
+import { ref } from 'vue'
 import { firstLegShipmentApi } from '@/api/apis/finance/firstLeg'
 import type { FirstLegShipmentResponse, FirstLegShipmentShipRequest } from '@/api/interface/finance/firstLeg'
 

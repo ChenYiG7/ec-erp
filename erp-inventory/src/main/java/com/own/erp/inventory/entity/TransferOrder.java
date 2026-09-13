@@ -39,8 +39,11 @@ public class TransferOrder {
     /** 调入仓ID(warehouse.id) */
     private Long toWarehouseId;
 
-    /** DRAFT草稿/CONFIRMED已确认(调拨已达)/CANCELED已取消 */
+    /** DRAFT草稿/IN_TRANSIT在途(已发未达)/CONFIRMED已确认(调拨已达)/CANCELED已取消 */
     private String status;
+
+    /** 动账模式(#30 余量①):DIRECT确认即达(V1默认)/IN_TRANSIT在途(OUT→到货IN) */
+    private String transitMode;
 
     /** 备注 */
     private String remark;

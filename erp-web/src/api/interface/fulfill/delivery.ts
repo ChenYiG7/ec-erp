@@ -32,6 +32,14 @@ export interface DeliveryOrderResponse {
   waybillUrl: string
   /** 发货时间 */
   shippedAt: string
+  /** 平台回传状态:NULL未发货无关/PENDING待回传/SUCCESS成功/FAILED失败 */
+  syncStatus?: string
+  /** 回传补偿重试次数 */
+  syncRetryCount?: number
+  /** 最近一次回传失败原因 */
+  syncFailReason?: string
+  /** 最近一次回传尝试时间 */
+  syncTime?: string
   /** createdBy */
   createdBy: number
   /** 创建时间 */

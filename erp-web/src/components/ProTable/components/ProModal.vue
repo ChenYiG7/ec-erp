@@ -140,6 +140,8 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'ProModal' })
+
+import { useThrottleFn } from '@vueuse/core'
 import {
   ElButton,
   ElCascader,
@@ -170,11 +172,10 @@ import {
   type FormProps,
   type FormRules,
 } from 'element-plus'
-import { useThrottleFn } from '@vueuse/core'
-import type { IComponentType, IModalConfig } from '../interface'
-import InputTag from './InputTag.vue'
-import IconSelect from './IconSelect.vue'
 import { markRaw, onMounted, reactive, ref } from 'vue'
+import type { IComponentType, IModalConfig } from '../interface'
+import IconSelect from './IconSelect.vue'
+import InputTag from './InputTag.vue'
 
 defineSlots<{ [key: string]: (_args: any) => any }>()
 // 定义接收的属性

@@ -3297,8 +3297,39 @@
       "post": {
         "tags": ["调拨单"],
         "summary": "确认调拨",
-        "description": "DRAFT→CONFIRMED;同事务逐行两腿动账(TRANSFER_OUT/IN,biz_type=TRANSFER_ORDER),调出仓可用不足整单回滚",
+        "description": "DRAFT→CONFIRMED(DIRECT)/DRAFT→IN_TRANSIT(在途模式);同事务逐行动账(biz_type=TRANSFER_ORDER),可用不足整单回滚",
         "operationId": "confirm_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/transfer-orders/{id}/receive": {
+      "post": {
+        "tags": ["调拨单"],
+        "summary": "到货确认",
+        "description": "IN_TRANSIT→CONFIRMED(#30 在途模式);逐行调入仓 IN_TRANSFER 核销(在途转在库),按计划数全额核销,短少走盘点调整",
+        "operationId": "receive",
         "parameters": [
           {
             "name": "id",
@@ -7802,6 +7833,9 @@
             "type": "integer",
             "format": "int64"
           },
+          "transitMode": {
+            "type": "string"
+          },
           "remark": {
             "type": "string"
           },
@@ -11717,6 +11751,9 @@
           "status": {
             "type": "string"
           },
+          "transitMode": {
+            "type": "string"
+          },
           "remark": {
             "type": "string"
           },
@@ -13346,6 +13383,10 @@
           },
           "profitCny": {
             "type": "number"
+          },
+          "grossMarginRate": {
+            "type": "number",
+            "nullable": true
           }
         }
       },
@@ -13397,6 +13438,10 @@
           "commissionMissingCount": {
             "type": "integer",
             "format": "int64"
+          },
+          "grossMarginRate": {
+            "type": "number",
+            "nullable": true
           }
         }
       },
@@ -13443,6 +13488,16 @@
             "type": "number"
           },
           "profitCny": {
+            "type": "number"
+          },
+          "grossMarginRate": {
+            "type": "number",
+            "nullable": true
+          },
+          "firstLegCny": {
+            "type": "number"
+          },
+          "netProfitCny": {
             "type": "number"
           }
         }

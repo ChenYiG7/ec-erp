@@ -47,6 +47,11 @@
             >删除</el-button
           >
         </template>
+        <template v-else-if="scope.row.status === 'IN_TRANSIT'">
+          <el-button v-auth="'inventory:transfer:confirm'" type="success" link @click="onReceive(scope.row)"
+            >到货确认</el-button
+          >
+        </template>
       </template>
     </ProTable>
     <TransferOrderForm ref="formRef" @saved="refreshTable" />
@@ -56,16 +61,17 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'inventory-transfer-index' })
-import { ref } from 'vue'
-import { CirclePlus, EditPen, Delete } from '@element-plus/icons-vue'
+
+import { CirclePlus, Delete, EditPen } from '@element-plus/icons-vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
+import { transferOrderApi } from '@/api/apis/inventory/transfer'
+import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import type { TransferOrderResponse } from '@/api/interface/inventory/transfer'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
-import { transferOrderApi } from '@/api/apis/inventory/transfer'
-import type { TransferOrderResponse } from '@/api/interface/inventory/transfer'
-import TransferOrderForm from './components/TransferOrderForm.vue'
 import TransferOrderDetail from './components/TransferOrderDetail.vue'
-import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import TransferOrderForm from './components/TransferOrderForm.vue'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
@@ -98,6 +104,7 @@ const columns: ColumnProps<TransferOrderResponse>[] = [
     search: { el: 'select', order: 4 },
     enum: [
       { label: '草稿', value: 'DRAFT', tagType: 'info' },
+      { label: '在途', value: 'IN_TRANSIT', tagType: 'warning' },
       { label: '已确认', value: 'CONFIRMED', tagType: 'success' },
       { label: '已取消', value: 'CANCELED', tagType: 'danger' },
     ],
@@ -120,13 +127,25 @@ const handleDelete = async (row: TransferOrderResponse) => {
   refreshTable()
 }
 
-// 确认调拨:DRAFT→CONFIRMED,V1 确认即达(同事务逐行两腿 TRANSFER_OUT/IN 动账,调出仓可用不足整单回滚)
+// 确认调拨:DIRECT 直达(两腿动账)/ IN_TRANSIT 在途模式(调出仓出库+调入仓占在途,到货确认后入库)
 const onConfirm = async (row: TransferOrderResponse) => {
-  await ElMessageBox.confirm(`确认调拨单 ${row.transferNo} 吗?确认即达:将立即按明细逐行两腿动账,不可逆。`, '提示', {
+  const inTransit = row.transitMode === 'IN_TRANSIT'
+  const tip = inTransit
+    ? `确认发出调拨单 ${row.transferNo} 吗?调出仓立即出库,调入仓记在途,到货需再点「到货确认」,不可逆。`
+    : `确认调拨单 ${row.transferNo} 吗?确认即达:将立即按明细逐行两腿动账,不可逆。`
+  await ElMessageBox.confirm(tip, '提示', { type: 'warning' })
+  await transferOrderApi.confirm(row.id)
+  ElMessage.success(inTransit ? '已发出,调入仓记在途' : '调拨已确认,库存已两腿动账')
+  refreshTable()
+}
+
+// 到货确认(#30 在途模式):IN_TRANSIT→CONFIRMED,逐行在途转在库(按计划数全额核销,短少走盘点调整)
+const onReceive = async (row: TransferOrderResponse) => {
+  await ElMessageBox.confirm(`确认调拨单 ${row.transferNo} 已到货吗?调入仓在途将转为在库。`, '提示', {
     type: 'warning',
   })
-  await transferOrderApi.confirm(row.id)
-  ElMessage.success('调拨已确认,库存已两腿动账')
+  await transferOrderApi.receive(row.id)
+  ElMessage.success('到货已确认,在途已转入库')
   refreshTable()
 }
 

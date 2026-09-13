@@ -36,13 +36,14 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'shop-shop-product-sku-index' })
-import { ref } from 'vue'
+
 import { ElButton } from 'element-plus'
+import { ref } from 'vue'
+import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
+import { shopProductSkuApi } from '@/api/apis/shop/shop-product-sku'
+import type { ShopProductSkuResponse } from '@/api/interface/shop/shop-product-sku'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
-import { shopProductSkuApi } from '@/api/apis/shop/shop-product-sku'
-import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
-import type { ShopProductSkuResponse } from '@/api/interface/shop/shop-product-sku'
 import BindDialog from './components/BindDialog.vue'
 
 // ProTable 实例(getTableList 供刷新)

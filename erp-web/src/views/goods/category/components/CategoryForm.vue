@@ -37,7 +37,7 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   ElButton,
   ElDialog,
@@ -50,7 +50,7 @@ import {
   ElSelect,
   ElTreeSelect,
 } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
+import { ref } from 'vue'
 import { categoryApi } from '@/api/apis/goods/category'
 import type { CategoryNode, ProductCategorySaveRequest } from '@/api/interface/goods/category'
 

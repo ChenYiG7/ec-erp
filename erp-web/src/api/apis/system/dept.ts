@@ -1,5 +1,5 @@
+import type { DeptNode, SysDeptSaveRequest } from '@/api/interface/system/dept'
 import http from '@/utils/request'
-import type { SysDeptSaveRequest, DeptNode } from '@/api/interface/system/dept'
 
 /**
  * 部门管理接口(#27③,/api/system/depts;手写——树形域无分页端点,gen:page 不适用,同分类管理先例)

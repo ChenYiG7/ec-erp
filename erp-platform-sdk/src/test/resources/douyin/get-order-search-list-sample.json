@@ -1,0 +1,52 @@
+{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "order_list": [
+      {
+        "order_id": "4200000000000000001",
+        "order_status": 3,
+        "create_time": 1724900000,
+        "pay_time": 1724900500,
+        "post_receiver_time": "2026-08-29 10:20:00",
+        "order_amount": 10936,
+        "post_amount": 800,
+        "order_promotion_amount": 1000,
+        "post_receiver": {
+          "name": "张三",
+          "phone": "13800000000",
+          "province": "广东省",
+          "city": "深圳市",
+          "town": "南山区",
+          "detail": "科技园路1号",
+          "postal_code": "518000"
+        },
+        "buyer_message": "深色优先",
+        "post_tips": "轻拿轻放",
+        "sku_order_list": [
+          {
+            "sku_order_id": "4200000000000000001-001",
+            "sku_id": "15000000000001",
+            "product_id": "3500000000001",
+            "product_name": "无线耳机",
+            "spec": "黑色",
+            "out_sku_id": "ERP-SKU-001",
+            "product_count": 2,
+            "price": 4100
+          },
+          {
+            "sku_order_id": "4200000000000000001-002",
+            "sku_id": "15000000000002",
+            "product_id": "3500000000001",
+            "product_name": "无线耳机",
+            "spec": "白色",
+            "out_sku_id": "ERP-SKU-002",
+            "product_count": 1,
+            "price": 4099
+          }
+        ]
+      }
+    ],
+    "has_more": false
+  }
+}

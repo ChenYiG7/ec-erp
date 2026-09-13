@@ -8,9 +8,11 @@ import com.own.erp.contract.ProfitDailyTrendRow;
 import com.own.erp.contract.ProfitSkuRankRow;
 import com.own.erp.contract.QueryPage;
 import com.own.erp.finance.entity.PlatformFeeRate;
+import com.own.erp.finance.mapper.FirstLegQueryMapper;
 import com.own.erp.finance.mapper.ProfitQueryMapper;
 import com.own.erp.finance.profit.OrderProfitAmountGroup;
 import com.own.erp.finance.profit.OrderProfitLine;
+import com.own.erp.finance.response.FirstLegSkuAllocSumRow;
 import com.own.erp.platform.unified.UnifiedSettlement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -25,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.TreeMap;
 
 /**
@@ -55,6 +59,8 @@ public class ProfitQueryService {
     private final ExchangeRateService exchangeRateService;
     /** #19 预估费用模型:佣金缺口按费率表估算(实际佣金优先,无费率不猜) */
     private final PlatformFeeRateService platformFeeRateService;
+    /** #33 利润第三层:头程运费分摊批量合计(同模块 first_leg_alloc 数据面) */
+    private final FirstLegQueryMapper firstLegQueryMapper;
 
     /** 订单行利润分页(下单时间倒序)。
      *  数据权限(#27①):shopIds 由 ProfitQueryApiImpl 强制装配,null=不过滤;空列表=不可见任何店铺(短路零结果) */
@@ -73,15 +79,18 @@ public class ProfitQueryService {
         List<OrderProfitRow> rows = shopScopeEmpty(query) ? List.of()
                 : assemble(profitQueryMapper.selectProfitLinesAll(
                         query.shopId(), query.platform(), query.skuId(), query.dateFrom(), query.dateTo(), query.shopIds()));
+        BigDecimal sales = sumOf(rows, OrderProfitRow::salesCny);
+        BigDecimal profit = sumOf(rows, OrderProfitRow::profitCny);
         return new OrderProfitSummary(
                 rows.size(),
-                sumOf(rows, OrderProfitRow::salesCny),
+                sales,
                 sumOf(rows, OrderProfitRow::costCny),
                 sumOf(rows, OrderProfitRow::commissionCny),
-                sumOf(rows, OrderProfitRow::profitCny),
+                profit,
                 rows.stream().filter(row -> row.rate() == null).count(),
                 rows.stream().filter(OrderProfitRow::costMissing).count(),
-                rows.stream().filter(OrderProfitRow::commissionMissing).count());
+                rows.stream().filter(OrderProfitRow::commissionMissing).count(),
+                grossMargin(sales, profit));
     }
 
     /** 利润日趋势(#21):全量行按下单日聚合,口径与 summarize 同源(同一装配管线,非独立 SQL);日期升序 */
@@ -96,16 +105,20 @@ public class ProfitQueryService {
         List<ProfitDailyTrendRow> trend = new ArrayList<>(byDate.size());
         for (Map.Entry<LocalDate, List<OrderProfitRow>> entry : byDate.entrySet()) {
             List<OrderProfitRow> dayRows = entry.getValue();
+            BigDecimal sales = sumOf(dayRows, OrderProfitRow::salesCny);
+            BigDecimal profit = sumOf(dayRows, OrderProfitRow::profitCny);
             trend.add(new ProfitDailyTrendRow(entry.getKey(), dayRows.size(),
-                    sumOf(dayRows, OrderProfitRow::salesCny),
+                    sales,
                     sumOf(dayRows, OrderProfitRow::costCny),
                     sumOf(dayRows, OrderProfitRow::commissionCny),
-                    sumOf(dayRows, OrderProfitRow::profitCny)));
+                    profit,
+                    grossMargin(sales, profit)));
         }
         return trend;
     }
 
-    /** SKU 利润排行(#21):按内部 SKU 聚合(仅已绑定行,未绑定行无 SKU 维度不参与),利润降序,topN 钳制 1..100 */
+    /** SKU 利润排行(#21):按内部 SKU 聚合(仅已绑定行,未绑定行无 SKU 维度不参与),利润降序,topN 钳制 1..100;
+     *  #33 第三层 enrichment:统计窗内头程分摊按方案 B 整窗摊入(shipped_at 锚点,复用查询窗参数) */
     public List<ProfitSkuRankRow> listSkuProfitRank(OrderProfitQuery query, int topN) {
         int limit = Math.max(1, Math.min(topN, 100));
         List<OrderProfitRow> rows = shopScopeEmpty(query) ? List.of()
@@ -117,18 +130,40 @@ public class ProfitQueryService {
                 bySku.computeIfAbsent(row.skuId(), k -> new ArrayList<>()).add(row);
             }
         }
+        Map<Long, BigDecimal> firstLegBySku = sumFirstLegBySku(bySku.keySet(), query.dateFrom(), query.dateTo());
         List<ProfitSkuRankRow> rank = new ArrayList<>(bySku.size());
         for (Map.Entry<Long, List<OrderProfitRow>> entry : bySku.entrySet()) {
             List<OrderProfitRow> skuRows = entry.getValue();
+            BigDecimal sales = sumOf(skuRows, OrderProfitRow::salesCny);
+            BigDecimal profit = sumOf(skuRows, OrderProfitRow::profitCny);
+            BigDecimal firstLeg = firstLegBySku.getOrDefault(entry.getKey(), ZERO);
             rank.add(new ProfitSkuRankRow(entry.getKey(), firstNonNull(skuRows), skuRows.size(),
                     skuRows.stream().mapToLong(row -> row.quantity() == null ? 0L : row.quantity()).sum(),
-                    sumOf(skuRows, OrderProfitRow::salesCny),
+                    sales,
                     sumOf(skuRows, OrderProfitRow::costCny),
                     sumOf(skuRows, OrderProfitRow::commissionCny),
-                    sumOf(skuRows, OrderProfitRow::profitCny)));
+                    profit,
+                    grossMargin(sales, profit),
+                    firstLeg,
+                    profit.subtract(firstLeg)));
         }
         rank.sort(Comparator.comparing(ProfitSkuRankRow::profitCny).reversed());
         return rank.size() > limit ? rank.subList(0, limit) : rank;
+    }
+
+    /**
+     * 头程分摊批量合计(#33 方案 B):按排名 SKU 集合批量取(空集短路不触库),
+     * 时间窗复用查询参数(下单窗=统计窗,shipped_at 锚点);无分摊 SKU 缺键调用方按 0 兜底
+     */
+    private Map<Long, BigDecimal> sumFirstLegBySku(Collection<Long> skuIds, LocalDateTime from, LocalDateTime to) {
+        if (skuIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, BigDecimal> sums = new HashMap<>();
+        for (FirstLegSkuAllocSumRow row : firstLegQueryMapper.sumAllocBySkuIds(skuIds, from, to)) {
+            sums.put(row.getSkuId(), row.getAllocAmountCny() == null ? ZERO : row.getAllocAmountCny());
+        }
+        return sums;
     }
 
     /** 商品名称快照:同 SKU 多订单行取首见非空(禁 null 出契约) */
@@ -226,6 +261,12 @@ public class ProfitQueryService {
 
     private BigDecimal sumOf(List<OrderProfitRow> rows, java.util.function.Function<OrderProfitRow, BigDecimal> getter) {
         return rows.stream().map(getter).filter(Objects::nonNull).reduce(ZERO, BigDecimal::add);
+    }
+
+    /** 毛利率(%,profit/sales×100 保留 1 位小数 HALF_UP);sales 空/≤0 返 NULL 禁猜(#21 拍板后端统一下发) */
+    private BigDecimal grossMargin(BigDecimal sales, BigDecimal profit) {
+        return sales == null || sales.signum() <= 0 ? null
+                : profit.multiply(BigDecimal.valueOf(100)).divide(sales, 1, RoundingMode.HALF_UP);
     }
 
     /** 数据权限空授权集判定(#27①):shopIds 非 null 且空 = 不可见任何店铺,四方法统一短路零结果 */

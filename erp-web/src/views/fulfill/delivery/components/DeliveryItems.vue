@@ -13,8 +13,8 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
 import { ElEmpty, ElTable, ElTableColumn } from 'element-plus'
+import { onMounted, ref } from 'vue'
 import { deliveryOrderApi } from '@/api/apis/fulfill/delivery'
 import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
 import type { DeliveryOrderItemResponse, DeliveryOrderResponse } from '@/api/interface/fulfill/delivery'

@@ -43,14 +43,15 @@
 defineOptions({
   name: 'LayoutTransverse',
 })
+
 import { ElContainer, ElHeader, ElIcon, ElMenu, ElMenuItem, ElSubMenu } from 'element-plus'
 import { computed } from 'vue'
-import { useAuthStore } from '@/stores/modules/auth'
 import { useRoute, useRouter } from 'vue-router'
-import MainContainer from '@/layouts/components/Main/index.vue'
-import ToolBarRight from '@/layouts/components/Header/ToolBarRight.vue'
-import SubMenu from '@/layouts/components/Menu/SubMenu.vue'
 import type { MenuOptions } from '@/api/interface'
+import ToolBarRight from '@/layouts/components/Header/ToolBarRight.vue'
+import MainContainer from '@/layouts/components/Main/index.vue'
+import SubMenu from '@/layouts/components/Menu/SubMenu.vue'
+import { useAuthStore } from '@/stores/modules/auth'
 
 const title = import.meta.env.VITE_GLOB_APP_TITLE
 

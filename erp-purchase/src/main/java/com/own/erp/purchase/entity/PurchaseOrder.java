@@ -39,6 +39,9 @@ public class PurchaseOrder {
     /** DRAFT草稿/AUDITED已审核/PARTIAL_RECEIVED部分入库/RECEIVED已入库/CLOSED已关闭(状态机草案,业务确认后调整) */
     private String status;
 
+    /** 审核时间(audit 动作落,#31 账期起算锚点;历史单 NULL=不参与账期提醒) */
+    private LocalDateTime auditTime;
+
     /** 采购总金额(本位币) */
     private BigDecimal totalAmount;
 

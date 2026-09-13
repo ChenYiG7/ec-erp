@@ -12,6 +12,8 @@
      casCancel DRAFT 可取消、SHIPPED(动账后)禁取消
   2. 行锁读 selectByIdForUpdate(@Select FOR UPDATE)语法真库可用
   3. 分页 XML pageRows:店名/仓名 LEFT JOIN 取名 + shipmentNo LIKE/status/shopId/marketplace/warehouseId 过滤形态
+     3.5 构造映射参列数对齐:pageRows 列数 = FbaShipmentResponse 构造参数数(明细 List NULL 占位;
+         record 缺列=有行即 500,空表/直跑 SQL 均不暴露,#26 七轮实锚)
 
 哑元行用 9 亿段 id(shop 900000001/warehouse 900000002/单据 900000009~11),验证完删除,不碰业务数据。
 用法:python scripts/validate_fba_sql.py
@@ -227,6 +229,21 @@ def main():
     assert DUMMY_D in filtered and not (filtered & {DUMMY_A, DUMMY_B, DUMMY_C}), \
         f'status=DRAFT 过滤应仅留 D 单: {sorted(filtered)}'
     ok(cur, '3. pageRows 店名/仓名 LEFT JOIN + shipmentNo LIKE/status/shopId/marketplace/warehouseId 过滤形态')
+
+    # ---------- 3.5 构造映射参列数对齐(#26 七轮 2026-09-13):record 无 setter,MyBatis 按列序
+    # 构造自动映射,缺列=有行即 500,且空表直跑 SQL 均不暴露(goodsTrend/FBA pageRows 两次同款教训)
+    # ——静态断言 pageRows 列数与 record 构造参数数相等
+    resp_java = (ROOT / 'erp-fulfill/src/main/java/com/own/erp/fulfill/response/FbaShipmentResponse.java').read_text(
+        encoding='utf-8')
+    rm = re.search(r'public record FbaShipmentResponse\((.*?)\)\s*\{', resp_java, re.S)
+    assert rm, 'FbaShipmentResponse record 头解析失败'
+    args = re.sub(r'/\*\*.*?\*/', ' ', rm.group(1), flags=re.S)
+    args = re.sub(r'List<[^<>]*>', 'LIST', args)
+    arg_count = len([a for a in args.split(',') if a.strip()])
+    select_part = extract_page_rows(drop_ifs=True).split(' FROM ')[0]
+    col_count = len([c for c in select_part.split(',') if c.strip()])
+    assert arg_count == col_count, f'pageRows 列数({col_count}) != record 构造参数数({arg_count}),有行即 500'
+    ok(cur, f'3.5 pageRows 构造映射参列数对齐(record {arg_count} 参 = SQL {col_count} 列,含明细 List NULL 占位)')
 
     clear(cur)
     cur.execute('SELECT COUNT(*) FROM fba_shipment WHERE id IN (%s,%s,%s,%s)', (DUMMY_A, DUMMY_B, DUMMY_C, DUMMY_D))

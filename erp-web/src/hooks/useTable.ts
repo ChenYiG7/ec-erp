@@ -1,7 +1,7 @@
 import { reactive, toRefs } from 'vue'
+import type { ComposerTranslation } from 'vue-i18n'
 import { DEFAULT_PAGE_SIZE } from '@/constants/proTable'
 import { ProTablePaginationEnum } from '@/enums'
-import type { ComposerTranslation } from 'vue-i18n'
 
 export interface Pageable {
   pageNum: number
@@ -55,11 +55,15 @@ export function useTable<TableItem>(
     totalParam: {},
   })
 
+  // 请求序号:过期响应不覆盖新数据(激活刷新/initParam 变更与在途慢响应竞态,#26 七轮中心化守卫)
+  let requestSeq = 0
+
   /**
    * @description 获取表格数据
    * @return void
    * */
   const getTableList = async () => {
+    const seq = ++requestSeq
     try {
       // 先把初始化参数和分页参数放到总参数里面(发参收口:后端 PageQuery 收 pageNo,pageable 内部态仍叫 pageNum)
       Object.assign(
@@ -71,6 +75,9 @@ export function useTable<TableItem>(
       )
 
       const data = await api({ ...state.searchInitParam, ...state.totalParam })
+      if (seq !== requestSeq) {
+        return
+      }
       let listData: TableItem[] | IObject[] = []
       if (pagination === ProTablePaginationEnum.BE) {
         if (Array.isArray((data as ResultPage<TableItem>).list)) {
@@ -93,6 +100,11 @@ export function useTable<TableItem>(
         const filterData = queryKeys.length ? fePaginationFilterMethod!(rest) : (data as TableItem[])
         listData = filterData.slice((pageNo - 1) * pageSize, pageNo * pageSize)
         state.pageable.total = queryKeys.length ? filterData.length : (data as TableItem[]).length
+      }
+      // 空页回退:当前页数据被删空(删除/作废/他端变动)时自动回退上一页重取,防停留越界空白页(页码=1 兜底无死循环)
+      if (pagination !== ProTablePaginationEnum.NONE && listData.length === 0 && state.pageable.pageNum > 1) {
+        state.pageable.pageNum -= 1
+        return getTableList()
       }
       // @ts-expect-error 类型不兼容
       state.tableData = dataCallBack ? dataCallBack(listData) : listData

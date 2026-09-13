@@ -36,8 +36,9 @@
 </template>
 <script setup lang="ts">
 defineOptions({ name: 'finance-payment-detail-drawer' })
-import { ref } from 'vue'
+
 import { ElDescriptions, ElDescriptionsItem, ElDrawer, ElTable, ElTableColumn, ElTag } from 'element-plus'
+import { ref } from 'vue'
 import { paymentRecordApi } from '@/api/apis/finance/payment'
 import type { PaymentDetailResponse } from '@/api/interface/finance/payment'
 

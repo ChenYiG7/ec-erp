@@ -105,15 +105,16 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'finance-profit-index' })
+
+import { ElButton, ElCard, ElDatePicker, ElForm, ElFormItem, ElInput, ElOption, ElSelect, ElTag } from 'element-plus'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { ElCard, ElButton, ElDatePicker, ElForm, ElFormItem, ElInput, ElOption, ElSelect, ElTag } from 'element-plus'
+import { profitApi } from '@/api/apis/finance/profit'
+import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
+import { fetchShopOptions } from '@/api/apis/shop/options'
+import type { OrderProfitQuery, OrderProfitRow, OrderProfitSummary } from '@/api/interface/finance/profit'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnProps } from '@/components/ProTable/interface'
-import { profitApi } from '@/api/apis/finance/profit'
-import { fetchShopOptions } from '@/api/apis/shop/options'
-import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
 import { useDictStore } from '@/stores/modules/dict'
-import type { OrderProfitQuery, OrderProfitRow, OrderProfitSummary } from '@/api/interface/finance/profit'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
@@ -138,7 +139,13 @@ fetchShopOptions().then(opts => (shopOptions.value = opts))
 const platformOptions = ref<Array<{ label: string; value: string }>>([])
 useDictStore()
   .getDict('shop_platform')
-  .then(list => (platformOptions.value = list.map(item => ({ label: item.dictLabel, value: item.dictValue }))))
+  .then(
+    list =>
+      (platformOptions.value = list.map(item => ({
+        label: item.dictLabel,
+        value: item.dictValue,
+      })))
+  )
 
 const applyFilter = () => {
   initParam.shopId = filter.shopId

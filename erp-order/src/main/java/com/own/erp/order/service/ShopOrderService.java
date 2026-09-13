@@ -11,6 +11,7 @@ import com.own.erp.contract.CurrentUserApi;
 import com.own.erp.contract.OrderReviewConsts;
 import com.own.erp.order.entity.ShopOrder;
 import com.own.erp.order.entity.ShopOrderItem;
+import com.own.erp.order.event.OrderReviewedEvent;
 import com.own.erp.order.mapper.ShopOrderItemMapper;
 import com.own.erp.order.mapper.ShopOrderMapper;
 import com.own.erp.order.request.query.ShopOrderQuery;
@@ -167,6 +168,33 @@ public class ShopOrderService {
             throw new BusinessException(approve
                     ? "审核通过失败:订单不存在或已通过审核"
                     : "审核驳回失败:订单不存在或已通过审核");
+        }
+        if (approve) {
+            publishReviewedEvent(id);
+        }
+    }
+
+    /**
+     * 审核通过事件(#29 余量「自动拆单建议」,2026-09-12 方案 A 拍板):cas 占位成功后发布,
+     * erp-api 监听器桥接 erp-ai 拆单建议(铁律 2,事件介体同 ManualOrderCollisionEvent 先例);
+     * 事件为旁路(建议失败不影响审核结果,监听侧自兜)
+     */
+    private void publishReviewedEvent(Long orderId) {
+        try {
+            ShopOrder order = shopOrderMapper.selectById(orderId);
+            if (order == null) {
+                return;
+            }
+            List<ShopOrderItem> items = shopOrderItemMapper.selectList(new LambdaQueryWrapper<ShopOrderItem>()
+                    .eq(ShopOrderItem::getOrderId, orderId));
+            eventPublisher.publishEvent(new OrderReviewedEvent(orderId, order.getShopId(), order.getPlatformOrderId(),
+                    items.stream()
+                            .filter(item -> item.getSkuId() != null && item.getQuantity() != null)
+                            .map(item -> new OrderReviewedEvent.Item(item.getSkuId(), item.getQuantity()))
+                            .toList()));
+        } catch (Exception e) {
+            // 事件组装失败只记日志:审核主流程已完成,建议属旁路
+            log.warn("审核通过事件组装失败 orderId={}", orderId, e);
         }
     }
 

@@ -1,9 +1,12 @@
 # FBA Shipment 实施计划书
 
-> **已于 2026-09-12 实施(V1 内部数据面,devlog 见 `docs/devlog/2026-09-12-FBA发货单落地.md`)**。
+> **已于 2026-09-12 实施(V1 内部数据面;实施偏差与拍板细节见本文件头部标注与 TODO.md FBA 条目;
+> V2 SP-API Inbound 客户端(2026-09-12 脱机)见 `docs/devlog/2026-09-12-SP-API外部依赖项预做收口.md`)**。
 > 实施偏差:①新增 `fba_shipment_item` 计划行表(计划书 DDL 草案四表 → 五表——「Σbox_item=计划量」
 > 装箱勾稽必须有计划量存储位);②FBA 目的仓不校验存在性(V1 仓侧不入账,warehouse_id 仅指国内发货仓);
-> ③店铺存在性后端校验未做(契约无单店视图方法,前端下拉兜底);余量与拍板记录见 TODO.md FBA 条目与 devlog。
+> ③店铺存在性后端校验**已于 2026-09-13 接线**(ShopQueryApi.getShop 单店视图方法随 #6 tools 已存在,
+>   FbaShipmentService save/update 双入口 validateShop(同 ManualOrderService 口径仅存在性,停用店铺不拦
+>   既有履约),单测 2 例(假店铺建/改双拦+零写入断言)+ 真机冒烟全过);余量与拍板记录见 TODO.md FBA 条目与 devlog。
 
 | 元信息 | 值 |
 |---|---|

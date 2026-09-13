@@ -41,9 +41,10 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致(system/dept/index)
 defineOptions({ name: 'system-dept-index' })
-import { onMounted, ref } from 'vue'
-import { ElButton, ElMessage, ElMessageBox, ElTable, ElTableColumn, ElTag } from 'element-plus'
+
 import { CirclePlus, Refresh } from '@element-plus/icons-vue'
+import { ElButton, ElMessage, ElMessageBox, ElTable, ElTableColumn, ElTag } from 'element-plus'
+import { onMounted, ref } from 'vue'
 import { sysDeptApi } from '@/api/apis/system/dept'
 import type { DeptNode } from '@/api/interface/system/dept'
 import DeptForm from './components/DeptForm.vue'

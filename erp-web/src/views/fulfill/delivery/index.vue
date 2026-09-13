@@ -66,18 +66,19 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'fulfill-delivery-index' })
-import { ref } from 'vue'
-import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+
 import { CirclePlus } from '@element-plus/icons-vue'
-import ProTable from '@/components/ProTable/index.vue'
-import type { ColumnProps } from '@/components/ProTable/interface'
+import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
 import { deliveryOrderApi } from '@/api/apis/fulfill/delivery'
 import { fetchShopOptions } from '@/api/apis/shop/options'
+import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
 import type { DeliveryOrderResponse } from '@/api/interface/fulfill/delivery'
-import DeliveryItems from './components/DeliveryItems.vue'
+import ProTable from '@/components/ProTable/index.vue'
+import type { ColumnProps } from '@/components/ProTable/interface'
 import DeliveryCreateForm from './components/DeliveryCreateForm.vue'
 import DeliveryEditForm from './components/DeliveryEditForm.vue'
-import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import DeliveryItems from './components/DeliveryItems.vue'
 
 // ProTable 实例(getTableList 供刷新)
 const proTableRef = ref<InstanceType<typeof ProTable>>()
@@ -117,6 +118,18 @@ const columns: ColumnProps<DeliveryOrderResponse>[] = [
       { label: '已发货', value: 'SHIPPED', tagType: 'primary' },
       { label: '已签收', value: 'DELIVERED', tagType: 'success' },
       { label: '已取消', value: 'CANCELLED', tagType: 'info' },
+    ],
+  },
+  {
+    // 平台回传状态(#11 激活期余量):NULL(未发货/存量)不显示;失败原因与重试痕迹在 pull_log 与库列
+    prop: 'syncStatus',
+    label: '回传状态',
+    width: 100,
+    tag: true,
+    enum: [
+      { label: '待回传', value: 'PENDING', tagType: 'warning' },
+      { label: '回传成功', value: 'SUCCESS', tagType: 'success' },
+      { label: '回传失败', value: 'FAILED', tagType: 'danger' },
     ],
   },
   { prop: 'logisticsCompany', label: '物流公司', width: 120 },

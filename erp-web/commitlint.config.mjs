@@ -1,20 +1,20 @@
 // @see: https://cz-git.qbenben.com/zh/guide
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Create equivalents for __dirname and __filename
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const scopes = fs
   .readdirSync(path.resolve(__dirname, 'src'), { withFileTypes: true })
-  .filter(dirent => dirent.isDirectory())
-  .map(dirent => dirent.name.replace(/s$/, ''))
+  .filter((dirent) => dirent.isDirectory())
+  .map((dirent) => dirent.name.replace(/s$/, ''));
 
 /** @type {import('cz-git').UserConfig} */
 export default {
-  ignores: [commit => commit.includes('init')],
+  ignores: [(commit) => commit.includes('init')],
   extends: ['@commitlint/config-conventional'],
   rules: {
     // @see: https://commitlint.js.org/#/reference-rules
@@ -165,4 +165,4 @@ export default {
     customScopesAlias: 'custom',
     allowBreakingChanges: ['feat', 'fix'],
   },
-}
+};

@@ -7,8 +7,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.own.erp.platform.PlatformShipment;
+import com.own.erp.platform.gateway.PlatformRateGuard;
+import com.own.erp.platform.gateway.RateLimitObserver;
 import com.own.erp.platform.unified.UnifiedOrder;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
@@ -60,14 +64,17 @@ public class SpApiOrdersClient {
     private final String region;
     private final String marketplaceIds;
     private final Clock clock;
+    private final RateLimitObserver observer;
     private final RestClient restClient;
     private final SpApiSigner signer = new SpApiSigner();
 
-    public SpApiOrdersClient(String baseUrl, String region, String marketplaceIds, Clock clock) {
+    public SpApiOrdersClient(String baseUrl, String region, String marketplaceIds,
+                             Clock clock, RateLimitObserver observer) {
         this.baseUri = URI.create(baseUrl);
         this.region = region;
         this.marketplaceIds = marketplaceIds;
         this.clock = clock;
+        this.observer = observer;
         this.restClient = RestClient.builder().baseUrl(baseUrl).build();
     }
 
@@ -161,8 +168,10 @@ public class SpApiOrdersClient {
             if (StrUtil.isNotBlank(awsCredentials.sessionToken())) {
                 spec = spec.header("X-Amz-Security-Token", awsCredentials.sessionToken());
             }
-            spec.retrieve().toBodilessEntity();
+            ResponseEntity<String> entity = spec.retrieve().toEntity(String.class);
+            reportRateLimit(RateLimitObserver.BUCKET_WRITE, "confirmShipment", entity.getHeaders());
         } catch (RestClientResponseException e) {
+            reportRateLimit(RateLimitObserver.BUCKET_WRITE, "confirmShipment", e.getResponseHeaders());
             // 响应原文可能含调用参数与账号上下文,只透出状态码定位问题(docs/07 §7)
             throw new IllegalStateException("SP-API confirmShipment 调用失败:HTTP " + e.getStatusCode().value(), e);
         }
@@ -233,7 +242,7 @@ public class SpApiOrdersClient {
     private JsonNode execute(SpApiSigner.SignedHeaders signed, String lwaAccessToken,
                              SpApiSigner.AwsCredentials awsCredentials, String operation, String path) {
         String url = baseUri + path + "?" + signed.canonicalQueryString();
-        JsonNode body;
+        ResponseEntity<JsonNode> entity;
         try {
             RestClient.RequestHeadersSpec<?> spec = restClient.get()
                     .uri(URI.create(url))
@@ -243,14 +252,28 @@ public class SpApiOrdersClient {
             if (StrUtil.isNotBlank(awsCredentials.sessionToken())) {
                 spec = spec.header("X-Amz-Security-Token", awsCredentials.sessionToken());
             }
-            body = spec.retrieve().body(JsonNode.class);
+            entity = spec.retrieve().toEntity(JsonNode.class);
         } catch (RestClientResponseException e) {
+            reportRateLimit(RateLimitObserver.BUCKET_PULL, operation, e.getResponseHeaders());
             // 响应原文可能含调用参数与账号上下文,只透出状态码定位问题(docs/07 §7)
             throw new IllegalStateException("SP-API " + operation + " 调用失败:HTTP " + e.getStatusCode().value(), e);
         }
+        reportRateLimit(RateLimitObserver.BUCKET_PULL, operation, entity.getHeaders());
+        JsonNode body = entity.getBody();
         if (body == null || body.get("payload") == null) {
             throw new IllegalStateException("SP-API " + operation + " 响应缺 payload");
         }
         return body.get("payload");
+    }
+
+    /** 限流头上报(guard 缺位 observer=null 静默跳过;值解析与取舍归 PlatformRateGuard) */
+    private void reportRateLimit(String bucket, String operation, HttpHeaders headers) {
+        if (observer == null || headers == null) {
+            return;
+        }
+        String value = headers.getFirst(PlatformRateGuard.RATE_LIMIT_HEADER);
+        if (StrUtil.isNotBlank(value)) {
+            observer.observe(bucket, operation, value);
+        }
     }
 }

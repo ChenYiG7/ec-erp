@@ -9,7 +9,7 @@
 | 明确不做 | 新报表维度开发(报表中心面已就绪);广告报表工具(卡 #20);AI 写操作(铁律 7 永久红线) |
 
 > **已于 2026-09-10 实施**(ReportQueryApi 契约 + ReportQueryApiImpl + ReportTools 第八类 + chat/agent 双通道接线),
-> devlog 见 `docs/devlog/TODO6-Reporttools第八类落地.md`。
+> devlog 见 `docs/devlog/archive/TODO6-Reporttools第八类落地.md`。
 > 实施差异(与本文原案):①契约落 4 个报表面方法(salesDailySummary/skuSalesTop/skuTrend/inventorySnapshotSummary)
 > —— 原文 §2.1 列名的即这 4 个,"五方法"仅见于执行提示词(疑为把利润 bullet 计入),周报未入契约;
 > ②利润工具仅返 `OrderProfitSummary` 聚合面,不返行页(OrderProfitRow 19 字段含内部 id 堆栈,与本文 §2.2「AI 裁剪」相悖);

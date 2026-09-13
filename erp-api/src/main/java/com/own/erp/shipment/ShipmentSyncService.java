@@ -1,6 +1,7 @@
 package com.own.erp.shipment;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.thread.ThreadFactoryBuilder;
 import cn.hutool.core.util.StrUtil;
 import com.own.erp.common.api.DeliveryShippedEvent;
 import com.own.erp.common.constant.PullConsts;
@@ -19,11 +20,13 @@ import com.own.erp.shop.service.ShopService;
 import com.own.erp.system.service.SysNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -31,6 +34,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author : chenyi
@@ -56,10 +64,12 @@ import java.util.Map;
  *         承运商口径:发货单 logisticsCompany 是自由文本(中文名),无平台 carrierCode 映射表——
  *         carrierCode 置空、carrierName 兜底(SP-API 编外承运商接受 carrierName,adapter 侧校验"至少其一")。
  *
- *         ⚠️ 已知边界:回传在 ship 请求线程内同步执行(AFTER_COMMIT 后、Controller 返回前),
- *         平台侧慢/超时会拖长"确认发货"响应;V1 接受(失败只记 pull_log 不影响结果正确性),
- *         真凭证联调实测耗时后若不可接受,再改为独立 executor 异步化(不复用 pullScheduler 单线程池,
- *         免回传占住拉单调度线程)
+ *         ⚠️ 回传线程模型(2026-09-12 异步化预做,#11 P3 余量):默认 sync-async=false 在 ship 请求线程内
+ *         同步执行(AFTER_COMMIT 后、Controller 返回前),平台侧慢/超时会拖长"确认发货"响应(失败只记
+ *         pull_log 不影响结果正确性);erp.shipment.sync-async=true 切独立单线程 executor(ship-sync-,
+ *         禁复用 pullScheduler 单线程池免占拉单调度,MDC traceId 随任务快照透传续链),有界队列满载
+ *         CallerRuns 降级回同步不丢事件,停机期提交被拒不抛只记 error。真凭证联调实测平台耗时不可接受后
+ *         拍板翻开关即可,零代码改动
  */
 @Slf4j
 @Service
@@ -68,6 +78,9 @@ public class ShipmentSyncService {
 
     /** pull_log 行数语义:一次回传记 1 行(非拉取型,不复用 pulled_count 的条数语义) */
     private static final int SYNC_COUNT = 1;
+
+    /** 异步通道队列容量:回传低频(随发货事件),满载说明平台侧大面积阻塞,CallerRuns 降级回同步兜底 */
+    private static final int ASYNC_QUEUE_CAPACITY = 100;
 
     private final DeliveryOrderService deliveryOrderService;
     private final ShopOrderApi shopOrderApi;
@@ -81,13 +94,23 @@ public class ShipmentSyncService {
     @Value("${erp.shipment.sync-enabled:true}")
     private boolean syncEnabled;
 
+    /** 异步开关(默认关=ship 请求线程同步直执):真凭证实测平台耗时拖长发货响应后再拍板翻开,false→true 零代码改动 */
+    @Value("${erp.shipment.sync-async:false}")
+    private boolean syncAsync;
+
     /**
-     * 事件入口(AFTER_COMMIT):异常一律吞掉转日志——事务已提交,回传失败不得影响 ship 的返回语义,
-     * 失败痕迹落 pull_log(docs/07 §3 排障第一入口),由连续失败告警兜底人工介入
+     * 回传专用 executor(单线程保序;禁复用 pullScheduler 调度线程,免回传占住拉单):
+     * 线程懒创建 + 空闲 60s 回收,异步关态/低频期零常驻;队列有界满载 CallerRuns 降级回同步不丢事件
      */
+    private ExecutorService syncExecutor = createSyncExecutor();
+
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onDeliveryShipped(DeliveryShippedEvent event) {
         if (!syncEnabled || event == null) {
+            return;
+        }
+        if (syncAsync) {
+            submitAsync(event);
             return;
         }
         try {
@@ -95,6 +118,44 @@ public class ShipmentSyncService {
         } catch (Exception e) {
             log.error("发货回传编排未预期异常 delivery={}", event.deliveryId(), e);
         }
+    }
+
+    /**
+     * 异步提交:traceId 以快照随任务透传(MDC 不跨线程,续接 #9 排障链),任务收尾强制清防串线程污染;
+     * 提交被拒(executor 已停机等极端场景)不抛——ship 链路已提交,error 留痕供人工对账
+     */
+    private void submitAsync(DeliveryShippedEvent event) {
+        Map<String, String> mdc = MDC.getCopyOfContextMap();
+        try {
+            syncExecutor.execute(() -> {
+                if (mdc != null) {
+                    MDC.setContextMap(mdc);
+                }
+                try {
+                    sync(event.deliveryId());
+                } catch (Exception e) {
+                    log.error("发货回传编排未预期异常 delivery={}", event.deliveryId(), e);
+                } finally {
+                    MDC.clear();
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("发货回传任务提交被拒(executor 不可用),delivery={}", event.deliveryId(), e);
+        }
+    }
+
+    private static ExecutorService createSyncExecutor() {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 60L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(ASYNC_QUEUE_CAPACITY),
+                ThreadFactoryBuilder.create().setNamePrefix("ship-sync-").build(),
+                new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
+    }
+
+    @PreDestroy
+    void shutdownSyncExecutor() {
+        syncExecutor.shutdown();
     }
 
     /**
@@ -130,12 +191,31 @@ public class ShipmentSyncService {
                     PullConsts.PULL_WAY_EVENT);
             log.info("发货回传成功 delivery={} shop={} platformOrderId={} rows={} cost={}ms",
                     deliveryId, shopId, shipment.platformOrderId(), shipment.items().size(), cost);
+            markSyncQuietly(deliveryId, true, null);
         } catch (Exception e) {
             long cost = System.currentTimeMillis() - begin;
             pullLogService.recordFailure(shopId, PullConsts.DATA_TYPE_SHIPMENT, now, now,
                     e.getClass().getSimpleName() + ": " + e.getMessage(), cost, PullConsts.PULL_WAY_EVENT);
             log.error("发货回传失败 delivery={} shop={} cost={}ms", deliveryId, shopId, cost, e);
             alertIfContinuousFailure(shopId, e);
+            markSyncQuietly(deliveryId, false, e.getMessage());
+        }
+    }
+
+    /**
+     * 回传状态回写(#11 激活期余量):SUCCESS 条件更新翻牌 / FAILED + 计数自增(补偿扫退避与停扫依据);
+     * 静默——状态列写失败不影响回传主流程与 pull_log 记录,error 留痕人工对账。
+     * 跳过路径不回写:停留 PENDING 语义正确("待回传"),补偿扫会持续兜底
+     */
+    private void markSyncQuietly(Long deliveryId, boolean success, String failReason) {
+        try {
+            if (success) {
+                deliveryOrderService.markSyncSuccess(deliveryId);
+            } else {
+                deliveryOrderService.markSyncFailed(deliveryId, failReason);
+            }
+        } catch (Exception e) {
+            log.error("发货回传状态回写失败 delivery={} success={}", deliveryId, success, e);
         }
     }
 

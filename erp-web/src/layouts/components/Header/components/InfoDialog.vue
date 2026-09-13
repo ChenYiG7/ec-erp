@@ -22,6 +22,7 @@
 defineOptions({
   name: 'InfoDialog',
 })
+
 import { ElButton, ElDescriptions, ElDescriptionsItem, ElDialog, ElTag } from 'element-plus'
 import { ref } from 'vue'
 import { useUserStore } from '@/stores/modules/user'

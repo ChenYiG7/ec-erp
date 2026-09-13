@@ -26,12 +26,12 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import { ElButton, ElDescriptions, ElDescriptionsItem, ElDialog, ElTable, ElTableColumn } from 'element-plus'
 import { ref } from 'vue'
-import { ElButton, ElDialog, ElDescriptions, ElDescriptionsItem, ElTable, ElTableColumn } from 'element-plus'
-import { transferOrderApi } from '@/api/apis/inventory/transfer'
-import type { TransferOrderResponse } from '@/api/interface/inventory/transfer'
 import { fetchSkuNames, skuLabel } from '@/api/apis/goods/options'
+import { transferOrderApi } from '@/api/apis/inventory/transfer'
 import { fetchWarehouseOptions } from '@/api/apis/warehouse/options'
+import type { TransferOrderResponse } from '@/api/interface/inventory/transfer'
 
 defineOptions({ name: 'TransferOrderDetail' })
 

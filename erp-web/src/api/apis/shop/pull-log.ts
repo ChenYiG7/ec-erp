@@ -1,6 +1,6 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
-import type { PullLogResponse, PullLogQuery } from '@/api/interface/shop/pull-log'
+import type { PullLogQuery, PullLogResponse } from '@/api/interface/shop/pull-log'
+import http from '@/utils/request'
 
 /**
  * 拉单日志(/api/pull-logs,由 gen:page 生成)

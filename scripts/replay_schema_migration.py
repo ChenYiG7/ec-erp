@@ -7,7 +7,8 @@
 本脚本按"剥离整行 -- 注释 → 引号感知切分 → 逐条执行"重放正本,再按正本注释段补齐历史加列
 (information_schema 判存,缺则 ALTER,幂等),最后对照正本段校验表/列/索引/菜单/授权/config 全就位。
 
-覆盖余量(2026-09-12):#19/#25/#27①②③/#29/#30(3808/3809)/#31(菜单+加列)/#32/#33/fba-shipment 五表与菜单 46 段。
+覆盖余量(2026-09-12):#19/#25/#27①②③/#29/#30(3808/3809)/#31(菜单+加列)/#32/#33/fba-shipment 五表与菜单 46 段;
+    #11 回传余量四列(sync_status/sync_retry_count/sync_fail_reason/sync_time)+idx_sync(2026-09-12 追加)。
 哑元:无——只做 DDL/种子重放,不触碰业务数据。用法:python scripts/replay_schema_migration.py
 """
 import io
@@ -34,6 +35,8 @@ HISTORY_COLUMNS = {
         ("risk_flag", "VARCHAR(255) NULL COMMENT '命中风控规则摘要(#29)'"),
     ],
     'supplier': [("settle_days", "INT NULL COMMENT '账期天数(V1仅展示,到期提醒随预警引擎评估,TODO#31)'")],
+    'purchase_order': [("audit_time", "DATETIME NULL COMMENT '审核时间(audit 动作落,#31 账期起算锚点;2026-09-12 加列,已建库跑 replay_schema_migration.py 补齐)'")],
+    'transfer_order': [("transit_mode", "VARCHAR(16) NOT NULL DEFAULT 'DIRECT' COMMENT '动账模式(#30 余量①):DIRECT确认即达(V1默认)/IN_TRANSIT在途(OUT→到货IN);2026-09-12 加列,已建库跑 replay_schema_migration.py 补齐'")],
     'product_sku': [
         ("length_mm", "INT NULL COMMENT '外长(毫米),头程/FBA装箱属性(#33)'"),
         ("width_mm", "INT NULL COMMENT '外宽(毫米),头程/FBA装箱属性(#33)'"),
@@ -43,9 +46,18 @@ HISTORY_COLUMNS = {
         ("original_file_key", "VARCHAR(512) NULL COMMENT 'OSS 对象键(原文存储,#25;NULL=未存原文:粘贴文本或OSS未启用)'"),
         ("original_file_size", "BIGINT NULL COMMENT '原文字节数(#25,与original_file_key成对)'"),
     ],
+    'delivery_order': [
+        ("sync_status", "VARCHAR(32) NULL COMMENT '平台回传状态(#11 激活期余量 2026-09-12):NULL未发货无关(存量已发货单不回溯)/PENDING待回传/SUCCESS回传成功/FAILED回传失败'"),
+        ("sync_retry_count", "INT NOT NULL DEFAULT 0 COMMENT '回传补偿重试次数(失败路径+1,达上限停扫待人工;#11 激活期余量 2026-09-12)'"),
+        ("sync_fail_reason", "VARCHAR(500) NULL COMMENT '最近一次回传失败原因(成功即清空;#11 激活期余量 2026-09-12)'"),
+        ("sync_time", "DATETIME NULL COMMENT '最近一次回传尝试时间(补偿扫退避基准:下次重试需距此 N×backoff 分钟;#11 激活期余量 2026-09-12)'"),
+    ],
 }
-# 历史加索引:表 → (索引名, 列)
-HISTORY_INDEXES = {'shop_order': ('idx_review', 'review_status')}
+# 历史加索引:表 → [(索引名, 列)]
+HISTORY_INDEXES = {
+    'shop_order': [('idx_review', 'review_status')],
+    'delivery_order': [('idx_sync', 'sync_status, status')],
+}
 
 
 def load_props():
@@ -146,12 +158,13 @@ def main():
         for col, ddl in missing:
             cur.execute(f'ALTER TABLE {table} ADD COLUMN {col} {ddl}')
         print(f'  ✅ {table} 加列:{len(cols) - len(missing)} 已就位,补 {len(missing)}({",".join(c for c, _ in missing) or "-"})')
-    for table, (idx, col) in HISTORY_INDEXES.items():
-        if not index_exists(cur, table, idx):
-            cur.execute(f'ALTER TABLE {table} ADD KEY {idx} ({col})')
-            print(f'  ✅ {table} 补索引 {idx}({col})')
-        else:
-            print(f'  ✅ {table} 索引 {idx} 已就位')
+    for table, idxs in HISTORY_INDEXES.items():
+        for idx, col in idxs:
+            if not index_exists(cur, table, idx):
+                cur.execute(f'ALTER TABLE {table} ADD KEY {idx} ({col})')
+                print(f'  ✅ {table} 补索引 {idx}({col})')
+            else:
+                print(f'  ✅ {table} 索引 {idx} 已就位')
     PASSED.append('alter')
 
     # ---------- 3. 就位校验:表 / 列 / 索引 / 菜单 / 授权 / config 对照正本段 ----------
@@ -163,8 +176,8 @@ def main():
     print(f'  ✅ 正本 {len(tables)} 张表全部就位')
     for table, cols in HISTORY_COLUMNS.items():
         assert all(column_exists(cur, table, c) for c, _ in cols), f'{table} 加列校验未过'
-    for table, (idx, _) in HISTORY_INDEXES.items():
-        assert index_exists(cur, table, idx), f'{table}.{idx} 校验未过'
+    for table, idxs in HISTORY_INDEXES.items():
+        assert all(index_exists(cur, table, idx) for idx, _ in idxs), f'{table} 索引校验未过'
 
     # 期望菜单 id / 授权对 / config 键,全部从正本语句解析(不是手抄,防漂移);
     # 复用引号感知切分结果——正本种子串内含分号(如 '...RustFS;false...'),裸正则按 `;` 取段会截断

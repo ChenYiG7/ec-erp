@@ -2,8 +2,11 @@ package com.own.erp.platform.gateway;
 
 import com.own.erp.platform.AdapterRegistry;
 import com.own.erp.platform.AuthToken;
+import com.own.erp.platform.PlatformAddress;
 import com.own.erp.platform.PlatformClient;
+import com.own.erp.platform.PlatformInboundPlanRequest;
 import com.own.erp.platform.PlatformShipment;
+import com.own.erp.platform.PlatformTransportContent;
 import com.own.erp.platform.PlatformType;
 import com.own.erp.platform.ShopSession;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,10 +59,13 @@ class PlatformGatewayTest {
         gateway.pullOrders(session, START, START.plusSeconds(60));
         gateway.pullProducts(session, START, START.plusSeconds(60));
         gateway.pullRefunds(session, START, START.plusSeconds(60));
+        gateway.pullSettlements(session);
 
-        verify(rateGuard, org.mockito.Mockito.times(3))
+        verify(rateGuard, org.mockito.Mockito.times(4))
                 .acquire(PlatformType.AMAZON, 1L, PlatformRateGuard.BUCKET_PULL);
         verify(delegate).pullOrders(session, START, START.plusSeconds(60));
+        // 结算拉取装饰不可缺位(2026-09-12 修复:装饰器未覆写时落到接口 default 直接抛 UOE,开开关也永远空转)
+        verify(delegate).pullSettlements(session);
     }
 
     @Test
@@ -74,6 +80,36 @@ class PlatformGatewayTest {
 
         verify(rateGuard).acquire(PlatformType.AMAZON, 1L, PlatformRateGuard.BUCKET_WRITE);
         verify(delegate).uploadTracking(session, shipment);
+    }
+
+    @Test
+    void inboundPlanAndTransportAcquireWriteBucket() {
+        // FBA 入库(#35):计划生成/板箱回传走回写桶
+        PlatformInboundPlanRequest planRequest = PlatformInboundPlanRequest.builder()
+                .shipToCountryCode("US").labelPrepPreference("SELLER_LABEL")
+                .shipFromAddress(PlatformAddress.builder().addressLine1("No.1 Rd").city("SZ")
+                        .countryCode("CN").build())
+                .items(List.of(PlatformInboundPlanRequest.Item.builder().sellerSku("SKU-1").quantity(5).build()))
+                .build();
+        PlatformTransportContent transport = PlatformTransportContent.builder()
+                .partnered(false).carrierName("UPS").build();
+
+        gateway.createInboundShipmentPlan(session, planRequest);
+        gateway.putTransportContent(session, "FBA123", transport);
+
+        verify(rateGuard, org.mockito.Mockito.times(2))
+                .acquire(PlatformType.AMAZON, 1L, PlatformRateGuard.BUCKET_WRITE);
+        verify(delegate).createInboundShipmentPlan(session, planRequest);
+        verify(delegate).putTransportContent(session, "FBA123", transport);
+    }
+
+    @Test
+    void pullInboundShipmentsAcquiresPullBucket() {
+        // FBA 入库(#35):收货状态拉取走拉取桶
+        gateway.pullInboundShipments(session, List.of("FBA123"));
+
+        verify(rateGuard).acquire(PlatformType.AMAZON, 1L, PlatformRateGuard.BUCKET_PULL);
+        verify(delegate).pullInboundShipments(session, List.of("FBA123"));
     }
 
     @Test

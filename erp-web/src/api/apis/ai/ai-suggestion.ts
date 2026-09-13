@@ -1,6 +1,6 @@
-import http from '@/utils/request'
 import type { PageQuery, PageResult } from '@/api/interface'
-import type { AiSuggestionResponse, AiSuggestionQuery } from '@/api/interface/ai/ai-suggestion'
+import type { AiSuggestionQuery, AiSuggestionResponse } from '@/api/interface/ai/ai-suggestion'
+import http from '@/utils/request'
 
 /**
  * AI建议(/api/ai/suggestions,由 gen:page 生成)

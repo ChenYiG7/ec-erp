@@ -75,4 +75,32 @@ public interface PlatformClient {
      * 抓取平台电子面单(国内平台);跨境平台可返回 null
      */
     String fetchWaybill(ShopSession session, String platformOrderId);
+
+    // ---- FBA 入库(#35 fba-shipment V2,亚马逊独有,2026-09-12 脱机落地客户端,联调随 #3 真凭证) ----
+
+    /**
+     * 生成平台发货计划(createInboundShipmentPlan):按 SKU 清单让平台侧自行拆分建议与目的地 FBA 仓,
+     * 结果 shipmentId 回填 fba_shipment.platform_shipment_id。非 FBA 平台抛 UnsupportedOperationException
+     */
+    default List<PlatformInboundShipment> createInboundShipmentPlan(ShopSession session,
+                                                                    PlatformInboundPlanRequest request) {
+        throw new UnsupportedOperationException("平台不支持 FBA 入库计划生成");
+    }
+
+    /**
+     * 板箱运输信息回传(putTransportContent):箱数/重量/尺寸/物流要素,
+     * 返回平台侧受理结果(IsSuccess)。非 FBA 平台抛 UnsupportedOperationException
+     */
+    default boolean putTransportContent(ShopSession session, String shipmentId, PlatformTransportContent content) {
+        throw new UnsupportedOperationException("平台不支持 FBA 板箱信息回传");
+    }
+
+    /**
+     * 拉取平台收货状态(getShipments + getShipmentItems 装配):按平台发货单 ID 集合批量取
+     * 平台侧状态与实收数量,驱动 fba_shipment_diff 自动对账(FbaReconciliationJob 保留作兜底提醒)。
+     * 非 FBA 平台抛 UnsupportedOperationException
+     */
+    default List<PlatformInboundShipment> pullInboundShipments(ShopSession session, List<String> shipmentIds) {
+        throw new UnsupportedOperationException("平台不支持 FBA 收货状态拉取");
+    }
 }

@@ -84,18 +84,19 @@
 <script setup lang="ts">
 // 路由 name 由 component 路径派生,KeepAlive 生效前提是本名与其一致
 defineOptions({ name: 'finance-payment-index' })
-import { computed, ref } from 'vue'
+
 import { Coin, Money } from '@element-plus/icons-vue'
 import { ElButton, ElCard, ElCol, ElMessage, ElMessageBox, ElRow, ElTabPane, ElTabs, ElTag } from 'element-plus'
-import ProTable from '@/components/ProTable/index.vue'
-import type { ColumnProps } from '@/components/ProTable/interface'
+import { computed, ref } from 'vue'
 import { paymentRecordApi } from '@/api/apis/finance/payment'
 import type { PaymentRecordQuery, PaymentRecordResponse, PaymentSummaryResponse } from '@/api/interface/finance/payment'
-import PurchasePaymentDialog from './components/PurchasePaymentDialog.vue'
+import ProTable from '@/components/ProTable/index.vue'
+import type { ColumnProps } from '@/components/ProTable/interface'
 import ManualPaymentDialog from './components/ManualPaymentDialog.vue'
 import PaymentDetailDrawer from './components/PaymentDetailDrawer.vue'
-import SupplierPayableTable from './components/SupplierPayableTable.vue'
 import PlatformReceiptTable from './components/PlatformReceiptTable.vue'
+import PurchasePaymentDialog from './components/PurchasePaymentDialog.vue'
+import SupplierPayableTable from './components/SupplierPayableTable.vue'
 
 const proTableRef = ref<InstanceType<typeof ProTable>>()
 const purchaseDialogRef = ref<InstanceType<typeof PurchasePaymentDialog>>()
@@ -129,9 +130,29 @@ const statusEnum = [
 const columns: ColumnProps<PaymentRecordResponse>[] = [
   { type: 'index', label: '#', width: 55 },
   { prop: 'paymentNo', label: '流水号', width: 170 },
-  { prop: 'direction', label: '方向', width: 90, tag: true, enum: directionEnum, search: { el: 'select', order: 1 } },
-  { prop: 'bizType', label: '类型', width: 120, tag: true, enum: bizTypeEnum, search: { el: 'select', order: 2 } },
-  { prop: 'partyType', label: '往来方类型', width: 110, enum: partyTypeEnum, search: { el: 'select', order: 3 } },
+  {
+    prop: 'direction',
+    label: '方向',
+    width: 90,
+    tag: true,
+    enum: directionEnum,
+    search: { el: 'select', order: 1 },
+  },
+  {
+    prop: 'bizType',
+    label: '类型',
+    width: 120,
+    tag: true,
+    enum: bizTypeEnum,
+    search: { el: 'select', order: 2 },
+  },
+  {
+    prop: 'partyType',
+    label: '往来方类型',
+    width: 110,
+    enum: partyTypeEnum,
+    search: { el: 'select', order: 3 },
+  },
   { prop: 'partyName', label: '往来方', minWidth: 160 },
   { prop: 'amount', label: '原币金额', width: 130 },
   { prop: 'currency', label: '币种', width: 80 },
@@ -163,7 +184,11 @@ const columns: ColumnProps<PaymentRecordResponse>[] = [
 
 /** ProTable 数据源:拆期间范围虚拟字段 → paidFrom/paidTo;同参数拉期间汇总卡(汇总不阻断列表) */
 const loadPayments = async (
-  params: PaymentRecordQuery & { paidRange?: [string, string] | null; pageNo?: number; pageSize?: number }
+  params: PaymentRecordQuery & {
+    paidRange?: [string, string] | null
+    pageNo?: number
+    pageSize?: number
+  }
 ) => {
   const { paidRange, ...rest } = params
   const query: PaymentRecordQuery = {
